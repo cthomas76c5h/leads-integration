@@ -35,7 +35,7 @@ at once); each says how the lab differs in its `today` field. They are not bugs.
 Later, by need: the direction and roadmap ([strategy.md](docs/lead-delivery/strategy.md)),
 what building the lab taught us ([lessons.md](docs/lead-delivery/lessons.md)), what
 today's production system does, as evidence ([production-today.md](docs/lead-delivery/production-today.md)),
-and the proposal for each area ([rfc/](docs/rfc/README.md)).
+the proposal for each area ([rfc/](docs/rfc/README.md)), and the real situations to walk through with operations and firms to test what the decisions assume ([discovery scenarios](docs/discovery/scenarios.md)).
 
 ## Run
 

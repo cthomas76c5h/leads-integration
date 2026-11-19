@@ -257,4 +257,5 @@ Production numbers could reverse "CRM integration is rare" (and so the
 integration strategy), show silent loss is smaller or larger than the gaps
 suggest (and so the urgency), or change which categories routing cares about.
 Any answer they overturn is revised in [answers.md](answers.md), and this page
-with it.
+with it. The real situations to walk through with operations and firms to test them are
+in [discovery scenarios](../discovery/scenarios.md).
