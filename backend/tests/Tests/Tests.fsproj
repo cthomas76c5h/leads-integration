@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Main.fs is the entry point (Expecto's runner); the test SDK must not add its own. -->
+    <GenerateProgramFile>false</GenerateProgramFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Support.fs" />
+    <Compile Include="CoreTests.fs" />
+    <Compile Include="PayloadTests.fs" />
+    <Compile Include="CategoryTests.fs" />
+    <Compile Include="SimulateTests.fs" />
+    <Compile Include="DiagnoseTests.fs" />
+    <Compile Include="DestinationsTests.fs" />
+    <Compile Include="HandOffTests.fs" />
+    <Compile Include="BillingTests.fs" />
+    <Compile Include="ImportTests.fs" />
+    <Compile Include="OnboardingTests.fs" />
+    <Compile Include="ApiTests.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="11.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
+    <PackageReference Include="Expecto" Version="11.1.1" />
+    <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.16.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Core\Core.fsproj" />
+    <ProjectReference Include="..\..\src\Api\Api.fsproj" />
+    <ProjectReference Include="..\..\src\Import\Import.fsproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,466 @@
+# API contract
+
+The backend (F#, `backend/`) and the frontend (Vite + TypeScript, `frontend/`)
+both follow this file. Change it first, then both sides.
+
+- Base: the backend listens on `http://localhost:5080`. The Vite dev server
+  proxies `/api` and `/receiver` there.
+- JSON, camelCase keys. Times are **unix milliseconds** (numbers).
+- Errors: non-2xx with `{ "error": "message" }`.
+- Secrets never leave the backend, and for imported data they never entered it:
+  a credential is described by `CredentialField` (present + masked fingerprint).
+
+## Types (TypeScript notation)
+
+```ts
+type SourceSystem = 'api2' | 'chatbot' | 'airi' | 'manual';
+
+type Category = 'platform' | 'crm' | 'automation' | 'notify';
+type AuthScheme = 'api_key' | 'oauth' | 'url' | 'none';
+
+/** One supported destination type. Static, from the backend's catalog. */
+interface Kind {
+  kind: string;            // 'clio-grow', 'mycase', 'zapier-webhook', ...
+  label: string;           // 'Clio Grow (inbox lead)'
+  category: Category;
+  auth: AuthScheme;
+  credentialFields: string[];   // ['token', 'refresh_token']
+  sourceCodes: { system: SourceSystem; code: string }[]; // where it comes from, e.g. { system: 'api2', code: 'Case' }
+  mappingEnforced: boolean;     // true only for 'webhook': our field mapping is the body
+  payloadFields: string[];      // top-level fields the receiver requires, e.g. ['inbox_lead.from_first', ...]
+  notes: string;                // one line: quirks worth knowing (e.g. "api_key holds the full POST URL")
+}
+
+interface CredentialField {
+  name: string;            // 'api_key', 'token', 'refresh_token', 'url'
+  present: boolean;
+  fingerprint: string | null; // '••••a1b2' (last 4 of a SHA-256 hash, never of the value)
+  meaning: string | null;  // what this field actually holds for this kind, e.g. 'form id', 'staff id'
+}
+
+interface Issue { code: string; severity: 'info' | 'warn' | 'bad'; message: string }
+
+interface Connection {
+  id: string;
+  firmId: string;
+  firmName: string;
+  kind: string;
+  name: string;            // display name, e.g. 'MyCase'
+  source: SourceSystem;
+  sourceRef: string | null;  // id in the source system, e.g. api-2 CRM row id
+  credentials: CredentialField[];
+  settings: Record<string, string>; // non-secret settings, e.g. { sendWebchats: 'false' }; role: 'fallback' marks the firm's
+                                     // agreed fallback: it gets no leads directly, only hand-offs running late (a third of the window)
+  enabled: boolean;        // as configured (import: the source's enabled flag)
+  status: 'active' | 'disabled';     // delivery health: disabled after 410 or repeated failures
+  disabledReason: string | null;
+  consecutiveFailures: number;
+  deliveryUrl: string;     // imported CRMs point at the local fake receiver /receiver/crm/{kind}
+  issues: Issue[];
+  createdAt: number;
+}
+
+interface FirmSource {
+  system: SourceSystem;
+  sourceId: string;
+  name: string;
+  active: boolean;
+}
+
+interface FirmSummary {
+  id: string;
+  name: string;
+  sources: SourceSystem[];          // which systems know this firm
+  keyFingerprint: string | null;    // Answering Legal key fingerprint: the cross-system match key
+  connectionKinds: string[];
+  issueCount: number;
+  /** Enabled, active destinations: the ones that receive leads. */
+  liveDestinations: number;
+  active: boolean;
+}
+
+interface FirmDetail extends FirmSummary {
+  sourcesDetail: FirmSource[];
+  contactTypes: { name: string; active: boolean; mapping: CallMapping }[]; // api-2 routing: a lead goes out only if its callType matches an active one
+  customLabels: string[];           // intake question labels seen in the sources (for synthetic leads)
+  connections: Connection[];
+  setups: Setup[];
+}
+
+interface Overview {
+  firms: number;
+  firmsBySource: Record<SourceSystem, number>;
+  firmsInSeveralSources: number;    // matched by key fingerprint
+  kinds: {
+    kind: string; label: string; category: Category;
+    total: number; enabled: number; withIssues: number;
+    bySource: Partial<Record<SourceSystem, number>>;
+  }[];
+  issues: { code: string; severity: Issue['severity']; message: string; count: number }[];
+  imports: ImportRun[];
+}
+
+interface ImportRun {
+  id: string; system: SourceSystem; at: number;
+  firms: number; connections: number; skipped: number; notes: string[];
+}
+
+/** The lead every payload is built from. Synthetic in this MVP. */
+interface Lead {
+  firstName: string; lastName: string; phone: string; email: string;
+  callType: string; message: string; source: string; webchat: boolean;
+  custom: { label: string; data: string }[];
+}
+
+interface LeadEvent { id: string; firmId: string; test: boolean; createdAt: number; lead: Lead }
+
+/** One lead (event) in the Leads list. */
+interface LeadSummary {
+  id: string;                    // the event id
+  firmId: string; firmName: string;
+  test: boolean; createdAt: number;
+  caller: string;                // 'First Last'; '' when the caller gave no name (hang-up)
+  phone: string;
+  callType: string;
+  webchat: boolean;
+  mapping: CallMapping;          // what the call type means
+  /** Latest delivery per connection: a replay replaces what it replays. */
+  counts: { total: number; delivered: number; refused: number; skipped: number; pending: number };
+  /** expired: its window to act passed before any hand-off (comes first) · none: no destination
+   *  · pending: any still queued or retrying · refused: any failed or cancelled
+   *  · skipped: routing skipped every one · delivered: the rest (at least one accepted). */
+  outcome: 'expired' | 'none' | 'pending' | 'refused' | 'skipped' | 'delivered';
+  /** Null for test leads. */
+  handOff: HandOff | null;
+}
+
+interface LeadDetail extends LeadSummary {
+  lead: Lead;
+  deliveries: Delivery[];        // every delivery of this lead, replays included, newest first
+}
+
+type DeliveryStatus = 'pending' | 'delivering' | 'delivered' | 'failed' | 'cancelled' | 'skipped';
+
+interface Attempt {
+  n: number; at: number; durationMs: number; url: string;
+  status: number | null;   // HTTP status; null when there was no answer
+  error: string | null;
+  outcome: string;         // 'delivered' | 'retry: HTTP 503' | 'failed: ...' | 'connection disabled'
+  requestBody: string;
+  responseSnippet: string;
+  nextAttemptInMs: number | null;
+}
+
+interface Delivery {
+  id: string;
+  eventId: string;
+  connectionId: string;
+  connectionName: string;
+  kind: string;
+  firmId: string;
+  firmName: string;
+  test: boolean;
+  status: DeliveryStatus;
+  /** What the operator can claim. 'accepted' = receiver answered 2xx. Never 'in CRM' from HTTP alone. */
+  stage: 'queued' | 'accepted' | 'refused' | 'not-sent';
+  reason: string | null;
+  nextAttemptAt: number | null;
+  replayOf: string | null;
+  createdAt: number;
+  attempts: Attempt[];
+  /** What is wrong and why, worked out by the server (docs/lead-delivery). Null when nothing is. */
+  diagnosis: Diagnosis | null;
+}
+
+/**
+ * The failure classes of GLOSSARY.md, plus the two "not failures" an operator still
+ * has to read: 'routing' (not sent on purpose) and 'stopped' (cancelled because the
+ * destination was switched off or removed).
+ *   transient      no answer, 408/425/429/5xx; retrying, or gave up when retrying=false
+ *   lead           this lead lacks what the destination requires (a hang-up to a CRM)
+ *   configuration  refused for a reason in the destination's setup (mapping, missing ID, redirect)
+ *   connection     401/403/410: only the firm can reconnect
+ *   ours           we could not build the request
+ */
+type FailureClass = 'transient' | 'lead' | 'configuration' | 'connection' | 'ours' | 'routing' | 'stopped';
+
+interface Diagnosis {
+  class: FailureClass;
+  /** The receiver's own words when it gave any ("Phone is required"), else what we know. */
+  cause: string;
+  /** True while it is still retrying by itself. */
+  retrying: boolean;
+}
+
+/** Totals for the Delivery Center tiles: every matching delivery, not a page. */
+interface DeliverySummary {
+  /** Start of "today", as the client sent it (its local midnight). */
+  since: number;
+  /** Deliveries created since `since`, newest per lead and destination. */
+  accepted: number;
+  refused: number;   // refused, gave up or cancelled
+  notSent: number;
+  /** Newest per lead and destination refused or gave up, not a lead problem, any age. */
+  needsAttention: number;
+  /** Refused for what the lead lacks; listed but not counted as needing attention. */
+  leadProblems: number;
+  retrying: number;
+  /** Retrying more than 15 minutes after it was created. */
+  late: number;
+  /** Destinations switched off or needing reconnection (`firmId` narrows it). */
+  stoppedDestinations: number;
+  /** Production leads in the last 7 days whose window to act passed before any hand-off. */
+  expiredLeads: number;
+}
+
+/**
+ * When a lead first reached the firm (its first accepted delivery, any destination),
+ * against its window to act (docs/lead-delivery/README.md, "Window to act and fallback").
+ * Windows: emergency and custody 15 min; new matter 1 h; existing client, court, insurance 8 h; others 24 h.
+ */
+interface HandOff {
+  windowMs: number;
+  dueAt: number;
+  at: number | null;          // first accepted delivery; null while none
+  by: string | null;          // the destination that took it first
+  viaFallback: boolean;       // taken by the firm's fallback
+  state: 'on-time' | 'expired' | 'waiting';
+}
+
+/** "Your week in calls": one firm's last 7 days in call categories, with proof of delivery. */
+interface FirmReport {
+  firmId: string; firmName: string; from: number; to: number;
+  calls: number; newMatters: number; urgent: number; afterHours: number; chats: number; hangUps: number;
+  byCategory: { id: string; count: number }[];        // call-category ids
+  byPracticeArea: { id: string; count: number }[];    // new matters; 'unspecified' when the call type names none
+  handOff: { onTime: number; expired: number; waiting: number; viaFallback: number; medianMs: number | null; urgentOnTime: number; urgentTotal: number };
+  destinations: { connectionId: string; name: string; kind: string; fallback: boolean; health: DestinationHealth; state: DestinationState;
+                  accepted: number; refused: number; notSent: number; missedLeads: number }[];
+  labels: { label: string; category: string; practiceArea: string | null; count: number }[];  // the firm's own words, top 10
+}
+
+interface ReceivedRequest {
+  at: number; path: string; kind: string | null; mode: string;
+  answered: number; verdict: string;   // 'accepted' | 'missing inbox_lead.from_phone' | ...
+  body: string;
+}
+
+// ----- Destinations (docs/lead-delivery/operations.md) -----
+
+/** Where the destination is in its life (GLOSSARY.md). */
+type DestinationState = 'setting-up' | 'live' | 'paused' | 'needs-reconnection' | 'switched-off' | 'off';
+
+/**
+ * How it is doing, most urgent first; one per destination.
+ *   stopped   needs-reconnection or switched-off
+ *   failing   its newest finished production delivery was refused or gave up (not a lead problem)
+ *   late      a production delivery has been retrying for more than 15 minutes
+ *   retrying  retrying, not late yet
+ *   paused    paused: enabled = false after it was used here
+ *   off       off in its source system and never used here (sorted last)
+ *   setting-up  test leads only
+ *   healthy   its newest finished production delivery was accepted
+ *   quiet     live, no production delivery in the last 7 days
+ */
+type DestinationHealth = 'stopped' | 'failing' | 'late' | 'retrying' | 'paused' | 'setting-up' | 'healthy' | 'quiet' | 'off';
+
+interface DestinationRow {
+  connectionId: string;
+  name: string;
+  kind: string;
+  firmId: string;
+  firmName: string;
+  firmActive: boolean;
+  state: DestinationState;
+  health: DestinationHealth;
+  /** Why it was switched off or needs reconnection. */
+  stoppedReason: string | null;
+  failureStreak: number;
+  lastAcceptedAt: number | null;
+  /** The newest production delivery to it, whatever happened. */
+  lastLeadAt: number | null;
+  /** Production deliveries in the last 7 days, newest per lead. */
+  week: { accepted: number; refused: number; notSent: number; retrying: number };
+  /** The oldest production delivery still retrying. */
+  retryingSince: number | null;
+  /**
+   * Missed leads: the firm's production leads since this destination's first delivery
+   * that have no delivery to it (recorded while it was paused or stopped).
+   */
+  missedLeads: number;
+  /** Its newest refused or gave-up production delivery, when the health is about it. */
+  lastProblem: { deliveryId: string; at: number; diagnosis: Diagnosis } | null;
+}
+
+// ----- Billing (docs/billing/strategy.md). Lab data, illustrative prices. -----
+
+interface Price { id: string /* plan@version */; plan: string; version: number; tier: 'answer' | 'deliver' | 'insight'; name: string;
+  monthlyCents: number; included: number /* handled conversations a cycle */; overageCents: number; effectiveFrom: number }
+
+/** One billing cycle for one firm. Closed cycles are rated once and locked (lockedAt). */
+interface Statement {
+  firmId: string; firmName: string;
+  cycleFrom: number; cycleTo: number;            // [from, to): cycleTo is the next cycle's first day
+  inProgress: boolean; lockedAt: number | null;
+  segments: { planName: string; tier: string; from: number; to: number; feeCents: number; included: number; note: string }[];  // a plan change splits the cycle
+  conversations: number; billable: number; free: number;
+  units: number;                                  // billable conversations, very long ones counting twice
+  included: number; overage: number;
+  byCategory: { category: string; billable: number; free: number }[];
+  freeByRule: { rule: string /* id@version */; label: string; count: number }[];
+  lines: { label: string; quantity: number; unitCents: number; amountCents: number }[];
+  totalCents: number;
+  value: { newMatters: number; onTime: number; expired: number; handOffs: number };
+  /** The same conversations under the legacy minutes formula: the shadow comparison. */
+  legacy: { minutes: number; noChargeMinutes: number; noChargeAllowance: number; wrapup: number; billedMinutes: number;
+            planMinutes: number | null; overageMinutes: number; overageRateCents: number | null; totalCents: number | null; problems: string[] };
+  checks: { code: string; severity: 'bad' | 'warn'; message: string }[];   // controls before an invoice goes out
+}
+
+interface BillingAccountRow { firmId: string; firmName: string; cycleDay: 1 | 15; plan: string | null; tier: string | null;
+  ready: boolean; problems: string[]; conversations: number; billable: number; totalCents: number; legacyCents: number | null;
+  checks: Statement['checks'] }
+
+// ----- Terms of service (docs/terms/strategy.md) -----
+
+interface TermsVersion { version: number; title: string; summary: string; body: string;
+  changeKind: 'editorial' | 'pricing' | 'material'; require: 'none' | 'admins' | 'all';
+  publishedAt: number; effectiveAt: number; source: 'docx' | 'text' }
+
+/** What a portal user sees on signing in. block: the portal waits for acceptance; notice: a banner. */
+interface TermsGate { mode: 'block' | 'notice' | 'none'; version: number | null; title: string | null; summary: string | null;
+  reason: string | null; dueAt: number | null }
+
+// ----- Call categories (docs/call-categories) -----
+
+/** What a call-type name means. Rules and ids: docs/call-categories/taxonomy.json. */
+interface CallMapping {
+  category: string;              // 'new-matter' | 'general' | 'legal-professional' | ... | 'unmapped'
+  practiceArea: string | null;   // new matters only: 'personal-injury', 'criminal', ..., 'unspecified'
+  modifiers: string[];           // 'spanish', 'after-hours', 'named-person', ...
+  crm: 'send' | 'skip' | 'review' | 'never' | null; // the category's default for CRM delivery; null when unmapped
+}
+
+interface CallCategory {
+  id: string; label: string; description: string;
+  isCallCategory: boolean;       // false: system entry, line handling, a person's name
+  crm: 'send' | 'skip' | 'review' | 'never';
+  share: number | null;          // of firm × name occurrences in the imported data (coverage.json)
+  examples: string[];            // names used by 5+ firms, no person's names
+}
+
+interface Taxonomy {
+  categories: CallCategory[];    // in rule order
+  practiceAreas: { id: string; label: string; occurrences: number | null; examples: string[] }[];
+  modifiers: { id: string; label: string; occurrences: number | null }[];
+  agreement: { activeTypes: number; activeTypesClassifiedNewMatter: number; newMatterTypes: number; newMatterTypesActive: number };
+}
+
+/** A synthetic lead with the mapping it must get. Invented people, real intake wording. */
+interface ReferenceLead {
+  id: string;
+  why: string;                   // what this case tests
+  expect: CallMapping;
+  mapped: CallMapping;           // what the backend's rules return now
+  matches: boolean;
+  lead: Lead;
+}
+
+// ----- Onboarding (same model as webhook-lab, RFC-001 §4–6) -----
+
+interface MapRow { from: string; to: string }   // from: a Lead field key, see SOURCE_FIELDS below
+interface Approval { version: number; decision: 'approved' | 'changes'; by: string; comment: string; at: number }
+interface SetupEvent { at: number; who: 'operator' | 'client' | 'system'; what: string }
+interface ActiveRevision { version: number; recipe: string; kind: string; rows: MapRow[]; at: number }
+
+interface Setup {
+  id: string;
+  firmId: string;
+  firmName: string;
+  token: string;            // the client's secure link; omitted on client routes
+  kind: string;             // destination kind from the catalog
+  kindLabel: string;        // its catalog label, for the client page (which cannot call /api/catalog)
+  auth: AuthScheme;         // how the client connects: 'url' pastes an address; otherwise authorize
+  recipe: string;           // 'create-intake' | 'create-contact' | 'notify-staff'
+  rows: MapRow[];
+  version: number;
+  sentVersion: number | null;
+  connectionId: string | null;
+  testDeliveryId: string | null;
+  clientConfirmedAt: number | null;
+  active: ActiveRevision | null;
+  approvals: Approval[];     // newest first
+  history: SetupEvent[];     // newest first
+  createdAt: number;
+  // computed
+  state: 'Connection needed' | 'Draft' | 'Awaiting client approval' | 'Changes requested' | 'Ready to test'
+       | 'Testing' | 'Test failed' | 'Test accepted' | 'Ready to go live' | 'Live';
+  next: string;
+  tone: 'ok' | 'warn' | 'bad' | 'muted';
+  live: boolean;
+  activeVersion: number | null;
+  revising: boolean;
+  enforced: boolean;
+  sample: { from: string; to: string; label: string; value: string }[]; // label: the source field's display name
+}
+```
+
+Lead field keys for mapping rows (`SOURCE_FIELDS`): `first_name`, `last_name`,
+`full_name`, `phone`, `email`, `call_type`, `message`, `full_message` (message
+plus every intake answer), `source`, `event_id`, plus `custom.<key>` for each
+custom label, where key is the label lowercased with every run of
+non-alphanumerics turned into `_` and trimmed ("Date of accident?" →
+`custom.date_of_accident`). `GET /api/setups/{id}/fields` lists them with labels:
+`{ key: string, label: string }[]`.
+
+## Routes
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/api/health` | | `{ ok: true }` |
+| GET | `/api/catalog` | | `Kind[]` |
+| GET | `/api/billing/price-book` | | `Price[]` every version |
+| GET | `/api/billing/accounts` | | `BillingAccountRow[]`: the current cycle, readiness and the shadow comparison |
+| GET | `/api/firms/{id}/statement?cycle=current\|previous` | | `Statement`; a closed cycle is locked on first read |
+| POST | `/api/firms/{id}/plan` | `{ priceId }` | `{ startsAt, statement }`: an upgrade applies at once (prorated by day), a downgrade from the next cycle |
+| GET | `/api/terms` | | `{ versions: TermsVersion[], coverage: { version, asked, accepted }[] }` newest first |
+| POST | `/api/terms` | `{ title?, summary, body, changeKind, require?, effectiveAt?, source? }` | `{ version }`; `require` defaults from the change kind (material: all, pricing: admins, editorial: none) |
+| GET | `/api/terms/{version}/acceptances?limit=50` | | `{ version, firmId, firmName, userId, role, at }[]` |
+| GET | `/api/portal/terms?firm=&role=admin\|member\|new` | | `TermsGate` for the lab's synthetic user (`new`: never signed in) |
+| POST | `/api/portal/terms/accept` | `{ firmId, role, version }` | `TermsGate` after recording the acceptance |
+| GET | `/api/overview` | | `Overview` |
+| GET | `/api/firms?q=&kind=&source=&issues=1&limit=50&offset=0` | | `{ total: number, items: FirmSummary[] }`; by name, or with `q` best matches first (active firms with live destinations, then names starting with `q`) |
+| GET | `/api/firms/{id}` | | `FirmDetail` |
+| GET | `/api/firms/{id}/report` | | `FirmReport`: the last 7 days, production leads |
+| POST | `/api/firms` | `{ name }` | `FirmDetail` (source `manual`) |
+| POST | `/api/firms/{id}/leads` | `{ variant?: 'full' \| 'sparse', callType?: string, webchat?: boolean, referenceLead?: string }` | `{ event: LeadEvent, deliveries: Delivery[], mapping: CallMapping }` — one delivery per enabled, active connection; `skipped` with a reason when routing excludes it. `referenceLead` sends that reference lead as-is; `callType` then replaces its call type (e.g. the firm's own name for the same category) |
+| GET | `/api/call-categories` | | `Taxonomy` |
+| GET | `/api/call-categories/classify?name=` | | `CallMapping` |
+| GET | `/api/reference-leads` | | `ReferenceLead[]` |
+| GET | `/api/connections?kind=&status=` | | `Connection[]` |
+| POST | `/api/firms/{id}/connections` | `{ kind, name?, deliveryUrl? }` | `Connection` (source `manual`; URL checked: https, or localhost in dev) |
+| GET | `/api/destinations?q=&health=&kind=&firmActive=all&limit=50&offset=0` | | `{ total: number, counts: Record<DestinationHealth, number>, missed: number, items: DestinationRow[] }` most urgent first. `counts` and `missed` (destinations with missed leads) cover the filter without `health`; `health=missed` lists those with missed leads. Only active firms unless `firmActive=all` |
+| POST | `/api/connections/{id}/send-missed` | | `{ queued: number, notSent: number }`: a delivery for each missed lead, routing applied. 409 unless the destination is live |
+| PATCH | `/api/connections/{id}` | `{ enabled?, deliveryUrl?, reactivate?: true }` | `Connection` |
+| GET | `/api/connections/{id}/preview?variant=full` | | `{ url, headers: Record<string,string>, body: string, errors: string[] }` |
+| POST | `/api/connections/{id}/test` | | `Delivery` (test lead to this connection only) |
+| GET | `/api/leads?q=&firmId=&category=&outcome=&test=&limit=50&offset=0` | | `{ total: number, items: LeadSummary[] }` newest first. `q` matches caller, phone, call type or firm name; `category` is a call-category id |
+| GET | `/api/leads/{id}` | | `LeadDetail` |
+| GET | `/api/deliveries?status=&firmId=&connectionId=&test=&limit=100&offset=0` | | `Delivery[]` newest first. `status` also takes `attention` (see `DeliverySummary.needsAttention`) and `late` |
+| GET | `/api/deliveries/summary?test=false&firmId=&since=` | | `DeliverySummary`; `since` defaults to 24 hours ago |
+| GET | `/api/deliveries/{id}` | | `Delivery` + `{ event: LeadEvent }` |
+| POST | `/api/deliveries/{id}/replay` | | `Delivery` (new delivery, same event id, `replayOf` set) |
+| GET | `/api/received?limit=50` | | `ReceivedRequest[]` newest first |
+| GET | `/api/setups` | | `Setup[]` |
+| GET | `/api/setups/{id}/fields` | | `{ key, label }[]` mapping sources for this firm |
+| POST | `/api/setups` | `{ firmId, kind, recipe, cloneFrom? }` | `Setup` |
+| PATCH | `/api/setups/{id}` | `{ recipe?, rows? }` | `Setup` (a change makes a new version) |
+| POST | `/api/setups/{id}/send` \| `/test` \| `/confirm` \| `/go-live` \| `/discard` | | `Setup` |
+| GET | `/api/client/setups/{token}` | | `Setup` without `token`/`connectionId`, plus `connected: boolean` |
+| POST | `/api/client/setups/{token}/connect` | `{ url? }` | `{ ok: true }` (webhook / zapier: paste URL; CRM kinds: simulated authorization) |
+| POST | `/api/client/setups/{token}/decision` | `{ decision: 'approved' \| 'changes', by, comment, version }` | `{ ok: true }` |
+| POST | `/receiver/{ok\|reject\|flaky\|gone\|slow\|down}` | anything | lab receivers (`down`: always 503) |
+| POST | `/receiver/crm/{kind}?mode=ok\|reject\|flaky\|gone\|slow\|down&require=Phone,Email` | the kind's payload | validates the payload like the real CRM would, plus any `require`d fields (how the lab plays a webhook that needs a field); 201 or 422 |
+
+Errors the UI should show as-is: 404 `no such …`, 409 state conflicts
+(`not ready: Draft`), 422 validation.

@@ -1,0 +1,245 @@
+{
+  "version": 1,
+  "about": "Call-category taxonomy for Answering AI leads. A firm's contact-type names (free text, ~4,400 distinct) map to one category, an optional practice area, and modifiers. Patterns are Python regexes matched against the name lowercased with punctuation replaced by spaces. Categories are tried in order; the first match wins. See README.md.",
+  "systemPrefix": "-",
+  "systemPrefixAbout": "Names starting with '-' are platform entries (admin, numbers, on-call schedules). One that matches no category and no other rule is a system entry; '-Insurance BH' still maps to insurance.",
+  "modifiers": [
+    {
+      "id": "spanish",
+      "label": "Spanish-speaking",
+      "pattern": "\\b(spanish|espanol|hispanic|bilingual)\\b"
+    },
+    {
+      "id": "other-language",
+      "label": "Other language",
+      "pattern": "\\b(creole|chinese|mandarin|cantonese|vietnamese|russian|korean|portuguese|arabic|french|polish|haitian|farsi|hmong|tagalog|hindi|punjabi|urdu|italian|german)\\b"
+    },
+    {
+      "id": "in-custody",
+      "label": "Caller or client in custody",
+      "pattern": "\\b(jail|inmate|prison|incarcerat\\w*|correctional)\\b"
+    },
+    {
+      "id": "webchat",
+      "label": "Web chat",
+      "pattern": "\\b(web ?chat|chat|website)\\b"
+    },
+    {
+      "id": "after-hours",
+      "label": "After hours",
+      "pattern": "\\b(after ?hours?|after|ah|weekends?|overnight|nights?|holidays?|new years)\\b"
+    },
+    {
+      "id": "business-hours",
+      "label": "Business hours",
+      "pattern": "\\b(business hours|bh|m f|weekdays?)\\b"
+    },
+    {
+      "id": "patch",
+      "label": "Transfer to firm (patch)",
+      "pattern": "\\b(patch|patched|transfer|warm transfer|np)\\b"
+    },
+    {
+      "id": "no-patch",
+      "label": "Take a message (no patch)",
+      "pattern": "\\b(no ?patch|do not patch|dont patch)\\b"
+    },
+    {
+      "id": "away",
+      "label": "Firm away",
+      "pattern": "\\baway\\b"
+    }
+  ],
+  "categories": [
+    {
+      "id": "system",
+      "label": "System entry",
+      "isCallCategory": false,
+      "crm": "never",
+      "description": "Platform bookkeeping, not a kind of call: admin, no-charge, screen pop-up, test entries, phone-number and recording entries.",
+      "pattern": "^\\s*(admin\\s*\\d*|no charge.*|pop ?up|test.*|.*\\btest\\b.*|.*\\bdid\\b.*|x ?did\\s*\\d*|recording.*|incoming.*|.*\\bsip\\b.*|null|dev .*|.*\\bmonster\\b.*)\\s*$"
+    },
+    {
+      "id": "new-matter",
+      "label": "New matter",
+      "isCallCategory": true,
+      "crm": "send",
+      "description": "A prospective client with a new legal matter: the lead a CRM integration exists for. Checked right after system entries, so 'New Divorce/Custody Call' or 'New Property Insurance' is a new matter, not a custody or insurance call. A name that only names a practice area ('Personal Injury') is also a new matter, but only once no other category matched. The fallback never uses the practice area 'other': 'Other Calls' is General.",
+      "pattern": "\\b(new|potential|prospective|pnc|intake)\\b",
+      "practiceAreaFallback": true
+    },
+    {
+      "id": "existing-client",
+      "label": "Existing client",
+      "isCallCategory": true,
+      "crm": "skip",
+      "description": "A current client calling about their matter. A message for the firm, not a new lead.",
+      "pattern": "\\b(existing|current|returning) clients?\\b|\\bexisting\\b|\\bschedule update\\b|\\bcase status\\b|\\bclient update\\b"
+    },
+    {
+      "id": "jail-custody",
+      "label": "Jail / custody",
+      "isCallCategory": true,
+      "crm": "review",
+      "description": "A call from or about someone in custody, with no new matter named. Often a new criminal matter; firms decide whether it goes to their CRM. 'New Criminal Case (Jail)' is a new matter with the in-custody modifier instead.",
+      "pattern": "\\b(jail|inmate|prison|incarcerat\\w*|correctional|bail|bond)\\b"
+    },
+    {
+      "id": "legal-professional",
+      "label": "Court, attorney or agency",
+      "isCallCategory": true,
+      "crm": "skip",
+      "description": "Courts, judges, clerks, other attorneys, opposing counsel, prosecutors, government agencies and law enforcement.",
+      "pattern": "\\b(courts?|judges?|clerks?|chambers|attorneys?|attny|atty|lawyers?|counsel|council|opposing|prosecutors?|da office|district attorney|gov(ernment)?|agency|agencies|law enforcement|police|probation|legalease|paralegal)\\b"
+    },
+    {
+      "id": "insurance-medical",
+      "label": "Insurance or medical provider",
+      "isCallCategory": true,
+      "crm": "skip",
+      "description": "Insurance companies and adjusters, medical providers, no-fault and records requests.",
+      "pattern": "\\b(insurance|adjusters?|medical providers?|providers?|doctors?|hospitals?|no fault|records request|medical calls?|insurance medical)\\b"
+    },
+    {
+      "id": "emergency",
+      "label": "Emergency",
+      "isCallCategory": true,
+      "crm": "skip",
+      "description": "Urgent calls the firm wants escalated immediately.",
+      "pattern": "\\b(emergency|emergencies|urgent)\\b"
+    },
+    {
+      "id": "billing",
+      "label": "Billing",
+      "isCallCategory": true,
+      "crm": "skip",
+      "description": "Payments, invoices and billing questions.",
+      "pattern": "\\b(billing|payments?|invoices?|accounts receivable)\\b"
+    },
+    {
+      "id": "vendor",
+      "label": "Vendor or solicitation",
+      "isCallCategory": true,
+      "crm": "skip",
+      "description": "Sales calls, vendors, solicitors.",
+      "pattern": "\\b(vendors?|solicit\\w*|sales calls?|marketing calls?|telemarket\\w*)\\b"
+    },
+    {
+      "id": "general",
+      "label": "General",
+      "isCallCategory": true,
+      "crm": "review",
+      "description": "Catch-all: general calls, all calls, messages, returning a call. Firms whose only entry is this one send everything.",
+      "pattern": "\\b(general|all calls?|all spanish|messages?|returning a call|call ?backs?|other calls?|voicemail|calls to voicemail|main line|front desk|google|ads|referrals?|appointments?|scheduling|returning|tech support|human resources|hr|vip|do not call|banks?|family members?|employment inquir\\w*|employment calls?|jobs?|applicants?|resumes?)\\b"
+    },
+    {
+      "id": "line-handling",
+      "label": "Line handling",
+      "isCallCategory": false,
+      "crm": "never",
+      "description": "How calls are handled (patch to the firm, take a message, away, after hours, schedule) with no kind of call named. Language and web chat alone are not line handling: 'Spanish Calls' is General with the spanish modifier.",
+      "pattern": "MODIFIERS_ONLY"
+    },
+    {
+      "id": "staff-routing",
+      "label": "Named person",
+      "isCallCategory": false,
+      "crm": "review",
+      "description": "Only a person's name: calls for a specific staff member. Says who, not what kind of call. Needs a human to map.",
+      "pattern": "NAME_ONLY"
+    }
+  ],
+  "practiceAreas": [
+    {
+      "id": "medical-malpractice",
+      "label": "Medical malpractice",
+      "pattern": "\\b(med ?mal|medical malpractice|malpractice|nursing home)\\b"
+    },
+    {
+      "id": "workers-comp",
+      "label": "Workers' compensation",
+      "pattern": "\\b(workers?s? ?comp\\w*|work comp|workman\\w*|wc)\\b"
+    },
+    {
+      "id": "disability",
+      "label": "Disability / Social Security",
+      "pattern": "\\b(disab\\w*|ssdi|ssd|ssi|social security|veterans?|va claims?)\\b"
+    },
+    {
+      "id": "personal-injury",
+      "label": "Personal injury",
+      "pattern": "\\b(personal injury|pi|injury|injuries|inj\\w*|inury|auto|car|motor vehicle|mva|accid\\w*|slip|trip|fall|truck\\w*|motorcycle|dog bite|wrongful death|sexual abuse|abuse|premises)\\b"
+    },
+    {
+      "id": "insurance-claims",
+      "label": "Insurance claims & bad faith",
+      "pattern": "\\b(insurance|bad faith|denied claims?|claims? denied|hurricane|fire damage|property damage)\\b"
+    },
+    {
+      "id": "traffic",
+      "label": "Traffic",
+      "pattern": "\\b(traffic|tickets?|speeding|cdl|license suspen\\w*)\\b"
+    },
+    {
+      "id": "criminal",
+      "label": "Criminal defense",
+      "pattern": "\\b(criminal|crim|dui|dwi|owi|ovi|expunge\\w*|felony|misdemeanor|drug|sex crimes?|warrant|arrest\\w*)\\b"
+    },
+    {
+      "id": "family",
+      "label": "Family law",
+      "pattern": "\\b(family|divorce|custody|child support|alimony|adoption|dfcs|cps|paternity|prenup\\w*|domestic|separation|restraining\\w*|protective order)\\b"
+    },
+    {
+      "id": "real-estate",
+      "label": "Real estate & landlord/tenant",
+      "pattern": "\\b(real estate|closings?|landlord|tenant|eviction|foreclosure|property|title|lease)\\b"
+    },
+    {
+      "id": "estate-planning",
+      "label": "Estate planning & probate",
+      "pattern": "\\b(wills?|trusts?|estates?|probate|elder|guardianship|power of attorney)\\b"
+    },
+    {
+      "id": "bankruptcy",
+      "label": "Bankruptcy & debt",
+      "pattern": "\\b(bankruptcy|debt|chapter 7|chapter 13|collections?|creditor)\\b"
+    },
+    {
+      "id": "immigration",
+      "label": "Immigration",
+      "pattern": "\\b(immigration|visa|green card|deportation|asylum|citizenship|uscis)\\b"
+    },
+    {
+      "id": "employment",
+      "label": "Employment",
+      "pattern": "\\b(employment|employee|employer|wrongful termination|discrimination|harassment|wages?|overtime|labor)\\b"
+    },
+    {
+      "id": "business",
+      "label": "Business & contracts",
+      "pattern": "\\b(business|bus|corporate|corporation|contracts?|construction|entertainment|erc|llc|commercial|intellectual property|trademark|patent)\\b"
+    },
+    {
+      "id": "civil-litigation",
+      "label": "Civil litigation & civil rights",
+      "pattern": "\\b(civil|litigation|lawsuit|civil rights)\\b"
+    },
+    {
+      "id": "consumer",
+      "label": "Consumer & lemon law",
+      "pattern": "\\b(lemon|consumer|fraud)\\b"
+    },
+    {
+      "id": "tax",
+      "label": "Tax",
+      "pattern": "\\b(tax|irs)\\b"
+    },
+    {
+      "id": "other",
+      "label": "Other (named as other)",
+      "pattern": "\\bother\\b"
+    }
+  ],
+  "filler": "call calls caller callers case cases client clients customer customers line lines only the and or for to of in on at with a an yes no not sure np em bh am pm m f speaking speak all charge charges matter matters inquiry inquiries making make made calling office offices company companies medical provid provider providers doctor doctors personal property casualty casual nursing home neglect healthcare bad faith conf rep adj adjustor adjusters release staff social worker workers exisiting clie order orders agreed declined bookkeeping late time hours only extra avail available vip lead leads number numbers main hr law laws defense planning compensation cal busine disa vehicle rights mal s temp clien cas ca real child children restraining ord order motor officer officers lit vip"
+}

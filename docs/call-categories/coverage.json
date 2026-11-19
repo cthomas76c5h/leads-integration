@@ -1,0 +1,580 @@
+{
+  "generatedFrom": "imported firms' contact types (api-2, chatbot, airi)",
+  "firmsWithContactTypes": 2771,
+  "distinctNames": 4390,
+  "firmOccurrences": 23316,
+  "namesUsedByOneFirm": 3987,
+  "byCategory": {
+    "system": {
+      "occurrences": 7218,
+      "share": 0.3096,
+      "distinctNames": 119
+    },
+    "new-matter": {
+      "occurrences": 6459,
+      "share": 0.277,
+      "distinctNames": 929
+    },
+    "general": {
+      "occurrences": 3059,
+      "share": 0.1312,
+      "distinctNames": 249
+    },
+    "legal-professional": {
+      "occurrences": 2353,
+      "share": 0.1009,
+      "distinctNames": 334
+    },
+    "staff-routing": {
+      "occurrences": 2297,
+      "share": 0.0985,
+      "distinctNames": 2172
+    },
+    "line-handling": {
+      "occurrences": 1008,
+      "share": 0.0432,
+      "distinctNames": 297
+    },
+    "insurance-medical": {
+      "occurrences": 623,
+      "share": 0.0267,
+      "distinctNames": 121
+    },
+    "existing-client": {
+      "occurrences": 114,
+      "share": 0.0049,
+      "distinctNames": 80
+    },
+    "emergency": {
+      "occurrences": 96,
+      "share": 0.0041,
+      "distinctNames": 30
+    },
+    "jail-custody": {
+      "occurrences": 37,
+      "share": 0.0016,
+      "distinctNames": 11
+    },
+    "unmapped": {
+      "occurrences": 30,
+      "share": 0.0013,
+      "distinctNames": 30
+    },
+    "billing": {
+      "occurrences": 19,
+      "share": 0.0008,
+      "distinctNames": 15
+    },
+    "vendor": {
+      "occurrences": 3,
+      "share": 0.0001,
+      "distinctNames": 3
+    }
+  },
+  "newMatterByPracticeArea": {
+    "unspecified": 2279,
+    "personal-injury": 852,
+    "criminal": 765,
+    "family": 628,
+    "other": 583,
+    "estate-planning": 234,
+    "traffic": 211,
+    "real-estate": 181,
+    "immigration": 132,
+    "business": 103,
+    "bankruptcy": 93,
+    "employment": 92,
+    "medical-malpractice": 89,
+    "workers-comp": 75,
+    "disability": 68,
+    "civil-litigation": 45,
+    "consumer": 11,
+    "insurance-claims": 10,
+    "tax": 8
+  },
+  "byModifier": {
+    "named-person": 844,
+    "patch": 612,
+    "no-patch": 587,
+    "away": 354,
+    "after-hours": 281,
+    "spanish": 128,
+    "in-custody": 45,
+    "business-hours": 28,
+    "other-language": 11,
+    "webchat": 5
+  },
+  "unmappedRepeated": 0,
+  "agreementWithLeadFlag": {
+    "about": "Active firms only. 'active' = api-2 counts this contact type as a lead.",
+    "activeTypes": 2678,
+    "activeTypesClassifiedNewMatter": 2672,
+    "newMatterTypes": 2716,
+    "newMatterTypesActive": 2672,
+    "otherTypesActive": 6
+  },
+  "activeCategoriesAtFirmsWithCrm": {
+    "firms": 122,
+    "firmsWithCategory": {
+      "new-matter": 122,
+      "general": 2,
+      "existing-client": 1,
+      "system": 1
+    },
+    "firmsWithGeneralButNoNewMatter": 0
+  },
+  "examples": {
+    "bankruptcy": [
+      {
+        "name": "*New Bankruptcy Case",
+        "firms": 43
+      },
+      {
+        "name": "*New Bankruptcy Calls",
+        "firms": 31
+      }
+    ],
+    "business": [
+      {
+        "name": "*New Business Litigation",
+        "firms": 19
+      },
+      {
+        "name": "*New Entertainment/Busine",
+        "firms": 8
+      },
+      {
+        "name": "*New Business Case",
+        "firms": 7
+      },
+      {
+        "name": "*New Business Calls",
+        "firms": 5
+      }
+    ],
+    "civil-litigation": [
+      {
+        "name": "*New Civil Case",
+        "firms": 8
+      },
+      {
+        "name": "*New Civil Rights Calls",
+        "firms": 7
+      },
+      {
+        "name": "*New Civil Rights Case",
+        "firms": 5
+      }
+    ],
+    "criminal": [
+      {
+        "name": "*New Criminal Case",
+        "firms": 378
+      },
+      {
+        "name": "*New Criminal Calls",
+        "firms": 304
+      },
+      {
+        "name": "*New Criminal",
+        "firms": 6
+      },
+      {
+        "name": "*New Criminal Defense",
+        "firms": 5
+      }
+    ],
+    "disability": [
+      {
+        "name": "*New Disability/Workers C",
+        "firms": 14
+      },
+      {
+        "name": "*New Social Security/Disa",
+        "firms": 10
+      },
+      {
+        "name": "*New Social Security Case",
+        "firms": 5
+      },
+      {
+        "name": "*New Social Security Call",
+        "firms": 5
+      }
+    ],
+    "emergency": [
+      {
+        "name": "*Emergency Calls",
+        "firms": 63
+      }
+    ],
+    "employment": [
+      {
+        "name": "*New Employment Case",
+        "firms": 27
+      },
+      {
+        "name": "*New Employment Calls",
+        "firms": 21
+      }
+    ],
+    "estate-planning": [
+      {
+        "name": "*New Wills/Trust/Estate/P",
+        "firms": 65
+      },
+      {
+        "name": "*New Estate Planning Case",
+        "firms": 21
+      },
+      {
+        "name": "*New Wills/Trusts/Estate",
+        "firms": 19
+      },
+      {
+        "name": "*New Estate Planning",
+        "firms": 19
+      },
+      {
+        "name": "*New Probate Calls",
+        "firms": 13
+      },
+      {
+        "name": "*New Wills/Trust/Estate",
+        "firms": 12
+      }
+    ],
+    "existing-client": [
+      {
+        "name": "*Existing Client Calls",
+        "firms": 21
+      },
+      {
+        "name": "*Existing Clients",
+        "firms": 7
+      }
+    ],
+    "family": [
+      {
+        "name": "*New Family Case",
+        "firms": 162
+      },
+      {
+        "name": "*New Divorce Calls",
+        "firms": 118
+      },
+      {
+        "name": "*New Child Custody Calls",
+        "firms": 84
+      },
+      {
+        "name": "*New Family Calls",
+        "firms": 60
+      },
+      {
+        "name": "*New Divorce Case",
+        "firms": 60
+      },
+      {
+        "name": "*New Child Custody Case",
+        "firms": 30
+      }
+    ],
+    "general": [
+      {
+        "name": "*General Calls",
+        "firms": 2711
+      },
+      {
+        "name": "*Spanish Speaking Calls",
+        "firms": 17
+      },
+      {
+        "name": "*Spanish Calls",
+        "firms": 17
+      },
+      {
+        "name": "*All Calls",
+        "firms": 11
+      },
+      {
+        "name": "Spanish Speaking Callers",
+        "firms": 10
+      },
+      {
+        "name": "*Returning A Call",
+        "firms": 6
+      }
+    ],
+    "immigration": [
+      {
+        "name": "*New Immigration Case",
+        "firms": 58
+      },
+      {
+        "name": "*New Immigration Calls",
+        "firms": 57
+      }
+    ],
+    "insurance-medical": [
+      {
+        "name": "*Insurance/Medical Calls",
+        "firms": 160
+      },
+      {
+        "name": "*Insurance Adjuster Calls",
+        "firms": 127
+      },
+      {
+        "name": "*Insurance Company Calls",
+        "firms": 99
+      },
+      {
+        "name": "*Insurance Calls",
+        "firms": 75
+      },
+      {
+        "name": "*Insurance/Medical",
+        "firms": 12
+      },
+      {
+        "name": "*Insurance Adjusters",
+        "firms": 12
+      }
+    ],
+    "jail-custody": [
+      {
+        "name": "*Jail Calls",
+        "firms": 24
+      }
+    ],
+    "legal-professional": [
+      {
+        "name": "*Court Calls",
+        "firms": 1427
+      },
+      {
+        "name": "*Court/Judge Calls",
+        "firms": 296
+      },
+      {
+        "name": "*Judges/Courts",
+        "firms": 40
+      },
+      {
+        "name": "*Attorney Calls",
+        "firms": 37
+      },
+      {
+        "name": "*Opposing Counsel Calls",
+        "firms": 25
+      },
+      {
+        "name": "*Court/Attorney Calls",
+        "firms": 20
+      }
+    ],
+    "line-handling": [
+      {
+        "name": "NO PATCH",
+        "firms": 235
+      },
+      {
+        "name": "Away No Patch",
+        "firms": 198
+      },
+      {
+        "name": "Away Patch",
+        "firms": 103
+      },
+      {
+        "name": "After hours NO PATCH",
+        "firms": 53
+      },
+      {
+        "name": "AH NO PATCH",
+        "firms": 46
+      },
+      {
+        "name": "After Hours PATCH",
+        "firms": 31
+      }
+    ],
+    "medical-malpractice": [
+      {
+        "name": "*New Medical Malpractice",
+        "firms": 57
+      },
+      {
+        "name": "*New Med Mal Calls",
+        "firms": 7
+      }
+    ],
+    "other": [
+      {
+        "name": "*Other New Case",
+        "firms": 342
+      },
+      {
+        "name": "*New Other Client Calls",
+        "firms": 95
+      },
+      {
+        "name": "*Other New Client Calls",
+        "firms": 59
+      },
+      {
+        "name": "*New Other Case",
+        "firms": 35
+      },
+      {
+        "name": "*New Other Calls",
+        "firms": 8
+      },
+      {
+        "name": "*Other New Calls",
+        "firms": 7
+      }
+    ],
+    "personal-injury": [
+      {
+        "name": "*New Personal Injury Case",
+        "firms": 327
+      },
+      {
+        "name": "*New Personal Injury Call",
+        "firms": 264
+      },
+      {
+        "name": "*New Personal Injury",
+        "firms": 106
+      },
+      {
+        "name": "New Personal Injury Calls",
+        "firms": 20
+      },
+      {
+        "name": "*New Personal Injury NP",
+        "firms": 6
+      },
+      {
+        "name": "*New Vehicle Accident Cal",
+        "firms": 5
+      }
+    ],
+    "real-estate": [
+      {
+        "name": "*New Real Estate Calls",
+        "firms": 51
+      },
+      {
+        "name": "*New Real Estate Case",
+        "firms": 37
+      },
+      {
+        "name": "*New Real Estate",
+        "firms": 21
+      },
+      {
+        "name": "*New Landlord/Tenant Call",
+        "firms": 17
+      },
+      {
+        "name": "*New Landlord/Tenant Case",
+        "firms": 15
+      },
+      {
+        "name": "*New Landlord/Tenant",
+        "firms": 9
+      }
+    ],
+    "system": [
+      {
+        "name": "- Admin",
+        "firms": 2762
+      },
+      {
+        "name": "* No Charge",
+        "firms": 2760
+      },
+      {
+        "name": "***POP-UP",
+        "firms": 1363
+      },
+      {
+        "name": "-Admin2",
+        "firms": 17
+      },
+      {
+        "name": "TEST",
+        "firms": 7
+      },
+      {
+        "name": "testDIDxcally",
+        "firms": 6
+      }
+    ],
+    "traffic": [
+      {
+        "name": "*New Traffic Ticket Calls",
+        "firms": 82
+      },
+      {
+        "name": "*New Traffic Ticket Case",
+        "firms": 52
+      },
+      {
+        "name": "*New Traffic Case",
+        "firms": 30
+      },
+      {
+        "name": "*New Traffic Ticket",
+        "firms": 24
+      },
+      {
+        "name": "*New Traffic Tickets",
+        "firms": 7
+      }
+    ],
+    "unspecified": [
+      {
+        "name": "*New Client Calls",
+        "firms": 1737
+      },
+      {
+        "name": "*New Customer Calls",
+        "firms": 201
+      },
+      {
+        "name": "*New Client Case",
+        "firms": 8
+      },
+      {
+        "name": "*New Client Calls No",
+        "firms": 7
+      },
+      {
+        "name": "*New Client Calls Spanish",
+        "firms": 6
+      },
+      {
+        "name": "*New Client Call",
+        "firms": 5
+      }
+    ],
+    "workers-comp": [
+      {
+        "name": "*New Workers Comp Case",
+        "firms": 30
+      },
+      {
+        "name": "*New Workers Comp Calls",
+        "firms": 16
+      },
+      {
+        "name": "*New Workers Comp",
+        "firms": 13
+      }
+    ]
+  }
+}

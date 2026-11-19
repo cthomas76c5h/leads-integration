@@ -1,0 +1,242 @@
+/// The whole path in one process: the API under TestServer, imported
+/// connections pointing at its own fake receivers, the dispatcher sending
+/// through the TestServer's HttpClient.
+module LeadIntegrations.Tests.ApiTests
+
+open System
+open System.Net.Http
+open System.Text
+open System.Text.Json
+open Expecto
+open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Hosting
+open Microsoft.AspNetCore.TestHost
+open LeadIntegrations
+open LeadIntegrations.Tests.Support
+
+let private cfg (db: Db.Database) : Api.Config.Config =
+    { Port = 0
+      DbPath = db.Path
+      Origin = origin
+      TimeScale = 1_000_000.0 // retries are immediate
+      DeliveryTimeoutMs = 5000
+      AllowLocalTargets = true
+      WorkerEnabled = false
+      FrontendDist = "does-not-exist" }
+
+let private server (db: Db.Database) =
+    let builder = WebApplication.CreateBuilder()
+    builder.WebHost.UseTestServer() |> ignore
+    let app = Api.App.build builder (cfg db) db
+    app.StartAsync().Wait()
+    app, app.GetTestClient()
+
+let private json (res: HttpResponseMessage) =
+    let text = res.Content.ReadAsStringAsync().Result
+    JsonDocument.Parse(text).RootElement.Clone()
+
+let private post (client: HttpClient) (path: string) (body: string) =
+    client.PostAsync(path, new StringContent(body, Encoding.UTF8, "application/json")).Result
+
+let private drain (db: Db.Database) (client: HttpClient) =
+    let opts: Dispatch.Options =
+        { TimeScale = 1_000_000.0
+          TimeoutMs = 5000
+          Address = { AllowLocal = true }
+          UserAgent = "test" }
+    let mutable sent = 1
+    while sent > 0 do
+        sent <- (Dispatch.runDue db client opts (fun () -> 0.5) 50).Result
+
+[<Tests>]
+let tests =
+    testList
+        "api"
+        [ test "a synthetic lead reaches every imported CRM's fake receiver; routing skips what api-2 would skip" {
+              use t = new TempDb()
+              let imported =
+                  { firm "1" "Rose & Associates" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ]; conn "11" "lead-docket" [ ("api_key", "https://x") ] ] with
+                      ContactTypes = [| { Name = "Personal Injury"; Active = true } |] }
+              Import.apply t.Db origin (batch Domain.Source.api2 [ imported ]) |> ignore
+              let app, client = server t.Db
+              try
+                  let items = (json (client.GetAsync("/api/firms").Result)).GetProperty("items")
+                  let firmId = items[0].GetProperty("id").GetString()
+                  // Routed: "personal-injury" matches "Personal Injury".
+                  let res = post client $"/api/firms/{firmId}/leads" """{"callType":"personal-injury"}"""
+                  Expect.equal (int res.StatusCode) 201 "created"
+                  drain t.Db client
+                  let ds = json (client.GetAsync($"/api/deliveries?firmId={firmId}").Result)
+                  Expect.equal (ds.GetArrayLength()) 2 "one per connection"
+                  for d in ds.EnumerateArray() do
+                      Expect.equal (d.GetProperty("status").GetString()) "delivered" (d.GetProperty("kind").GetString())
+                      Expect.equal (d.GetProperty("stage").GetString()) "accepted" "accepted, never 'in CRM'"
+                  let rec' = json (client.GetAsync("/api/received").Result)
+                  Expect.equal (rec'.GetArrayLength()) 2 "the receivers saw both"
+                  // Not routed: a call type the firm has no contact type for.
+                  let res = json (post client $"/api/firms/{firmId}/leads" """{"callType":"Bankruptcy"}""")
+                  let skipped = res.GetProperty("deliveries").EnumerateArray() |> Seq.map (fun d -> d.GetProperty("status").GetString()) |> Seq.toList
+                  Expect.equal skipped [ "skipped"; "skipped" ] "skipped like api-2"
+              finally
+                  app.StopAsync().Wait()
+          }
+
+          test "a gone receiver disables the connection and its replay is refused" {
+              use t = new TempDb()
+              Import.apply t.Db origin (batch Domain.Source.api2 [ firm "1" "A" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ] ] ]) |> ignore
+              let app, client = server t.Db
+              try
+                  let c = (Db.read t.Db Store.allConnections).[0].Connection
+                  let patched = post client $"/api/connections/{c.Id}" "{}" // POST is not a route here
+                  Expect.equal (int patched.StatusCode) 405 "method matters"
+                  let req = new HttpRequestMessage(HttpMethod.Patch, $"/api/connections/{c.Id}")
+                  req.Content <- new StringContent($"""{{"deliveryUrl":"{origin}/receiver/crm/clio-grow?mode=gone"}}""", Encoding.UTF8, "application/json")
+                  Expect.equal (int (client.SendAsync(req).Result.StatusCode)) 200 "patched"
+                  let d = json (post client $"/api/connections/{c.Id}/test" "")
+                  drain t.Db client
+                  let after = (Db.read t.Db (fun s -> Store.connectionOrFail s c.Id)).Connection
+                  Expect.equal after.Status "disabled" "410 disables"
+                  let replay = post client $"""/api/deliveries/{d.GetProperty("id").GetString()}/replay""" ""
+                  Expect.equal (int replay.StatusCode) 409 "replay refused while disabled"
+                  Expect.stringContains ((json replay).GetProperty("error").GetString()) "reactivate" "says what to do"
+              finally
+                  app.StopAsync().Wait()
+          }
+
+          test "a flaky receiver is retried until it accepts" {
+              use t = new TempDb()
+              Import.apply t.Db origin (batch Domain.Source.api2 [ firm "1" "A" "k" [ conn "10" "mycase" [ "token", "t"; "refresh_token", "r" ] ] ]) |> ignore
+              let app, client = server t.Db
+              try
+                  let c = (Db.read t.Db Store.allConnections).[0].Connection
+                  Db.write t.Db (fun s -> Store.updateConnection s { c with DeliveryUrl = $"{origin}/receiver/crm/mycase?mode=flaky" })
+                  let d = json (post client $"/api/connections/{c.Id}/test" "")
+                  drain t.Db client
+                  let after = json (client.GetAsync($"""/api/deliveries/{d.GetProperty("id").GetString()}""").Result)
+                  Expect.equal (after.GetProperty("status").GetString()) "delivered" "recovered"
+                  Expect.equal (after.GetProperty("attempts").GetArrayLength()) 3 "two 503s, then 201"
+                  Expect.equal (after.GetProperty("event").GetProperty("lead").GetProperty("firstName").GetString()) "Jane" "event included"
+              finally
+                  app.StopAsync().Wait()
+          }
+
+          test "unknown ids are 404 with an error message" {
+              use t = new TempDb()
+              let app, client = server t.Db
+              try
+                  let res = client.GetAsync("/api/firms/nope").Result
+                  Expect.equal (int res.StatusCode) 404 "404"
+                  Expect.equal ((json res).GetProperty("error").GetString()) "no such firm" "message"
+              finally
+                  app.StopAsync().Wait()
+          }
+
+          test "a reference lead routes by the firm's contact types, under the firm's own name for the category" {
+              use t = new TempDb()
+              let imported =
+                  { firm "1" "A" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ] ] with
+                      ContactTypes = [| { Name = "*New PI Calls"; Active = true }; { Name = "*Court Calls"; Active = false } |] }
+              Import.apply t.Db origin (batch Domain.Source.api2 [ imported ]) |> ignore
+              let app, client = server t.Db
+              try
+                  let firmId = (json (client.GetAsync("/api/firms").Result)).GetProperty("items").Item(0).GetProperty("id").GetString()
+                  let detail = json (client.GetAsync($"/api/firms/{firmId}").Result)
+                  let m = detail.GetProperty("contactTypes").Item(0).GetProperty("mapping")
+                  Expect.equal (m.GetProperty("category").GetString()) "new-matter" "contact types carry their mapping"
+                  Expect.equal (m.GetProperty("practiceArea").GetString()) "personal-injury" "practice area"
+                  // As written, the reference lead's call type is not one of this firm's: skipped.
+                  let asIs = json (post client $"/api/firms/{firmId}/leads" """{"referenceLead":"nm-personal-injury"}""")
+                  Expect.equal (asIs.GetProperty("deliveries").Item(0).GetProperty("status").GetString()) "skipped" "not routed as written"
+                  Expect.equal (asIs.GetProperty("mapping").GetProperty("category").GetString()) "new-matter" "mapping returned"
+                  // Under the firm's own name for the same category: sent, with the reference lead's intake.
+                  let res = json (post client $"/api/firms/{firmId}/leads" """{"referenceLead":"nm-personal-injury","callType":"*New PI Calls"}""")
+                  Expect.equal (res.GetProperty("deliveries").Item(0).GetProperty("status").GetString()) "pending" "routed"
+                  Expect.equal (res.GetProperty("event").GetProperty("lead").GetProperty("lastName").GetString()) "Whitfield" "the reference lead"
+                  let unknown = post client $"/api/firms/{firmId}/leads" """{"referenceLead":"nope"}"""
+                  Expect.equal (int unknown.StatusCode) 404 "unknown reference lead"
+              finally
+                  app.StopAsync().Wait()
+          }
+
+          test "firm search puts active firms with live destinations first" {
+              use t = new TempDb()
+              let quiet = { firm "1" "Law Group Quiet" "k1" [] with Active = false }
+              let busy = firm "2" "Rose Law" "k2" [ conn "20" "mycase" [ ("api_key", "x") ] ]
+              let off = firm "3" "Law Office Off" "k3" [ { conn "30" "mycase" [ ("api_key", "x") ] with Enabled = false } ]
+              Import.apply t.Db origin (batch Domain.Source.api2 [ quiet; busy; off ]) |> ignore
+              let _, found = Db.read t.Db (fun s -> Store.listFirms s { Q = "law"; Kind = null; Source = null; IssuesOnly = false; Limit = 10; Offset = 0 })
+              Expect.equal (found |> Array.map _.Name) [| "Rose Law"; "Law Office Off"; "Law Group Quiet" |] "live destinations first, then active, then inactive"
+              Expect.equal (found |> Array.map _.LiveDestinations) [| 1; 0; 0 |] "and how many are live"
+          }
+
+          test "the delivery summary route is not taken for a delivery id" {
+              use t = new TempDb()
+              let app, client = server t.Db
+              try
+                  let sum = json (client.GetAsync("/api/deliveries/summary?since=1").Result)
+                  Expect.equal (sum.GetProperty("needsAttention").GetInt32()) 0 "a summary, not a 404"
+                  Expect.equal (sum.GetProperty("since").GetInt64()) 1L "since as sent"
+              finally
+                  app.StopAsync().Wait()
+          }
+
+          test "the taxonomy, classify and reference-lead routes answer" {
+              use t = new TempDb()
+              let app, client = server t.Db
+              try
+                  let tax = json (client.GetAsync("/api/call-categories").Result)
+                  Expect.isGreaterThan (tax.GetProperty("categories").GetArrayLength()) 5 "categories"
+                  let m = json (client.GetAsync("/api/call-categories/classify?name=AH%20NO%20PATCH").Result)
+                  Expect.equal (m.GetProperty("category").GetString()) "line-handling" "classify"
+                  Expect.equal (m.GetProperty("crm").GetString()) "never" "crm default"
+                  let refs = json (client.GetAsync("/api/reference-leads").Result)
+                  for r in refs.EnumerateArray() do
+                      Expect.isTrue (r.GetProperty("matches").GetBoolean()) (r.GetProperty("id").GetString())
+              finally
+                  app.StopAsync().Wait()
+          }
+
+          test "leads page, filter, and show the outcome of the latest delivery per connection" {
+              use t = new TempDb()
+              Import.apply t.Db origin (batch Domain.Source.api2 [ firm "1" "A" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ] ] ]) |> ignore
+              let app, client = server t.Db
+              try
+                  Seed.run t.Db { Seed.defaults with Count = 12; RandomSeed = 3 } |> ignore
+                  drain t.Db client
+                  let page (qs: string) = json (client.GetAsync($"/api/leads?{qs}").Result)
+                  let all = page "limit=5"
+                  Expect.equal (all.GetProperty("total").GetInt32()) 12 "total counts every lead"
+                  Expect.equal (all.GetProperty("items").GetArrayLength()) 5 "a page"
+                  let last = page "limit=5&offset=10"
+                  Expect.equal (last.GetProperty("items").GetArrayLength()) 2 "the last page"
+                  let first = all.GetProperty("items").Item(0)
+                  Expect.equal (first.GetProperty("outcome").GetString()) "delivered" "the fake receiver accepted it"
+                  // Category filter: every item has that category, and the totals add up.
+                  let nm = page "category=new-matter&limit=500"
+                  for i in nm.GetProperty("items").EnumerateArray() do
+                      Expect.equal (i.GetProperty("mapping").GetProperty("category").GetString()) "new-matter" "filtered"
+                  // A refused delivery, then a successful replay: the lead counts as delivered.
+                  let c = (Db.read t.Db Store.allConnections).[0].Connection
+                  Db.write t.Db (fun s -> Store.updateConnection s { c with DeliveryUrl = $"{origin}/receiver/crm/clio-grow?mode=reject" })
+                  let sent = json (post client $"/api/firms/{c.FirmId}/leads" """{"referenceLead":"nm-unspecified"}""")
+                  let eventId = sent.GetProperty("event").GetProperty("id").GetString()
+                  drain t.Db client
+                  Expect.equal ((page "outcome=refused").GetProperty("total").GetInt32()) 1 "refused"
+                  Db.write t.Db (fun s -> Store.updateConnection s { c with DeliveryUrl = $"{origin}/receiver/crm/clio-grow" })
+                  let failed = sent.GetProperty("deliveries").Item(0).GetProperty("id").GetString()
+                  post client $"/api/deliveries/{failed}/replay" "" |> ignore
+                  drain t.Db client
+                  let detail = json (client.GetAsync($"/api/leads/{eventId}").Result)
+                  Expect.equal (detail.GetProperty("outcome").GetString()) "delivered" "the replay replaces the refusal"
+                  Expect.equal (detail.GetProperty("counts").GetProperty("total").GetInt32()) 1 "one connection"
+                  Expect.equal (detail.GetProperty("deliveries").GetArrayLength()) 2 "both deliveries listed"
+                  Expect.equal (detail.GetProperty("lead").GetProperty("lastName").GetString()) "Barrett" "the lead itself"
+                  Expect.equal ((page "outcome=refused").GetProperty("total").GetInt32()) 0 "no longer refused"
+                  Expect.equal (int (client.GetAsync("/api/leads/nope").Result.StatusCode)) 404 "unknown lead"
+                  // Deliveries page too.
+                  let d1 = json (client.GetAsync("/api/deliveries?limit=3").Result)
+                  let d2 = json (client.GetAsync("/api/deliveries?limit=3&offset=3").Result)
+                  Expect.notEqual (d1.Item(0).GetProperty("id").GetString()) (d2.Item(0).GetProperty("id").GetString()) "offset moves the window"
+              finally
+                  app.StopAsync().Wait()
+          } ]

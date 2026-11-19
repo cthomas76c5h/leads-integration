@@ -1,0 +1,604 @@
+{
+  "about": "Reference leads for mapping call types to the taxonomy in taxonomy.json. People, numbers and answers are invented (555-01xx numbers, example.com). Call types are real contact-type names used by many firms, or invented ones where a case needs a person's name. Intake labels are the real question wording firms use for that practice area. 'expect' is what the rules must return; tools/call_categories.py fails if any lead maps differently. 'crm' is the category's default: send (deliver to the firm's CRM), skip (a message, not a lead), review (the firm decides), never (not a kind of call).",
+  "leads": [
+    {
+      "id": "nm-personal-injury",
+      "why": "The most common practice area. Accident questions are the PI intake core.",
+      "expect": { "category": "new-matter", "practiceArea": "personal-injury", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Dana", "lastName": "Whitfield", "phone": "+15555550101", "email": "dana.whitfield@example.com",
+        "callType": "*New Personal Injury Case",
+        "message": "Rear-ended at a red light on Tuesday; neck and lower back pain, went to urgent care the next day. Other driver's insurer has already called her. Wants to know if she has a case.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Select Reason For Call:", "data": "New personal injury case" },
+          { "label": "Type Of Accident", "data": "Auto - rear-ended" },
+          { "label": "Date of Accident", "data": "2026-11-10" },
+          { "label": "Location of Accident", "data": "Main St and 4th Ave, Springfield" },
+          { "label": "Did The Police Respond To The Scene?", "data": "Yes, report taken" },
+          { "label": "Injuries", "data": "Neck and lower back pain" },
+          { "label": "Treatment", "data": "Urgent care, follow-up with primary doctor" },
+          { "label": "How did you hear about us?", "data": "Google search" },
+          { "label": "Call Notes", "data": "Has not given a recorded statement. Prefers text." }
+        ]
+      }
+    },
+    {
+      "id": "nm-personal-injury-truncated",
+      "why": "The source system cuts names at 25 characters. 'Accide' must not read as a person's name.",
+      "expect": { "category": "new-matter", "practiceArea": "personal-injury", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Luis", "lastName": "Carmona", "phone": "+15555550102", "email": "",
+        "callType": "*New Motor Vehicle Accide",
+        "message": "Motorcycle hit by a car turning left. Broken wrist. Calling from home after hospital discharge.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Type Of Accident", "data": "Motorcycle vs car" },
+          { "label": "Accident Date", "data": "2026-11-02" },
+          { "label": "Hospital Treatment", "data": "ER, wrist set and cast" },
+          { "label": "Injuries Sustained", "data": "Broken left wrist, road rash" }
+        ]
+      }
+    },
+    {
+      "id": "nm-personal-injury-area-only",
+      "why": "Names only a practice area, no 'new'. The fallback makes it a new matter.",
+      "expect": { "category": "new-matter", "practiceArea": "personal-injury", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Priya", "lastName": "Natarajan", "phone": "+15555550103", "email": "priya.n@example.com",
+        "callType": "Slip and Fall",
+        "message": "Slipped on a wet floor at a grocery store, no warning sign. Hurt her knee.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Incident Date", "data": "2026-11-08" },
+          { "label": "Location", "data": "Grocery store, Riverside Plaza" },
+          { "label": "Type of Injury", "data": "Knee sprain" },
+          { "label": "Go To Hospital", "data": "No, saw her own doctor" }
+        ]
+      }
+    },
+    {
+      "id": "nm-personal-injury-after-hours",
+      "why": "Handling words plus a truncated area: 'After Hours' is a modifier, 'Personal Inj' still finds the area.",
+      "expect": { "category": "new-matter", "practiceArea": "personal-injury", "modifiers": ["after-hours"], "crm": "send" },
+      "lead": {
+        "firstName": "Marcus", "lastName": "Bell", "phone": "+15555550104", "email": "",
+        "callType": "After Hours Personal Inj",
+        "message": "Called at 11pm. Dog bite at a neighbor's house; stitches at the ER tonight.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Type Of Accident", "data": "Dog bite" },
+          { "label": "Date of injury", "data": "2026-11-17" },
+          { "label": "Injuries Description", "data": "Bite to forearm, 6 stitches" }
+        ]
+      }
+    },
+    {
+      "id": "nm-criminal",
+      "why": "Criminal intake: charges, arrest, court date, who is calling.",
+      "expect": { "category": "new-matter", "practiceArea": "criminal", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Terrence", "lastName": "Ward", "phone": "+15555550105", "email": "t.ward@example.com",
+        "callType": "*New Criminal Case",
+        "message": "Charged with DUI after a traffic stop Saturday night. Released, first court date in three weeks.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Are You Calling For Yourself Or On Behalf Of Someone Else?", "data": "Myself" },
+          { "label": "Charges", "data": "DUI, first offense" },
+          { "label": "Date Of Arrest", "data": "2026-11-14" },
+          { "label": "Was This A Federal Or State Charge?", "data": "State" },
+          { "label": "County", "data": "Franklin County" },
+          { "label": "Next Court Date", "data": "2026-12-05" }
+        ]
+      }
+    },
+    {
+      "id": "nm-criminal-in-custody",
+      "why": "A new matter for someone in jail is still a new matter, with the in-custody modifier. Not a jail call.",
+      "expect": { "category": "new-matter", "practiceArea": "criminal", "modifiers": ["in-custody"], "crm": "send" },
+      "lead": {
+        "firstName": "Gloria", "lastName": "Reyes", "phone": "+15555550106", "email": "",
+        "callType": "New Criminal Case (Jail)",
+        "message": "Calling for her son, arrested last night and still held at the county jail. Bond hearing tomorrow morning.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Are You Calling For Yourself Or On Behalf Of Someone Else?", "data": "On behalf of my son" },
+          { "label": "If Someone Is Calling Other Than The Client, Is The Potential New Client In Custody?", "data": "Yes" },
+          { "label": "Facility", "data": "County detention center" },
+          { "label": "What Were You Charged With", "data": "Possession, not sure of the exact charge" },
+          { "label": "Court Date", "data": "2026-11-19" }
+        ]
+      }
+    },
+    {
+      "id": "nm-criminal-webchat",
+      "why": "A chat lead. Same category; delivery then checks the connection's 'send web chats' switch.",
+      "expect": { "category": "new-matter", "practiceArea": "criminal", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Kendall", "lastName": "Fox", "phone": "+15555550107", "email": "kendall.fox@example.com",
+        "callType": "*New Criminal Calls",
+        "message": "Chat: received a summons for shoplifting, wants to know about getting it reduced.",
+        "source": "Answering AI chat", "webchat": true,
+        "custom": [
+          { "label": "Charge", "data": "Petit theft" },
+          { "label": "When is your next court date?", "data": "2026-12-10" }
+        ]
+      }
+    },
+    {
+      "id": "nm-family-divorce",
+      "why": "Family intake: contested, children, property, orders in place.",
+      "expect": { "category": "new-matter", "practiceArea": "family", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Rachel", "lastName": "Kim", "phone": "+15555550108", "email": "rachel.kim@example.com",
+        "callType": "*New Divorce Calls",
+        "message": "Separated since summer, spouse has hired a lawyer. Two kids. Wants a consultation this week.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Is The Divorce Contested Or Uncontested?", "data": "Contested" },
+          { "label": "Are You Still Living In The Same Household?", "data": "No" },
+          { "label": "Do You Have Any Children Together?", "data": "Yes" },
+          { "label": "Age Of Children", "data": "6 and 9" },
+          { "label": "Do You Own Any Property Together?", "data": "House" },
+          { "label": "Is There A Court Order Currently In Place?", "data": "No" },
+          { "label": "Opposing Party", "data": "Spouse (name withheld until conflict check)" }
+        ]
+      }
+    },
+    {
+      "id": "nm-family-custody-trap",
+      "why": "'Custody' here is child custody, not jail. 'New' is checked first.",
+      "expect": { "category": "new-matter", "practiceArea": "family", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Andre", "lastName": "Moreau", "phone": "+15555550109", "email": "",
+        "callType": "*New Divorce/Custody Call",
+        "message": "Ex-partner moved out of state with their daughter. Wants to file for custody.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Type Of Family Matter", "data": "Custody" },
+          { "label": "How Many Children", "data": "1" },
+          { "label": "County Children", "data": "Out of state" }
+        ]
+      }
+    },
+    {
+      "id": "nm-traffic",
+      "why": "Traffic is its own area, not criminal.",
+      "expect": { "category": "new-matter", "practiceArea": "traffic", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Owen", "lastName": "Hartley", "phone": "+15555550110", "email": "owen.hartley@example.com",
+        "callType": "*New Traffic Ticket Calls",
+        "message": "Speeding ticket, 24 over, CDL holder worried about his license.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "What Were You Charged With", "data": "Speeding 24 over" },
+          { "label": "County/Municipality", "data": "Township of Elm Grove" },
+          { "label": "Court Date", "data": "2026-12-01" }
+        ]
+      }
+    },
+    {
+      "id": "nm-estate-planning-truncated",
+      "why": "Truncated 'Wills/Trust/Estate/P'. Estate planning, not real estate.",
+      "expect": { "category": "new-matter", "practiceArea": "estate-planning", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Helen", "lastName": "Oduya", "phone": "+15555550111", "email": "helen.oduya@example.com",
+        "callType": "*New Wills/Trust/Estate/P",
+        "message": "Father passed away last month; there is a will. Needs help with probate.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Type Of Matter", "data": "Probate" },
+          { "label": "Relationship", "data": "Daughter, named executor" },
+          { "label": "County State", "data": "Lake County" }
+        ]
+      }
+    },
+    {
+      "id": "nm-real-estate",
+      "why": "'Real Estate' must not fall into estate planning.",
+      "expect": { "category": "new-matter", "practiceArea": "real-estate", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Samir", "lastName": "Haddad", "phone": "+15555550112", "email": "samir.h@example.com",
+        "callType": "*New Real Estate Calls",
+        "message": "Buying a condo, closing in 30 days, needs an attorney for the closing.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "What Type Of Real Estate Transaction Is This?", "data": "Residential purchase" },
+          { "label": "If Purchasing A Property, Is There A Lender Involved Or Will This Be A Cash Purchase?", "data": "Lender" },
+          { "label": "Property Address", "data": "Unit 4B, 100 Harbor Rd" },
+          { "label": "Broker", "data": "Yes" }
+        ]
+      }
+    },
+    {
+      "id": "nm-immigration",
+      "why": "Immigration intake.",
+      "expect": { "category": "new-matter", "practiceArea": "immigration", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Mei", "lastName": "Tran", "phone": "+15555550113", "email": "mei.tran@example.com",
+        "callType": "*New Immigration Case",
+        "message": "Work visa expires in March; employer will sponsor a green card. Wants to know the timeline.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Immigration", "data": "Employment-based green card" },
+          { "label": "Alien Number", "data": "Not provided" },
+          { "label": "Type Of Case", "data": "Adjustment of status" }
+        ]
+      }
+    },
+    {
+      "id": "nm-employment",
+      "why": "Employment as a new matter (a worker with a claim), not a job applicant.",
+      "expect": { "category": "new-matter", "practiceArea": "employment", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Brianna", "lastName": "Cole", "phone": "+15555550114", "email": "b.cole@example.com",
+        "callType": "*New Employment Case",
+        "message": "Fired two weeks after reporting harassment to HR.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Name Of Employer", "data": "Regional logistics company" },
+          { "label": "Position", "data": "Warehouse supervisor" },
+          { "label": "Dates Employed", "data": "2022-03 to 2026-10" }
+        ]
+      }
+    },
+    {
+      "id": "nm-workers-comp",
+      "why": "Workers' comp is its own area even though it is an injury.",
+      "expect": { "category": "new-matter", "practiceArea": "workers-comp", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Jamal", "lastName": "Price", "phone": "+15555550115", "email": "",
+        "callType": "*New Workers Comp Case",
+        "message": "Hurt his back lifting at work; employer's carrier denied the claim.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Name Of Employer", "data": "Construction contractor" },
+          { "label": "Date of injury", "data": "2026-10-21" },
+          { "label": "Medical Treatment Received", "data": "Physical therapy" }
+        ]
+      }
+    },
+    {
+      "id": "nm-medical-malpractice",
+      "why": "Medical malpractice: checked before personal injury.",
+      "expect": { "category": "new-matter", "practiceArea": "medical-malpractice", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Ellen", "lastName": "Sato", "phone": "+15555550116", "email": "ellen.sato@example.com",
+        "callType": "*New Medical Malpractice",
+        "message": "Surgical sponge left after an operation, found on a follow-up scan.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Hospital or Treatment", "data": "Regional medical center" },
+          { "label": "Incident Date", "data": "2026-08-30" },
+          { "label": "Description of Injuries", "data": "Infection, second surgery" }
+        ]
+      }
+    },
+    {
+      "id": "nm-disability-truncated",
+      "why": "Truncated 'Social Security/Disa'.",
+      "expect": { "category": "new-matter", "practiceArea": "disability", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Walter", "lastName": "Briggs", "phone": "+15555550117", "email": "",
+        "callType": "*New Social Security/Disa",
+        "message": "SSDI application denied twice. Can no longer work after a stroke.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Type Of Case", "data": "SSDI appeal" },
+          { "label": "Additional Details", "data": "Has denial letter" }
+        ]
+      }
+    },
+    {
+      "id": "nm-bankruptcy",
+      "why": "Bankruptcy intake.",
+      "expect": { "category": "new-matter", "practiceArea": "bankruptcy", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Tanya", "lastName": "Greer", "phone": "+15555550118", "email": "tanya.greer@example.com",
+        "callType": "*New Bankruptcy Case",
+        "message": "Behind on mortgage and credit cards; received a foreclosure notice.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Is Your House In Foreclosure?", "data": "Notice received" },
+          { "label": "Additional Details", "data": "About $60k unsecured debt" }
+        ]
+      }
+    },
+    {
+      "id": "nm-business",
+      "why": "Business litigation: business, not civil litigation.",
+      "expect": { "category": "new-matter", "practiceArea": "business", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Victor", "lastName": "Lund", "phone": "+15555550119", "email": "victor@example.com",
+        "callType": "*New Business Litigation",
+        "message": "Supplier breached a contract; owner wants to sue for losses.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Company Name", "data": "Small manufacturing LLC" },
+          { "label": "Opposing", "data": "Former supplier" }
+        ]
+      }
+    },
+    {
+      "id": "nm-insurance-claim-trap",
+      "why": "'New' plus insurance is a new insurance-claim matter, not an insurance company calling.",
+      "expect": { "category": "new-matter", "practiceArea": "insurance-claims", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Nora", "lastName": "Quinn", "phone": "+15555550120", "email": "nora.quinn@example.com",
+        "callType": "*New Property Insurance",
+        "message": "Storm damage to roof; insurer offered a fraction of the repair estimate.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Type Of Case", "data": "Underpaid property claim" },
+          { "label": "What is the file/index/claim number?", "data": "Not provided" }
+        ]
+      }
+    },
+    {
+      "id": "nm-unspecified",
+      "why": "The single most common lead type (1,700+ firms): new client, no practice area in the name.",
+      "expect": { "category": "new-matter", "practiceArea": "unspecified", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Chloe", "lastName": "Barrett", "phone": "+15555550121", "email": "chloe.barrett@example.com",
+        "callType": "*New Client Calls",
+        "message": "Landlord kept her full deposit and won't respond. Wants to talk to an attorney.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Select Reason For Call:", "data": "New client" },
+          { "label": "Case Type", "data": "Landlord/tenant" },
+          { "label": "Referral", "data": "Friend" },
+          { "label": "Call Notes", "data": "Available after 3pm" }
+        ]
+      }
+    },
+    {
+      "id": "nm-unspecified-spanish",
+      "why": "Language is a modifier, not a category.",
+      "expect": { "category": "new-matter", "practiceArea": "unspecified", "modifiers": ["spanish"], "crm": "send" },
+      "lead": {
+        "firstName": "Alejandro", "lastName": "Vega", "phone": "+15555550122", "email": "",
+        "callType": "*New Client Calls Spanish",
+        "message": "Spanish-speaking caller; car accident on the highway, wants a call back in Spanish.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Select Reason For Call:", "data": "Nuevo cliente - accidente" },
+          { "label": "Call Notes", "data": "Prefers Spanish" }
+        ]
+      }
+    },
+    {
+      "id": "nm-other",
+      "why": "'Other New Case' is a new matter whose area is 'other'.",
+      "expect": { "category": "new-matter", "practiceArea": "other", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "Ian", "lastName": "Mercer", "phone": "+15555550123", "email": "ian.mercer@example.com",
+        "callType": "*Other New Case",
+        "message": "Neighbor dispute over a fence line.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [ { "label": "Type Of Case", "data": "Property dispute" } ]
+      }
+    },
+    {
+      "id": "nm-named-person",
+      "why": "A new matter routed to a named staff member. Category is still new matter; the name becomes a modifier.",
+      "expect": { "category": "new-matter", "practiceArea": "unspecified", "modifiers": ["named-person"], "crm": "send" },
+      "lead": {
+        "firstName": "Sophie", "lastName": "Adler", "phone": "+15555550124", "email": "",
+        "callType": "Jordan Ellis New Client",
+        "message": "Asked for attorney Ellis by name about a contract question.",
+        "source": "Answering AI", "webchat": false,
+        "custom": []
+      }
+    },
+    {
+      "id": "nm-hang-up",
+      "why": "Caller hung up after the greeting: still a new-matter call type, but no name. CRMs that require a name (MyCase) reject it.",
+      "expect": { "category": "new-matter", "practiceArea": "personal-injury", "modifiers": [], "crm": "send" },
+      "lead": {
+        "firstName": "", "lastName": "", "phone": "+15555550199", "email": "",
+        "callType": "*New Personal Injury Call",
+        "message": "Caller hung up before giving details.",
+        "source": "Answering AI", "webchat": false,
+        "custom": []
+      }
+    },
+    {
+      "id": "existing-client",
+      "why": "A current client: a message, not a lead.",
+      "expect": { "category": "existing-client", "practiceArea": null, "modifiers": [], "crm": "skip" },
+      "lead": {
+        "firstName": "Grace", "lastName": "Holt", "phone": "+15555550125", "email": "",
+        "callType": "*Existing Client Calls",
+        "message": "Asking whether the settlement check has arrived.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "Case Number", "data": "Not provided" },
+          { "label": "Call Back", "data": "Yes, after 5pm" }
+        ]
+      }
+    },
+    {
+      "id": "court",
+      "why": "Most common non-lead call (1,400+ firms).",
+      "expect": { "category": "legal-professional", "practiceArea": null, "modifiers": [], "crm": "skip" },
+      "lead": {
+        "firstName": "Clerk", "lastName": "Office", "phone": "+15555550126", "email": "",
+        "callType": "*Court Calls",
+        "message": "Clerk's office calling to reschedule a hearing.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [ { "label": "Case Number", "data": "Not provided" }, { "label": "Court", "data": "Circuit court" } ]
+      }
+    },
+    {
+      "id": "opposing-counsel",
+      "why": "Another attorney: legal professional.",
+      "expect": { "category": "legal-professional", "practiceArea": null, "modifiers": [], "crm": "skip" },
+      "lead": {
+        "firstName": "Paul", "lastName": "Stratton", "phone": "+15555550127", "email": "pstratton@example.com",
+        "callType": "*Opposing Counsel Calls",
+        "message": "Opposing counsel returning a call about discovery deadlines.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [ { "label": "Opposing Counsel", "data": "Stratton & Lee (fictional)" } ]
+      }
+    },
+    {
+      "id": "insurance-adjuster",
+      "why": "An insurer calling about an existing file: not a lead.",
+      "expect": { "category": "insurance-medical", "practiceArea": null, "modifiers": [], "crm": "skip" },
+      "lead": {
+        "firstName": "Renee", "lastName": "Doyle", "phone": "+15555550128", "email": "",
+        "callType": "*Insurance Adjuster Calls",
+        "message": "Adjuster asking for medical records on a pending claim.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [
+          { "label": "What is the file/index/claim number?", "data": "Not provided" },
+          { "label": "Case Client", "data": "Not provided" }
+        ]
+      }
+    },
+    {
+      "id": "insurance-medical",
+      "why": "The combined 'Insurance/Medical' type (160 firms).",
+      "expect": { "category": "insurance-medical", "practiceArea": null, "modifiers": [], "crm": "skip" },
+      "lead": {
+        "firstName": "Front", "lastName": "Desk", "phone": "+15555550129", "email": "",
+        "callType": "*Insurance/Medical Calls",
+        "message": "Physical therapy office confirming a client's lien.",
+        "source": "Answering AI", "webchat": false,
+        "custom": []
+      }
+    },
+    {
+      "id": "jail-call",
+      "why": "A jail call with no matter named: the firm decides whether this reaches the CRM.",
+      "expect": { "category": "jail-custody", "practiceArea": null, "modifiers": ["in-custody"], "crm": "review" },
+      "lead": {
+        "firstName": "Darnell", "lastName": "Hayes", "phone": "+15555550130", "email": "",
+        "callType": "*Jail Calls",
+        "message": "Collect call from the county jail asking for an attorney visit.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [ { "label": "Facility", "data": "County jail" } ]
+      }
+    },
+    {
+      "id": "emergency",
+      "why": "Urgent escalation, not a lead.",
+      "expect": { "category": "emergency", "practiceArea": null, "modifiers": [], "crm": "skip" },
+      "lead": {
+        "firstName": "Lena", "lastName": "Ortiz", "phone": "+15555550131", "email": "",
+        "callType": "*Emergency Calls",
+        "message": "Client says a protective order was violated tonight.",
+        "source": "Answering AI", "webchat": false,
+        "custom": []
+      }
+    },
+    {
+      "id": "billing",
+      "why": "A payment question from a client: a message for the firm, not a lead.",
+      "expect": { "category": "billing", "practiceArea": null, "modifiers": [], "crm": "skip" },
+      "lead": {
+        "firstName": "Harold", "lastName": "Finch", "phone": "+15555550140", "email": "h.finch@example.com",
+        "callType": "*Billing/Payment Calls",
+        "message": "Wants to set up a payment plan for the retainer balance.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [ { "label": "Call Back", "data": "Yes, mornings" } ]
+      }
+    },
+    {
+      "id": "general",
+      "why": "Catch-all on 2,700+ firms. Firms whose only type is General send everything; others don't.",
+      "expect": { "category": "general", "practiceArea": null, "modifiers": [], "crm": "review" },
+      "lead": {
+        "firstName": "Martin", "lastName": "Shaw", "phone": "+15555550132", "email": "",
+        "callType": "*General Calls",
+        "message": "Asked for office hours and the fax number.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [ { "label": "Select Reason For Call:", "data": "General question" }, { "label": "Call Notes", "data": "No callback needed" } ]
+      }
+    },
+    {
+      "id": "general-spanish",
+      "why": "A language with no kind of call: General plus the spanish modifier, not line handling.",
+      "expect": { "category": "general", "practiceArea": null, "modifiers": ["spanish"], "crm": "review" },
+      "lead": {
+        "firstName": "Rosa", "lastName": "Delgado", "phone": "+15555550133", "email": "",
+        "callType": "*Spanish Speaking Calls",
+        "message": "Spanish-speaking caller; wants a call back from a Spanish-speaking staff member.",
+        "source": "Answering AI", "webchat": false,
+        "custom": []
+      }
+    },
+    {
+      "id": "general-named-person",
+      "why": "General call for a named staff member.",
+      "expect": { "category": "general", "practiceArea": null, "modifiers": ["named-person"], "crm": "review" },
+      "lead": {
+        "firstName": "Evan", "lastName": "Pike", "phone": "+15555550134", "email": "",
+        "callType": "*General Calls Morgan",
+        "message": "Returning Morgan's call.",
+        "source": "Answering AI", "webchat": false,
+        "custom": []
+      }
+    },
+    {
+      "id": "other-calls-trap",
+      "why": "'Other Calls' is General; 'other' alone never makes a new matter.",
+      "expect": { "category": "general", "practiceArea": null, "modifiers": [], "crm": "review" },
+      "lead": {
+        "firstName": "Nadia", "lastName": "Ferris", "phone": "+15555550135", "email": "",
+        "callType": "*OTHER Calls",
+        "message": "Vendor asking who handles IT.",
+        "source": "Answering AI", "webchat": false,
+        "custom": []
+      }
+    },
+    {
+      "id": "staff-only",
+      "why": "Only a person's name: says who, not what. A human maps it.",
+      "expect": { "category": "staff-routing", "practiceArea": null, "modifiers": [], "crm": "review" },
+      "lead": {
+        "firstName": "Colin", "lastName": "Avery", "phone": "+15555550136", "email": "",
+        "callType": "Taylor Brooks",
+        "message": "Asked for Taylor Brooks; left a message.",
+        "source": "Answering AI", "webchat": false,
+        "custom": []
+      }
+    },
+    {
+      "id": "system-admin",
+      "why": "Platform bookkeeping on 2,700+ firms. Never a lead.",
+      "expect": { "category": "system", "practiceArea": null, "modifiers": [], "crm": "never" },
+      "lead": {
+        "firstName": "", "lastName": "", "phone": "+15555550137", "email": "",
+        "callType": "- Admin",
+        "message": "",
+        "source": "Answering AI", "webchat": false,
+        "custom": []
+      }
+    },
+    {
+      "id": "system-no-charge",
+      "why": "No-charge entry (wrong number, hang-up the firm isn't billed for). Never a lead.",
+      "expect": { "category": "system", "practiceArea": null, "modifiers": [], "crm": "never" },
+      "lead": {
+        "firstName": "", "lastName": "", "phone": "+15555550138", "email": "",
+        "callType": "* No Charge",
+        "message": "Wrong number.",
+        "source": "Answering AI", "webchat": false,
+        "custom": []
+      }
+    },
+    {
+      "id": "line-handling",
+      "why": "How to handle calls, not what kind: never a lead.",
+      "expect": { "category": "line-handling", "practiceArea": null, "modifiers": ["after-hours", "no-patch"], "crm": "never" },
+      "lead": {
+        "firstName": "", "lastName": "", "phone": "+15555550139", "email": "",
+        "callType": "AH NO PATCH",
+        "message": "",
+        "source": "Answering AI", "webchat": false,
+        "custom": []
+      }
+    }
+  ]
+}

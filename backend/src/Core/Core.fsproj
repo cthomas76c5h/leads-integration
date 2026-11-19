@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <AssemblyName>LeadIntegrations.Core</AssemblyName>
+    <RootNamespace>LeadIntegrations</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- F# compiles in file order: each file may only use the ones above it. -->
+  <ItemGroup>
+    <Compile Include="Json.fs" />
+    <Compile Include="Secrets.fs" />
+    <Compile Include="Domain.fs" />
+    <Compile Include="Catalog.fs" />
+    <Compile Include="Issues.fs" />
+    <Compile Include="Policy.fs" />
+    <Compile Include="Signing.fs" />
+    <Compile Include="Template.fs" />
+    <Compile Include="Address.fs" />
+    <Compile Include="Payloads.fs" />
+    <Compile Include="FakeCrm.fs" />
+    <Compile Include="Diagnose.fs" />
+    <Compile Include="Synthetic.fs" />
+    <Compile Include="Categories.fs" />
+    <Compile Include="Urgency.fs" />
+    <Compile Include="Db.fs" />
+    <Compile Include="Store.fs" />
+    <Compile Include="DemoNames.fs" />
+    <Compile Include="Dispatch.fs" />
+    <Compile Include="Destinations.fs" />
+    <Compile Include="Report.fs" />
+    <Compile Include="Billing.fs" />
+    <Compile Include="Terms.fs" />
+    <Compile Include="Seed.fs" />
+    <Compile Include="Simulate.fs" />
+    <Compile Include="Onboarding.fs" />
+    <Compile Include="Import.fs" />
+  </ItemGroup>
+
+  <!-- The call-category rules and reference leads: one copy, in docs/, shared with tools/call_categories.py. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\docs\call-categories\taxonomy.json" LogicalName="taxonomy.json" />
+    <EmbeddedResource Include="..\..\..\docs\call-categories\coverage.json" LogicalName="coverage.json" />
+    <EmbeddedResource Include="..\..\..\docs\call-categories\reference-leads.json" LogicalName="reference-leads.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="11.0.0" />
+  </ItemGroup>
+
+</Project>
