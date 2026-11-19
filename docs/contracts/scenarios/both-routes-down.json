@@ -1,13 +1,13 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "both-routes-down",
-  "story": "During an outage, two firms lose both their routes: the web-leads platform and their email. Firm A agreed an SMS fallback to its intake team, so its new matter reaches someone a third of the way into its one-hour window. Firm B has no fallback, so its new matter expires; its record still arrives after the outage, but the client is lost.",
+  "story": "During an outage, two firms lose both their routes: the web-leads platform and their email. Firm A agreed an SMS fallback to its intake team, so its new matter reaches someone about an hour after the call. Firm B has none, so its new matter waits for the outage to end: it still reaches the firm within its 72-hour window, but hours after Firm A's.",
   "slice": 6,
   "model": "lab",
   "proves": [
-    "docs/lead-delivery/README.md#window-to-act-and-fallback (a third of the window with nothing accepted: the fallback takes the hand-off)",
+    "docs/lead-delivery/README.md#window-to-act-and-fallback (the fallback's own clock: 1 hour with nothing accepted, separate from the window)",
     "docs/lead-delivery/answers.md#speed-window-to-act-fallback-holding (fallback timing; every firm whose routes can all fail needs one)",
-    "docs/lead-delivery/README.md#lead-outcome (Expired)"
+    "docs/lead-delivery/README.md#retry (retries carry a lead through an outage)"
   ],
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
@@ -152,24 +152,14 @@
   ],
   "then": [
     {
-      "at": "+35m",
+      "at": "+1h05m",
       "handOff": {
         "lead": "lead-a",
-        "state": "reached-by-fallback",
-        "by": "a-sms"
+        "state": "pending"
       }
     },
     {
-      "at": "+35m",
-      "delivery": {
-        "lead": "lead-a",
-        "destination": "a-email",
-        "state": "retrying",
-        "failureClass": "transient"
-      }
-    },
-    {
-      "at": "+35m",
+      "at": "+1h05m",
       "handOff": {
         "lead": "lead-b",
         "state": "pending"
@@ -178,19 +168,29 @@
     {
       "at": "+1h15m",
       "handOff": {
-        "lead": "lead-b",
-        "state": "expired"
+        "lead": "lead-a",
+        "state": "reached-by-fallback",
+        "by": "a-sms"
       }
     },
     {
       "at": "+1h15m",
-      "outcome": {
-        "lead": "lead-b",
-        "is": "expired"
+      "delivery": {
+        "lead": "lead-a",
+        "destination": "a-email",
+        "state": "retrying",
+        "failureClass": "transient"
       }
     },
     {
-      "at": "+11h",
+      "at": "+1h15m",
+      "handOff": {
+        "lead": "lead-b",
+        "state": "pending"
+      }
+    },
+    {
+      "at": "+3h",
       "delivery": {
         "lead": "lead-b",
         "destination": "b-email",
@@ -198,21 +198,21 @@
       }
     },
     {
-      "at": "+11h",
+      "at": "+3h",
       "handOff": {
         "lead": "lead-b",
-        "state": "expired"
+        "state": "reached"
       }
     },
     {
-      "at": "+11h",
+      "at": "+3h",
       "outcome": {
         "lead": "lead-b",
-        "is": "expired"
+        "is": "accepted"
       }
     },
     {
-      "at": "+11h",
+      "at": "+3h",
       "handOff": {
         "lead": "lead-a",
         "state": "reached-by-fallback",

@@ -1,11 +1,11 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "all-routes-down",
-  "story": "A call about someone in custody (a 15-minute window) arrives while both the firm's email and its SMS fallback are down. Neither can deliver; at half the window the hand-off escalates to an operator who calls the firm, and when the window passes the lead expires, first in every view. Later, with the routes back, an emergency is accepted by email and then acknowledged by the firm through the link in it, so it is confirmed and never escalates.",
+  "story": "A call about someone in custody (a 24-hour window, a 15-minute fallback delay) arrives while both the firm's email and its SMS fallback are down, and stay down for over a day. Neither can deliver; after 15 minutes the hand-off escalates to an operator who calls the firm, and when the 24-hour window passes the lead expires, first in every view. Later, with the routes back, an emergency is accepted by email and then acknowledged by the firm through the link in it, so it is confirmed and never escalates.",
   "slice": 6,
   "model": "proposed",
   "proves": [
-    "docs/rfc/008_delivery_guarantees_and_evidence.md#32-the-hand-off-revised (emergencies need acknowledgement; escalate at half the window)",
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#32-the-hand-off-revised (emergencies need acknowledgement; escalate after the fallback delay)",
     "docs/rfc/008_delivery_guarantees_and_evidence.md#31-five-levels (accepted and acknowledged hand-offs are distinct)"
   ],
   "today": "The lab has no acknowledgement and no escalation: a hand-off is reached when a delivery is accepted. Expired leads are shown first in the Delivery Center (built). both-routes-down shows a similar outage for a new matter, without acknowledgement or escalation.",
@@ -61,7 +61,7 @@
       }
     },
     {
-      "at": "+40m",
+      "at": "+25h",
       "receiver": {
         "destination": "email",
         "answers": {
@@ -70,7 +70,7 @@
       }
     },
     {
-      "at": "+40m",
+      "at": "+25h",
       "receiver": {
         "destination": "sms",
         "answers": {
@@ -79,7 +79,7 @@
       }
     },
     {
-      "at": "+45m",
+      "at": "+25h05m",
       "lead": {
         "id": "lead-2",
         "firm": "firm-a",
@@ -87,7 +87,7 @@
       }
     },
     {
-      "at": "+47m",
+      "at": "+25h07m",
       "action": {
         "by": "firm-contact",
         "do": "acknowledge",
@@ -98,7 +98,7 @@
   ],
   "then": [
     {
-      "at": "+7m",
+      "at": "+10m",
       "handOff": {
         "lead": "lead-1",
         "state": "pending",
@@ -106,7 +106,7 @@
       }
     },
     {
-      "at": "+10m",
+      "at": "+17m",
       "handOff": {
         "lead": "lead-1",
         "state": "pending",
@@ -115,7 +115,7 @@
       }
     },
     {
-      "at": "+10m",
+      "at": "+17m",
       "event": {
         "name": "HandOffEscalated",
         "lead": "lead-1",
@@ -123,7 +123,7 @@
       }
     },
     {
-      "at": "+17m",
+      "at": "+24h05m",
       "handOff": {
         "lead": "lead-1",
         "state": "expired",
@@ -131,14 +131,14 @@
       }
     },
     {
-      "at": "+17m",
+      "at": "+24h05m",
       "outcome": {
         "lead": "lead-1",
         "is": "expired"
       }
     },
     {
-      "at": "+17m",
+      "at": "+24h05m",
       "event": {
         "name": "HandOffExpired",
         "lead": "lead-1",
@@ -146,7 +146,7 @@
       }
     },
     {
-      "at": "+46m",
+      "at": "+25h06m",
       "handOff": {
         "lead": "lead-2",
         "state": "reached",
@@ -155,7 +155,7 @@
       }
     },
     {
-      "at": "+48m",
+      "at": "+25h08m",
       "handOff": {
         "lead": "lead-2",
         "state": "reached",
@@ -165,7 +165,7 @@
       }
     },
     {
-      "at": "+48m",
+      "at": "+25h08m",
       "event": {
         "name": "HandOffAcknowledged",
         "lead": "lead-2",
@@ -173,7 +173,7 @@
       }
     },
     {
-      "at": "+1h",
+      "at": "+46h",
       "delivery": {
         "lead": "lead-1",
         "destination": "email",
@@ -182,28 +182,28 @@
       }
     },
     {
-      "at": "+1h",
+      "at": "+46h",
       "handOff": {
         "lead": "lead-1",
         "state": "expired"
       }
     },
     {
-      "at": "+1h",
+      "at": "+46h",
       "noEvent": {
         "name": "HandOffReached",
         "lead": "lead-1"
       }
     },
     {
-      "at": "+1h",
+      "at": "+46h",
       "noEvent": {
         "name": "HandOffEscalated",
         "lead": "lead-2"
       }
     },
     {
-      "at": "+1h",
+      "at": "+46h",
       "noEvent": {
         "name": "HandOffExpired",
         "lead": "lead-2"

@@ -1,11 +1,11 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "dead-endpoint",
-  "story": "A firm's email endpoint answers 503 from the start of the week. Each lead is retried for about 21 hours, then gives up; after 5 leads in a row give up, the destination is switched off.",
+  "story": "A firm's email endpoint answers 503 from the start of the week. Each lead is retried for about 69 hours, then gives up; after 5 leads in a row give up, the destination is switched off.",
   "slice": 3,
   "model": "lab",
   "proves": [
-    "docs/lead-delivery/README.md#retry (eight attempts over about 21 hours)",
+    "docs/lead-delivery/README.md#retry (ten attempts over about 69 hours)",
     "docs/lead-delivery/README.md#switch-off (5 in a row that end gave up)"
   ],
   "given": {
@@ -99,21 +99,30 @@
       "delivery": {
         "lead": "lead-1",
         "destination": "email",
-        "state": "gave-up",
-        "attempts": 8
+        "state": "retrying",
+        "failureClass": "transient"
       }
     },
     {
-      "at": "+30h",
+      "at": "+80h",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "gave-up",
+        "attempts": 10
+      }
+    },
+    {
+      "at": "+80h",
       "delivery": {
         "lead": "lead-5",
         "destination": "email",
         "state": "gave-up",
-        "attempts": 8
+        "attempts": 10
       }
     },
     {
-      "at": "+30h",
+      "at": "+80h",
       "destination": {
         "id": "email",
         "state": "switched-off",

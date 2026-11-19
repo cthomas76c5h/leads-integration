@@ -47,7 +47,7 @@ meaning is standard, so everything downstream can rely on it.
 | Use | Today | With categories as the language (*Proposed*) | Who gains |
 |---|---|---|---|
 | **Routing** | Text match against active call types, CRMs only | A rule per destination by category: "new matters to the CRM, everything to email" | Firms, operations |
-| **Urgency** | Every lead treated the same | The **window to act** follows the category: minutes for an emergency or custody, an hour for a new matter ([model](../lead-delivery/README.md#window-to-act-and-fallback)) | Firms, callers |
+| **Urgency** | Every lead treated the same | The **window to act** follows the category: 24 hours for an emergency or custody, 72 for everything else, with the fallback after 15 minutes or an hour ([model](../lead-delivery/README.md#window-to-act-and-fallback)) | Firms, callers |
 | **How the firm is reached** | One route for all | Emergencies and custody calls to a phone or SMS on-call; billing to the office inbox | Firms |
 | **Intake questions** | Per firm, hand-configured | Questions per category and practice area: a car accident asks about injuries and insurance; custody asks about the facility and charges | Callers, firms |
 | **CRM fields** | Matter type often blank or free text | Practice area and category filled consistently in every CRM | Firms |

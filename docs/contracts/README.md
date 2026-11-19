@@ -160,7 +160,7 @@ field gives.
 | [chat-leads-refused](scenarios/chat-leads-refused.json) | 2 | `lab` | A destination that refuses chat leads gets not sent, with a reason; email still has it |
 | [platform-outage](scenarios/platform-outage.json) | 3 | `lab` | 429 then 503 for 2½ hours: retried, never sooner than Retry-After; accepted after; streak stays zero |
 | [relay-timeouts](scenarios/relay-timeouts.json) | 3 | `lab` | No answer is transient: retried and accepted once the relay answers |
-| [dead-endpoint](scenarios/dead-endpoint.json) | 3 | `lab` | About 21 hours of retries, then gave up; 5 in a row switch the destination off |
+| [dead-endpoint](scenarios/dead-endpoint.json) | 3 | `lab` | About 69 hours of retries, then gave up; 5 in a row switch the destination off |
 | [redirect](scenarios/redirect.json) | 3 | `lab` | 301 is refused, never followed; 5 in a row switch off; reactivate and resend under the same identity |
 | [switch-off](scenarios/switch-off.json) | 3 | `lab` | An accepted delivery resets the streak; 5 refused in a row switch off |
 | [lead-problem](scenarios/lead-problem.json) | 3 | `proposed` | A hang-up to a CRM that needs a name is not sent, as a lead problem, and never counts toward the streak |

@@ -1,12 +1,12 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "paused-destination",
-  "story": "An operator pauses a firm's email destination. A new matter arrives while it is paused: its delivery is held for the record, and its hand-off goes to the firm's SMS fallback at once. When the operator resumes the destination, the held delivery is sent with the lead's original time and marked late.",
+  "story": "An operator pauses a firm's email destination. A new matter arrives while it is paused: its delivery is held for the record, and its hand-off goes to the firm's SMS fallback at once. When the operator resumes the destination, the held delivery is sent with the lead's original time, within its 72-hour window.",
   "slice": 6,
   "model": "proposed",
   "proves": [
     "docs/lead-delivery/README.md#3-a-leads-journey (planning step 1: paused is held, hand-off to the fallback at once)",
-    "docs/lead-delivery/answers.md#speed-window-to-act-fallback-holding (held records sent with the original time, marked late)"
+    "docs/lead-delivery/answers.md#speed-window-to-act-fallback-holding (held records sent with the original time)"
   ],
   "today": "The lab holds deliveries that were already waiting when a destination is paused, and sends them on resume. But a lead recorded while the destination is paused gets no delivery at all (a missed lead), so the fallback waits a third of the window (20 minutes) instead of going at once; on resume an operator sends the missed leads.",
   "given": {
@@ -98,7 +98,7 @@
         "lead": "lead-1",
         "destination": "email",
         "state": "accepted",
-        "late": true
+        "late": false
       }
     },
     {

@@ -234,8 +234,9 @@ record afterwards: the most serious outcome, shown first.
 | Other 4xx | Configuration or lead | Refused |
 | Body cannot be built | Our fault | Refused, without an attempt |
 
-Schedule after the first attempt: 5 s, 1 min, 5 min, 30 min, 2 h, 6 h, 12 h
-(±20% jitter): 8 attempts over about 21 hours.
+Schedule after the first attempt: 5 s, 1 min, 5 min, 30 min, 2 h, 6 h, 12 h, 24 h,
+24 h (±20% jitter): 10 attempts over about 69 hours, most of the 72-hour window
+to act. Set by Answering AI in [delivery-timing.json](delivery-timing.json).
 
 *Production:* one attempt, no automatic retry; one manual resend per CRM lead.
 
@@ -253,25 +254,27 @@ its client. Holding and retrying protect the **record**; they do nothing for the
 
 - **A window to act per call category,** agreed with firms (starting values to test, not measured):
 
-  | Call category | Window to act |
-  |---|---|
-  | Emergency, jail or custody | 15 minutes |
-  | New matter | 1 hour |
-  | Existing client, court or agency, insurance or medical | Same business day |
-  | Billing, vendor, general | Next business day |
+  | Call category | Window to act | Fallback after |
+  |---|---|---|
+  | Emergency, jail or custody | 24 hours | 15 minutes |
+  | Every other kind | 72 hours | 1 hour |
 
-- **The hand-off never waits for the record.** The hand-off goes to the firm's **fallback** **at once** when the destination that does it is paused or needs reconnection (its delivery is **held**), and **once a third of the window has passed** when nothing has been accepted yet (still retrying, or refused) ([answers](answers.md#speed-window-to-act-fallback-holding)). The fallback is a destination the firm agreed in its approved setup, usually email or SMS to its intake staff, marked "sent by fallback: {destination} unavailable". RFC-001 forbids silent rerouting, so a fallback is always pre-agreed and always shown.
+  Both are set by Answering AI, not by firms, in [delivery-timing.json](delivery-timing.json)
+  ([answers](answers.md#speed-window-to-act-fallback-holding)).
+
+- **The hand-off never waits for the record.** The hand-off goes to the firm's **fallback** **at once** when the destination that does it is paused or needs reconnection (its delivery is **held**), and **once its fallback delay has passed** (1 hour; 15 minutes for emergencies and custody) when nothing has been accepted yet, still retrying or refused. The fallback runs on **its own clock**, separate from the window to act ([answers](answers.md#speed-window-to-act-fallback-holding)). The fallback is a destination the firm agreed in its approved setup, usually email or SMS to its intake staff, marked "sent by fallback: {destination} unavailable". RFC-001 forbids silent rerouting, so a fallback is always pre-agreed and always shown.
 - **The record carries on.** Retries continue on their schedule and held deliveries are sent when the destination returns, with the lead's original time. A lead past its window is marked late there and must never appear as a fresh lead (in a CRM, never a new "call back now" task).
 - **An expired lead is the most serious event.** A lead whose window passed with no accepted hand-off goes to the top of the Delivery Center and alerts an operator, who tells the firm.
 
-*Lab:* the windows above (`Urgency.windowMs`), a hand-off on every lead (its first
-accepted delivery against its window), the **Expired** outcome, and fallback: a
-destination marked `role: fallback` gets no leads directly, and
-`Dispatch.runFallbacks` (every few seconds in the worker) sends it any lead with
-no accepted delivery once a third of its window has passed. Not built: held
-deliveries (a stopped destination still produces missed leads), so the fallback
-for a stopped destination also waits a third of the window instead of going at
-once; and firm-set windows.
+*Lab:* the windows and fallback delays above (`Urgency`, read from
+`delivery-timing.json` by `Timing`), a hand-off on every lead (its first accepted
+delivery against its window), the **Expired** outcome (shown as *reached late* or
+*not reached in time*), and fallback: a destination marked `role: fallback` gets
+no leads directly, and `Dispatch.runFallbacks` (every few seconds in the worker)
+sends it any lead with no accepted delivery once its fallback delay has passed.
+Not built: held deliveries for leads recorded while a destination is paused (they
+still become missed leads), so the fallback for a stopped destination also waits
+its delay instead of going at once.
 
 ## 6. Invariants
 

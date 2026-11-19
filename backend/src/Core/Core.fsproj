@@ -15,6 +15,7 @@
     <Compile Include="Domain.fs" />
     <Compile Include="Catalog.fs" />
     <Compile Include="Issues.fs" />
+    <Compile Include="Timing.fs" />
     <Compile Include="Policy.fs" />
     <Compile Include="Signing.fs" />
     <Compile Include="Template.fs" />
@@ -44,6 +45,7 @@
     <EmbeddedResource Include="..\..\..\docs\call-categories\taxonomy.json" LogicalName="taxonomy.json" />
     <EmbeddedResource Include="..\..\..\docs\call-categories\coverage.json" LogicalName="coverage.json" />
     <EmbeddedResource Include="..\..\..\docs\call-categories\reference-leads.json" LogicalName="reference-leads.json" />
+    <EmbeddedResource Include="..\..\..\docs\lead-delivery\delivery-timing.json" LogicalName="delivery-timing.json" />
   </ItemGroup>
 
   <ItemGroup>

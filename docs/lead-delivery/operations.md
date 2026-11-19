@@ -56,9 +56,10 @@ showed ([lessons §4](lessons.md#4-problems-only-show-up-across-many-leads)).
 ## Daily check
 
 At the start of each shift, and whenever an alert arrives, in this order. Speed
-matters: a lead's value expires within its **window to act** (minutes for an
-emergency or someone in custody, about an hour for a new matter), so the first
-question is always "did someone at the firm get it in time?".
+matters: we have 72 hours to get a lead to someone at the firm (24 for an
+emergency or someone in custody), and a lead stuck behind a failing destination
+should reach its fallback within the hour, so the first question is always "did
+someone at the firm get it?".
 
 0. **Leads near or past their window to act with no hand-off** *(Proposed)*.
    Make sure the firm has them now, by its **fallback** or by phone, and say
@@ -90,8 +91,8 @@ leads with Reactivate instead ("Reactivate once the firm has reconnected").
 
 | You see | Class | Drawer headline (example) | Next action | Drawer's buttons |
 |---|---|---|---|---|
-| Retrying: no answer, 429, 5xx | **Transient failure** | "No answer since 2:10 pm (4 tries)" | Nothing. It retries for about 21 hours. Act only if it is late or many deliveries are affected. | none while it retries |
-| Gave up after 8 attempts | Transient that did not pass | "No answer for 21 hours" | Check the destination is up (test lead). Then resend. | Send a test lead, Resend |
+| Retrying: no answer, 429, 5xx | **Transient failure** | "No answer since 2:10 pm (4 tries)" | Nothing. It retries for about 69 hours. Act only if it is late or many deliveries are affected. | none while it retries |
+| Gave up after 10 attempts | Transient that did not pass | "No answer for 69 hours" | Check the destination is up (test lead). Then resend. | Send a test lead, Resend |
 | Refused, receiver names a missing field the lead does not have ("missing first_name" on a hang-up) | **Lead problem** | "No caller name: Clio Grow requires one" | Nothing to fix at the destination. Do not resend; it will be refused again. Confirm the firm got the lead by its notification. | Open the lead, Resend anyway |
 | Refused, receiver names a field the lead *has*, or refuses every lead | **Configuration problem** | The receiver's words ("Phone is required") | **Edit mapping** when the mapping is ours: it makes a draft revision; send it for the firm's approval, test, activate (RFC-001 sections 5–6). Otherwise **See what we send** shows the body and what its receiver would refuse; that is set in the destination's source system. Then resend the refused leads. | Edit mapping or See what we send, Resend, Send a test lead, Pause |
 | Refused with 3xx (redirect) | Configuration problem | The receiver's words | The address moved. Confirm the new address with the firm contact; update; test; resend. | As above |
@@ -154,7 +155,7 @@ retrying at once. That is the destination's outage, not each firm's problem.
 1. Confirm: retries share a kind and started together; test leads to two firms fail the same way.
 2. **Do not resend.** Retries are already scheduled and honour `Retry-After`.
 3. Watch the retry queue drain once the destination recovers.
-4. After recovery, filter that kind for **gave up** (outages longer than about 21 hours) and resend them in bulk.
+4. After recovery, filter that kind for **gave up** (outages longer than about 69 hours) and resend them in bulk.
 5. If the outage is long, tell affected firms that leads are safe and will arrive late, and that their notifications still have them.
 
 Note: an outage does not count toward switching a destination off until a delivery gives up.
@@ -207,7 +208,7 @@ alert per destination per cause, not per lead.
 |---|---|---|
 | Destination needs reconnection | First 401/403/410 | Operator; firm contact gets the reconnect link |
 | Destination switched off | Failure streak reaches 5 | Operator |
-| Lead near its window to act | A lead with no accepted hand-off when a third of its window has passed: its hand-off goes to the fallback | Operator (the firm sees the fallback delivery) |
+| Lead waiting on its fallback | A lead with no accepted hand-off once its fallback delay has passed (1 hour; 15 minutes for emergencies and custody): its hand-off goes to the fallback | Operator (the firm sees the fallback delivery) |
 | **Expired lead** | A lead's window to act passed with no accepted hand-off | Operator, at once; the operator tells the firm |
 | Outage | Retries to one destination kind across several firms within 10 minutes | Operator, engineer |
 | Held past its window | A held delivery whose lead's window has passed: only the record is left to deliver | Operator, to agree with the firm how to mark it |

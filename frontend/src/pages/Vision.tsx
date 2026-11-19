@@ -123,8 +123,8 @@ export function Vision() {
             <thead><tr><th>Question</th><th>Our answer</th></tr></thead>
             <tbody>
               <tr><td>Who owns the lead from start to finish?</td><td>One owner in Operations, judged by the share of leads that reached a person in time; engineering on call for faults on our side</td></tr>
-              <tr><td>How fast must a lead reach the firm?</td><td>Emergencies and people in custody: 15 minutes. New clients: 1 hour. Existing clients, courts and insurers: the same business day. Everything else: the next business day</td></tr>
-              <tr><td>What if the usual route fails?</td><td>A backup the firm agreed (a text to its intake team, or email) takes over at once if the usual route is stopped, otherwise once a third of that time has passed. The firm always sees it; the CRM copy follows later, marked late</td></tr>
+              <tr><td>How fast must a lead reach the firm?</td><td>Within 72 hours; 24 for emergencies and people in custody. Set by us, not by each firm</td></tr>
+              <tr><td>What if the usual route fails?</td><td>A backup the firm agreed (a text to its intake team, or email) takes over at once if the usual route is stopped, otherwise after an hour (15 minutes for emergencies and custody). The firm always sees it; the CRM copy follows later, marked late</td></tr>
               <tr><td>Hang-ups?</td><td>Not sent to CRMs, which refuse them; the firm still sees them by email and in its portal; free if under 20 seconds</td></tr>
               <tr><td>Which CRMs do we support directly?</td><td>One at a time, each tested before firms rely on it: first one, then others from Clio Grow, Lawmatics, MyCase, Lead Docket, PracticePanther and Smokeball as firms need them. Two little-used ones retire. Everything else connects through Zapier</td></tr>
               <tr><td>Where does each call go?</td><td>By kind of call: new clients to the CRM, everything to email and the portal, emergencies also by text message</td></tr>

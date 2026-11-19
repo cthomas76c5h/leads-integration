@@ -13,7 +13,7 @@ import { href, replaceQuery } from '../lib/route';
 const LIMIT = 50;
 
 const OUTCOMES: [LeadOutcome | '', string][] = [
-  ['', 'Any outcome'], ['expired', 'Expired (window passed)'], ['delivered', 'Delivered'], ['refused', 'Refused'], ['pending', 'In progress'],
+  ['', 'Any outcome'], ['expired', 'Missed its window (late or not reached)'], ['delivered', 'Delivered'], ['refused', 'Refused'], ['pending', 'In progress'],
   ['skipped', 'Skipped by routing'], ['none', 'No destination'],
 ];
 const OUTCOME: Record<LeadOutcome, { label: string; tone: Tone }> = {
@@ -128,10 +128,13 @@ export function Leads({ query }: { query: URLSearchParams }) {
 }
 
 function Row({ x, on, onOpen, onFirm, l }: { x: LeadSummary; on: boolean; onOpen: () => void; onFirm: () => void; l: ReturnType<typeof labels> }) {
-  const o = OUTCOME[x.outcome];
+  // A missed window says which kind of miss: reached late, or not reached at all.
+  const o = x.outcome === 'expired' && x.handOff?.at != null ? { label: 'Reached late', tone: 'warn' as Tone }
+    : x.outcome === 'expired' ? { label: 'Not reached in time', tone: 'bad' as Tone }
+    : OUTCOME[x.outcome];
   const c = x.counts;
   const parts = [
-    c.delivered && `${c.delivered} accepted`, c.refused && `${c.refused} refused`,
+    c.delivered && `${c.delivered} of ${c.total} destinations accepted`, c.refused && `${c.refused} refused`,
     c.pending && `${c.pending} in progress`, c.skipped && `${c.skipped} skipped`,
   ].filter(Boolean).join(' · ');
   return (

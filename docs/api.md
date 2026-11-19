@@ -50,7 +50,7 @@ interface Connection {
   sourceRef: string | null;  // id in the source system, e.g. api-2 CRM row id
   credentials: CredentialField[];
   settings: Record<string, string>; // non-secret settings, e.g. { sendWebchats: 'false' }; role: 'fallback' marks the firm's
-                                     // agreed fallback: it gets no leads directly, only hand-offs running late (a third of the window)
+                                     // agreed fallback: it gets no leads directly, only hand-offs whose fallback delay passed (1 h; 15 min for emergencies and custody)
   enabled: boolean;        // as configured (import: the source's enabled flag)
   status: 'active' | 'disabled';     // delivery health: disabled after 410 or repeated failures
   disabledReason: string | null;
@@ -216,7 +216,7 @@ interface DeliverySummary {
 /**
  * When a lead first reached the firm (its first accepted delivery, any destination),
  * against its window to act (docs/lead-delivery/README.md, "Window to act and fallback").
- * Windows: emergency and custody 15 min; new matter 1 h; existing client, court, insurance 8 h; others 24 h.
+ * Windows (docs/lead-delivery/delivery-timing.json): emergency and custody 24 h; every other kind 72 h.
  */
 interface HandOff {
   windowMs: number;

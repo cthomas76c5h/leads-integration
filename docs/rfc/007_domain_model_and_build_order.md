@@ -173,7 +173,7 @@ the whole model moves into README.md, as the one place it is stated.
 
 | | |
 |---|---|
-| Holds | The lead, its window to act (from the category, or the firm's shorter one), its deadline, when the fallback takes it (at once if the usual destination is paused or needs reconnection, otherwise at a third of the window), its state |
+| Holds | The lead, its window to act (from the category, set by Answering AI), its deadline, when the fallback takes it (at once if the usual destination is paused or needs reconnection, otherwise after the category's fallback delay, a clock of its own), its state |
 | States | Pending → **Reached** (by which delivery, when) · **Reached by fallback** (which destination, why the usual one could not) · **Expired**. Each reached hand-off also records its **evidence level** (accepted, verified, acknowledged) and when each was first reached ([RFC-008 §3](008_delivery_guarantees_and_evidence.md#3-evidence-levels-and-the-hand-off-promise)) |
 | Invariant | The hand-off never waits for the record ([README invariant 9](../lead-delivery/README.md#6-invariants)). Once Expired it stays Expired, whatever the record does later |
 | Events | `HandOffReached`, `HandOffAcknowledged`, `FallbackUsed`, `HandOffEscalated`, `HandOffExpired` |

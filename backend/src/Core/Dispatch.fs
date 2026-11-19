@@ -141,8 +141,8 @@ let sendMissed (db: Database) (connectionId: string) =
 /// Is this the firm's fallback: the destination it agreed takes the hand-off when the usual one cannot in time.
 let isFallback (c: Connection) = setting c "role" = "fallback"
 
-/// Leads with no accepted delivery once a third of their window to act has
-/// passed go to the firm's fallback, once each. Pre-agreed in setup and always
+/// Leads with no accepted delivery once their fallback delay has passed (1 hour
+/// by default, 15 minutes for emergencies and custody) go to the firm's fallback, once each. Pre-agreed in setup and always
 /// visible (RFC-001: never a silent reroute). Returns how many were queued.
 let runFallbacks (db: Database) (nowMs: int64) : int =
     write db (fun s ->
@@ -161,8 +161,8 @@ let runFallbacks (db: Database) (nowMs: int64) : int =
         for eventId, connectionId in candidates do
             match Store.tryEvent s eventId with
             | Some e ->
-                let window = Urgency.windowMs (Categories.classify e.Lead.CallType).Category
-                if nowMs - e.CreatedAt >= Urgency.fallbackAfterMs window then
+                // The fallback's own clock (Urgency.fallbackAfterMs), not a share of the window to act.
+                if nowMs - e.CreatedAt >= Urgency.fallbackAfterMs (Categories.classify e.Lead.CallType).Category then
                     let c = (Store.connectionOrFail s connectionId).Connection
                     Store.insertDelivery s (newDelivery e c "pending" null nowMs) None
                     queued <- queued + 1

@@ -40,7 +40,19 @@ let tests =
               let mid () = 0.5 // no jitter
               Expect.equal (Policy.nextDelayMs 1 1.0 None mid) (Some 5_000L) "first retry"
               Expect.equal (Policy.nextDelayMs 1 1.0 (Some 60_000L) mid) (Some 60_000L) "Retry-After wins"
-              Expect.equal (Policy.nextDelayMs 8 1.0 None mid) None "out of attempts"
+              let last = Policy.retryScheduleMs.Length
+              Expect.equal (Policy.nextDelayMs last 1.0 None mid) (Some(24L * 3_600_000L)) "the last wait: a day"
+              Expect.equal (Policy.nextDelayMs (last + 1) 1.0 None mid) None "out of attempts"
+              Expect.isGreaterThan (Array.sum Policy.retryScheduleMs) (60L * 3_600_000L) "retries cover most of the 72-hour window"
+          }
+
+          test "delivery timings: read from the settings file; a malformed one never runs" {
+              let s = Timing.parse """{"windowToAct":{"default":"72h","emergency":"24h"},"fallbackAfter":{"default":"1h"},"retrySchedule":["5s","2d"]}"""
+              Expect.equal s.WindowToAct["default"] (72L * 3_600_000L) "hours"
+              Expect.equal s.RetrySchedule [| 5_000L; 2L * 86_400_000L |] "seconds and days"
+              Expect.throws (fun () -> Timing.parse """{"windowToAct":{"emergency":"24h"},"fallbackAfter":{"default":"1h"},"retrySchedule":["5s"]}""" |> ignore) "a default is required"
+              Expect.throws (fun () -> Timing.parse """{"windowToAct":{"default":"soon"},"fallbackAfter":{"default":"1h"},"retrySchedule":["5s"]}""" |> ignore) "durations must read"
+              Expect.equal (Timing.windowToActMs "some-new-category") (72L * 3_600_000L) "an unknown category gets the default"
           }
 
           test "template values are JSON-escaped; unknown custom field is empty; unknown field is an error" {

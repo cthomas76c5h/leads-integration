@@ -107,7 +107,7 @@ reached, and when each level was first reached.
 - **The one number is reported at two levels**, side by side and never merged:
   - **Accepted within the window:** measurable for every lead.
   - **Confirmed within the window:** acknowledged within the window, for leads whose hand-off destination can confirm. A CRM **verification** counts as confirmation only where the firm has declared, in its approved setup, that its intake team works from that CRM as its queue (**CRM is our intake queue**). That declaration is a firm-level policy, recorded with the revision that carries it and shown in the report; without it, a verified record is reported as verified, never as confirmed, because a record existing does not mean anyone saw it.
-- **Emergencies and custody** need acknowledgement, not only acceptance. If no acknowledgement arrives within half the window, the hand-off escalates: the fallback, then an operator who calls the firm. Every step is shown to the firm. *Proposed.*
+- **Emergencies and custody** need acknowledgement, not only acceptance. If no acknowledgement arrives within their fallback delay (15 minutes), the hand-off escalates: the fallback, then an operator who calls the firm. Every step is shown to the firm. *Proposed.*
 - A firm may choose, in its approved setup, to require acknowledgement for new matters too.
 - Both firm-level choices (acknowledgement for new matters; CRM as intake queue) are part of the approved revision, so changing either goes through the firm's approval and is in the audit trail.
 
@@ -229,7 +229,7 @@ scenario may assert, with where each comes from, is
 | `DeliveryCancelled` | Delivery | A waiting delivery stopped: destination removed, or routing no longer matches under a carried-forward revision |
 | `LeaseRecovered` | Delivery | A worker took over an expired lease; the covered attempt became unknown |
 | `HandOffAcknowledged` | Delivery | Someone at the firm confirmed receipt |
-| `HandOffEscalated` | Delivery | No acknowledgement in half the window: the fallback, then an operator |
+| `HandOffEscalated` | Delivery | No acknowledgement within the fallback delay: the fallback, then an operator |
 | `UsageRated` | Usage | A conversation was rated for its cycle |
 | `UsageCredited` | Usage | A correction lowered a closed cycle's charge; the credit lands in a later cycle |
 | `AccessRefused` | Accounts | A request crossed firms, or lacked the role, and was refused |
@@ -414,7 +414,7 @@ Distinct measures, never collapsed into one success rate:
 |---|---|---|
 | D1 | Evidence | Five levels; every delivery and hand-off records its strongest |
 | D2 | The one number | Reported at two levels: accepted within the window, confirmed within the window |
-| D3 | Emergencies | Need acknowledgement; escalate after half the window |
+| D3 | Emergencies | Need acknowledgement; escalate after the fallback delay (15 minutes) |
 | D4 | Boundaries | Idempotent intake, atomic planning, at-least-once sending, best-effort external deduplication; exactly-once never promised |
 | D5 | Unknown outcomes | A fourth attempt outcome, resolved by the kind's duplicate handling |
 | D6 | Destination state | Desired state and authorization in Firm configuration, observed health in Delivery, one eligibility rule |

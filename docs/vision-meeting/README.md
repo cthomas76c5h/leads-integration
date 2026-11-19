@@ -14,7 +14,7 @@ totals; real numbers from today's systems replace them before we build.
 | **Lead** | One call or chat, written up for the firm: who called, about what, and their answers |
 | **Kind of call** (call category) | What the call was about: a new client, an existing client, a court, billing, a sales call… The same dozen kinds for every firm |
 | **Connection** (destination) | Where a firm's leads go: its CRM, an email inbox, a text message, or our portal |
-| **Reached the firm in time** | A person at the firm had the lead within its time limit: 15 minutes for an emergency, 1 hour for a new client |
+| **Reached the firm in time** | A person at the firm had the lead within its time limit: 72 hours, or 24 for an emergency or someone in custody; a lead stuck behind a failing system goes to the firm's backup route within the hour |
 | **Too late** (expired) | The time limit passed before anyone at the firm had the lead; by then the caller has often called someone else |
 | **Backup route** (fallback) | A second way to reach the firm, agreed in advance (usually a text to its intake team), used when the usual route fails |
 | **Never arrived** (missed lead) | A lead that came in while a firm's connection was switched off |

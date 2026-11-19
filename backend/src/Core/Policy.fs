@@ -34,9 +34,11 @@ let classify (status: int option) (error: string) (retryAfter: string) (nowMs: i
     | Some s when s >= 300 && s < 400 -> Failed $"HTTP {s}: redirects are not followed"
     | Some s -> Failed $"HTTP {s}: the receiver refused the body"
 
-/// 5s, 1m, 5m, 30m, 2h, 6h, 12h: about 21 hours, enough to ride out an
-/// overnight outage. TIME_SCALE divides it so the lab runs it in seconds.
-let retryScheduleMs = [| 5_000L; 60_000L; 300_000L; 1_800_000L; 7_200_000L; 21_600_000L; 43_200_000L |]
+/// The waits between attempts, from the delivery timings Answering AI sets
+/// (Timing.fs): 5s, 1m, 5m, 30m, 2h, 6h, 12h, 24h, 24h by default, about 69 hours,
+/// so the record keeps trying for as long as a lead is still in time.
+/// TIME_SCALE divides it so the lab runs it in seconds.
+let retryScheduleMs = Timing.current.Value.RetrySchedule
 
 /// Delay before the next attempt, or None when out of attempts. ±20% jitter so
 /// retries from one outage do not arrive together; never sooner than Retry-After.

@@ -1,12 +1,12 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "incident-now",
-  "story": "PracticePanther answers 503 (Retry-After 60 s) for four hours. A new matter keeps retrying and is accepted after PracticePanther recovers, but the firm has no fallback, so its hand-off expired after an hour: retries keep the record and lose the client.",
+  "story": "PracticePanther answers 503 (Retry-After 60 s) for four hours. The firm has no fallback; its new matter keeps retrying and is accepted after PracticePanther recovers, well inside its 72-hour window: retries carry the lead through.",
   "slice": 6,
   "model": "lab",
   "proves": [
-    "docs/lead-delivery/README.md#window-to-act-and-fallback (the hand-off never waits for the record)",
-    "docs/lead-delivery/README.md#lead-outcome (Expired, whatever happens to the record afterwards)"
+    "docs/lead-delivery/README.md#retry (transient failures retry, never sooner than Retry-After)",
+    "docs/lead-delivery/README.md#window-to-act-and-fallback (72-hour window to act)"
   ],
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
@@ -61,7 +61,7 @@
       "at": "+1h05m",
       "handOff": {
         "lead": "lead-1",
-        "state": "expired"
+        "state": "pending"
       }
     },
     {
@@ -85,14 +85,14 @@
       "at": "+11h",
       "handOff": {
         "lead": "lead-1",
-        "state": "expired"
+        "state": "reached"
       }
     },
     {
       "at": "+11h",
       "outcome": {
         "lead": "lead-1",
-        "is": "expired"
+        "is": "accepted"
       }
     }
   ]

@@ -48,14 +48,15 @@ export function handOffText(h: HandOff | null, createdAt: number, counts?: { tot
   if (h.state === 'on-time' && h.at !== null) {
     return { text: `Reached the firm in ${duration(h.at - createdAt)}${h.viaFallback ? `, by its fallback (${h.by})` : ''}`, tone: h.viaFallback ? 'warn' : 'ok' };
   }
+  // Missed its window: either it reached the firm late (amber), or no one at the firm had it (red).
   if (h.state === 'expired') {
     return h.at !== null
-      ? { text: `Expired: reached the firm ${duration(h.at - createdAt)} after the call, past its ${window} window`, tone: 'bad' }
+      ? { text: `Reached late: the firm had it ${duration(h.at - createdAt)} after the call, ${duration(h.at - h.dueAt)} past its ${window} window to act`, tone: 'warn' }
       : counts && counts.total > 0 && counts.skipped === counts.total
-        ? { text: `Expired: none of the firm's destinations takes this kind of call, so it reached no one`, tone: 'bad' }
+        ? { text: `Not reached in time: none of the firm's destinations takes this kind of call`, tone: 'bad' }
         : counts && counts.total === 0
-          ? { text: 'Expired: the firm had no live destination, so it reached no one', tone: 'bad' }
-          : { text: `Expired: nobody reached within its ${window} window`, tone: 'bad' };
+          ? { text: 'Not reached in time: the firm had no live destination', tone: 'bad' }
+          : { text: `Not reached in time: no one at the firm had it within its ${window} window to act`, tone: 'bad' };
   }
   return { text: `${duration(Math.max(0, h.dueAt - now))} left of its ${window} window`, tone: 'warn' };
 }

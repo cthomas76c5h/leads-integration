@@ -168,7 +168,7 @@ A delivery that ran out of attempts without being accepted.
 _Avoid_: dead-lettered, expired
 
 **Window to act**:
-How long after the call a lead is still worth acting on as new. It depends on the call category: minutes for an emergency or someone in custody, days for a billing question.
+How long after the call we have to get the lead to someone at the firm: 72 hours, or 24 for an emergency or someone in custody. Set by Answering AI. A lead that misses it either *reached the firm late* or was *not reached in time*.
 _Avoid_: TTL, expiry date, shelf life
 
 **Expired lead**:
@@ -184,7 +184,7 @@ Getting a lead into the firm's system of record (usually its CRM), complete and 
 _Avoid_: sync, backfill
 
 **Fallback**:
-A destination the firm agreed, in its approved setup, to receive the hand-off when the usual one cannot within the window to act. Every use is shown to the firm; nothing is rerouted silently.
+A destination the firm agreed, in its approved setup, to receive the hand-off when the usual one cannot: at once if the usual one is stopped, else after 1 hour with nothing accepted (15 minutes for emergencies and custody). Its own clock, separate from the window to act. Every use is shown to the firm; nothing is rerouted silently.
 _Avoid_: failover, reroute
 
 **Held**:

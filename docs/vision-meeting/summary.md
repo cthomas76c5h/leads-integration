@@ -6,7 +6,7 @@ Law firms pay us for one thing: **every new client who calls, reaching them in
 time.** Today we cannot show that we do it.
 
 - **Leads go missing without anyone noticing.** When a firm's CRM connection stops, nothing breaks; the leads simply stop arriving, and we usually hear from the firm, days later.
-- **Speed is not measured.** A caller who is not called back within the hour often calls the next firm. A lead that reaches the CRM a day late has kept its paperwork and lost its client.
+- **Lost and late leads are not measured.** A lead that never arrives is a client lost outright; one that arrives days late has kept its paperwork and probably lost its client. Nobody counts either.
 - **Every firm is set up differently.** Firms use 4,390 different names for kinds of call, which boil down to about a dozen. Most of our support work is the same few needs expressed thousands of ways.
 - **Our billing cannot explain itself.** Minutes with a hidden multiplier, rates that differ account by account, and free calls decided by a typed label. Nothing on the invoice shows what the firm got.
 - **Terms of service locked people out.** Every edit, even a grammar fix, forced everyone to accept again before signing in.
@@ -43,7 +43,7 @@ time.** Today we cannot show that we do it.
 ## What we need from leadership
 
 1. Name the owner of lead delivery.
-2. Agree the time limits per kind of call (our proposal: 15 minutes for emergencies, 1 hour for new clients).
+2. Agree the time limits (our proposal: 72 hours for every kind of call, 24 for emergencies and custody, with a backup route within the hour when a firm's system is failing).
 3. Approve the billing direction, starting with two months of side-by-side bills.
 4. Approve counsel's review of the terms-of-service wording for firm admins accepting on the firm's behalf.
 

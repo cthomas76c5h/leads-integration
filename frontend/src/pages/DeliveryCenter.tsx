@@ -101,7 +101,7 @@ export function DeliveryCenter({ query }: { query: URLSearchParams }) {
 
       <div className="tiles">
         <a className={`tile ${t?.expiredLeads ? 'alert' : ''}`} href={href('/leads', { outcome: 'expired', tests: test ? 1 : null, firm: firm === 'all' ? null : firm })}>
-          <span className="tile-icon bad" aria-hidden="true">⏱</span><span>Expired leads</span><strong>{t?.expiredLeads ?? '…'}</strong>
+          <span className="tile-icon bad" aria-hidden="true">⏱</span><span>Missed their window</span><strong>{t?.expiredLeads ?? '…'}</strong>
           <small className="muted">Window to act passed before anyone at the firm got them · last 7 days</small>
         </a>
         <button type="button" className="tile" onClick={() => show('delivered')}>

@@ -298,9 +298,12 @@ let run (db: Db.Database) (opts: Options) : Summary =
         let deadFirm = deadEmail |> Option.map (fun id -> conns[id].FirmId) |> Option.toList |> Set.ofList
         let pausedEmail = busiestWith "email" (deadFirm |> Set.union (showcase |> Option.map _.Id |> Option.toList |> Set.ofList))
         let outageStart, outageEnd = at 2 13 30, at 2 16 0
+        // Every route to the firm without a fallback is down for longer than the 72-hour window.
+        let longStart, longEnd = at 4 9 0, at 1 9 0
 
-        // Two firms whose email also fails during the Answering Legal outage, so nothing
-        // reaches them: one agreed a fallback (an SMS to its intake team), one did not.
+        // Two firms nothing can reach: one agreed a fallback (an SMS to its intake team), and its
+        // email fails during the Answering Legal outage; the other agreed none, and every route
+        // to it is down for days.
         let pausedFirm = pausedEmail |> Option.map (fun id -> conns[id].FirmId) |> Option.toList |> Set.ofList
         let handOffFirms =
             let skip = deadFirm |> Set.union pausedFirm |> Set.union (showcase |> Option.map _.Id |> Option.toList |> Set.ofList)
@@ -361,18 +364,26 @@ let run (db: Db.Database) (opts: Options) : Summary =
                 ConnectionIds = byKind "email"
                 Answer = window relayStart relayEnd (fun _ -> NoAnswer("no answer in 10000 ms", 10_000L))
                 Mode = "" }
-              match handOffFirms |> Array.choose emailOf with
-              | [||] -> ()
-              | ids ->
+              match withFallback |> Option.bind emailOf with
+              | Some id ->
                   { Name = "both-routes-down"
-                    Story = "During the Answering Legal outage, these firms' email failed too, so nothing could reach them."
-                    ConnectionIds = ids
+                    Story = "During the Answering Legal outage, this firm's email failed too, so nothing could reach it but its fallback."
+                    ConnectionIds = [| id |]
                     Answer = window outageStart outageEnd (fun _ -> Http(503, "unavailable", null))
                     Mode = "" }
+              | None -> ()
+              match withoutFallback with
+              | Some fid ->
+                  { Name = "long-outage"
+                    Story = "Every route to this firm was down for days, longer than its 72-hour window, and it had agreed no fallback."
+                    ConnectionIds = connectionsOf fid
+                    Answer = window longStart longEnd (fun _ -> Http(503, "unavailable (long outage)", null))
+                    Mode = "" }
+              | None -> ()
               match deadEmail with
               | Some id ->
                   { Name = "dead-endpoint"
-                    Story = "This firm's email endpoint has answered 503 since the start of the week. Each lead was retried for about 21 hours, then failed; after 5 in a row the connection was switched off."
+                    Story = "This firm's email endpoint has answered 503 since the start of the week. Each lead was retried for about 69 hours, then failed; after 5 in a row the connection was switched off."
                     ConnectionIds = [| id |]
                     Answer = window (windowStart + 12L * hour) Int64.MaxValue (fun _ -> Http(503, "unavailable (down)", null))
                     Mode = "down" }
@@ -438,12 +449,13 @@ let run (db: Db.Database) (opts: Options) : Summary =
         let handOffLeads =
             [| for fid in handOffFirms do
                    let f = firm fid
+                   let start = if Some fid = withoutFallback then longStart else outageStart
                    for after in [ 15L; 45L ] do
                        let rec make tries =
                            let l, category = Seed.lead rnd seedOpts f
                            let l = { l with Webchat = false; Source = "Answering AI" }
                            if tries > 0 && (l.FirstName = "" || category <> "new-matter") then make (tries - 1) else l
-                       yield ({ Id = Secrets.newId simPrefix; FirmId = fid; Test = false; CreatedAt = outageStart + after * minute; Lead = make 80 }: LeadEvent) |]
+                       yield ({ Id = Secrets.newId simPrefix; FirmId = fid; Test = false; CreatedAt = start + after * minute; Lead = make 80 }: LeadEvent) |]
         let added = Array.append added handOffLeads
 
         // Tests: the showcase firm checked each destination when it was set up, and Clio again after the token expired.
@@ -479,8 +491,7 @@ let run (db: Db.Database) (opts: Options) : Summary =
             events[e.Id] <- e
             enqueue e.CreatedAt (Publish(e, None))
             if fallbackOf.ContainsKey e.FirmId then
-                let w = Urgency.windowMs (Categories.classify e.Lead.CallType).Category
-                enqueue (e.CreatedAt + Urgency.fallbackAfterMs w) (HandOffCheck e)
+                enqueue (e.CreatedAt + Urgency.fallbackAfterMs (Categories.classify e.Lead.CallType).Category) (HandOffCheck e)
         for e, id in tests do
             events[e.Id] <- e
             enqueue e.CreatedAt (Publish(e, Some id))
@@ -488,6 +499,12 @@ let run (db: Db.Database) (opts: Options) : Summary =
         // The redirect is fixed: replay what it refused.
         showcaseConn "mycase" |> Option.iter (fun id -> enqueue (at 3 9 30) (Reactivate id))
         enqueue (at 3 9 40) (Replay((fun x -> x.D.Kind = "mycase" && x.D.Status = "failed" && not (isNull x.D.Reason) && x.D.Reason.StartsWith "HTTP 301"), 50))
+        // The long outage ends: an operator reactivates the firm's destinations and resends what failed.
+        withoutFallback
+        |> Option.iter (fun fid ->
+            for id in connectionsOf fid do
+                enqueue (longEnd + 30L * minute) (Reactivate id)
+            enqueue (longEnd + 40L * minute) (Replay((fun x -> x.D.FirmId = fid && x.D.Status = "failed"), 200)))
         // Someone retries two hang-ups by hand: the receiver still needs a name.
         enqueue (at 1 15 5) (Replay((fun x -> x.D.Kind = "answering-legal" && x.D.Status = "failed" && x.Attempts.Count > 0 && x.Attempts[x.Attempts.Count - 1].ResponseSnippet.Contains "missing first_name"), 2))
 
@@ -681,14 +698,14 @@ let run (db: Db.Database) (opts: Options) : Summary =
               | Some fid ->
                   yield
                       { Name = "fallback"
-                        Story = "Nothing reached this firm during the outage, but it had agreed an SMS fallback: each new matter reached its intake team within about 20 minutes, inside the 1-hour window to act."
+                        Story = "Nothing reached this firm during the outage, but it had agreed an SMS fallback: each new matter reached its intake team within the hour."
                         Where = (firm fid).Name }
               | None -> ()
               match withoutFallback with
               | Some fid ->
                   yield
-                      { Name = "expired"
-                        Story = "The same outage, no fallback: its new matters reached the firm only after the outage, past their 1-hour window to act. Expired leads."
+                      { Name = "no-fallback"
+                        Story = "Every route down for days and no fallback: retries ran out, its destinations were switched off, and nothing reached the firm until an operator reactivated them and resent its leads, days late and past their 72-hour window."
                         Where = (firm fid).Name }
               | None -> ()
               match pausedEmail with

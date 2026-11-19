@@ -20,9 +20,10 @@ We built a delivery model in a lab (RFC-006) and ran it over a simulated week of
 every failure path. Reliability alone (retries, switching off broken connections,
 resending) is not enough, for two reasons:
 
-1. **Late is a kind of lost.** A caller who is not called back within the hour
-   often calls the next firm. Retrying for a day, or holding leads until a
-   connection returns, keeps the record but loses the client.
+1. **Lost is the worst outcome, and late is a kind of lost.** A lead that never
+   arrives is a client lost outright; one that arrives days later has kept its
+   paperwork and probably lost its client. Retrying for as long as a lead is in
+   time protects the record; a fallback within the hour protects the client.
 2. **The worst failures are silent.** A stopped connection does not error; its
    leads simply stop arriving. Production has one global alert for every firm.
 
@@ -111,12 +112,13 @@ retry schedule, hold or reconnection delays getting a lead to someone who can ac
 
 ### 4.1 Window to act
 
-| Kind of call | Window to act |
-|---|---|
-| Emergency, jail or custody | 15 minutes |
-| New matter | 1 hour |
-| Existing client, court or agency, insurance or medical | Same business day |
-| Billing, vendor, general | Next business day |
+| Kind of call | Window to act | Fallback after |
+|---|---|---|
+| Emergency, jail or custody | 24 hours | 15 minutes |
+| Every other kind | 72 hours | 1 hour |
+
+Set by Answering AI in one versioned settings file
+([delivery-timing.json](../lead-delivery/delivery-timing.json)), not by firms.
 
 Starting values, to be confirmed with firms' own time-to-contact data. A firm may
 shorten a window, not lengthen it. The kind of call comes from call categories
@@ -127,7 +129,7 @@ shorten a window, not lengthen it. The kind of call comes from call categories
 - Each firm agrees a fallback destination in its approved setup (RFC-005): usually SMS to its intake team, or email.
 - **Every firm whose only destination is a CRM must have one;** email is the default for the rest.
 - If the usual destination is paused or needs reconnection, the lead goes to the fallback **at once**: that destination cannot deliver, and its record is held (4.3).
-- Otherwise, if no destination has accepted the lead when **a third of its window** has passed (still retrying, or refused), the lead goes to the fallback.
+- Otherwise, if no destination has accepted the lead once its **fallback delay** has passed (1 hour; 15 minutes for emergencies and custody), still retrying or refused, the lead goes to the fallback. The fallback runs on its own clock, separate from the window to act.
 - Either way, once per lead, marked "sent by fallback: {destination} unavailable".
 - A fallback is always pre-agreed and always shown: client information never goes anywhere the firm did not approve.
 
@@ -190,7 +192,7 @@ destination and the next action.
 |---|---|---|
 | Destination needs reconnection | First 401/403/410 | Operator; firm contact gets the reconnect link |
 | Destination switched off | Failure streak reaches 5 | Operator |
-| Lead near its window | A third of the window passed without a hand-off (fallback fires) | Operator |
+| Lead waiting on its fallback | Its fallback delay passed without a hand-off (fallback fires) | Operator |
 | **Expired lead** | Window passed without a hand-off | Operator, at once |
 | Outage | Retries to one destination kind across several firms within 10 minutes | Operator, engineer |
 | Quiet firm | A live firm with no accepted delivery in business hours for longer than usual | Operator |
@@ -289,8 +291,8 @@ the firm agreed in its approved setup; every use shown to the firm.
 |---|---|---|
 | D1 | Owner | A lead delivery owner in Operations; engineering on call for our faults |
 | D2 | The one number | Share of leads handed off within their window to act, per firm, plus expired leads |
-| D3 | Windows to act | 15 min / 1 h / same business day / next business day by kind of call; firms may shorten |
-| D4 | Fallback | Agreed at setup; required where the only destination is a CRM; fires at once when the usual destination is paused or needs reconnection, otherwise at a third of the window |
+| D3 | Windows to act | 72 hours; 24 for emergencies and custody; set by Answering AI |
+| D4 | Fallback | Agreed at setup; required where the only destination is a CRM; fires at once when the usual destination is paused or needs reconnection, otherwise after its own delay (1 hour; 15 minutes for emergencies and custody) |
 | D5 | Stopped destinations | Deliveries held, sent on return marked late; operator and firm agree after 3 days |
 | D6 | Hang-ups to CRMs | Not sent; recorded as a lead problem; the firm has them by email and the portal |
 | D7 | Switch-off | Counts configuration problems and gave-up only; connection problems stop at once |
