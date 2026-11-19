@@ -64,6 +64,26 @@ def scenario_problems(s: dict, modes: set[str], categories: set[str], areas: set
                 problems.append(f"action at {step['at']}: no destination {a['destination']}")
             if "lead" in a and a["lead"] not in leads:
                 problems.append(f"action at {step['at']}: no earlier lead {a['lead']}")
+            for c in [a["category"]] if "category" in a else []:
+                if c not in categories:
+                    problems.append(f"action at {step['at']}: no category {c} in the taxonomy")
+            for c in a.get("routing", {}).get("categories", []):
+                if c not in categories:
+                    problems.append(f"action at {step['at']}: no category {c} in the taxonomy")
+        if "fault" in step:
+            f = step["fault"]
+            if "lead" in f and f["lead"] not in leads:
+                problems.append(f"fault at {step['at']}: no earlier lead {f['lead']}")
+            if "destination" in f and f["destination"] not in destinations:
+                problems.append(f"fault at {step['at']}: no destination {f['destination']}")
+        if "access" in step:
+            acc = step["access"]
+            if acc["firm"] not in firms:
+                problems.append(f"access at {step['at']}: no firm {acc['firm']}")
+            if acc["lead"] not in leads:
+                problems.append(f"access at {step['at']}: no earlier lead {acc['lead']}")
+        if "cycleCloses" in step and step["cycleCloses"]["firm"] not in firms:
+            problems.append(f"cycle close at {step['at']}: no firm {step['cycleCloses']['firm']}")
 
     for e in s["then"]:
         refs = []
@@ -76,10 +96,19 @@ def scenario_problems(s: dict, modes: set[str], categories: set[str], areas: set
             refs.append(("lead", e["handOff"]["lead"]))
             if "by" in e["handOff"]:
                 refs.append(("destination", e["handOff"]["by"]))
-        if "outcome" in e:
-            refs.append(("lead", e["outcome"]["lead"]))
+        for key in ("outcome", "capture", "billing"):
+            if key in e:
+                refs.append(("lead", e[key]["lead"]))
+        if "access" in e:
+            refs += [("lead", e["access"]["lead"]), ("firm", e["access"]["firm"])]
+        if "classification" in e:
+            c = e["classification"]
+            refs.append(("lead", c["lead"]))
+            refs += [("destination", d) for d in c.get("offered", [])]
+            if c["category"] not in categories:
+                problems.append(f"expectation at {e['at']}: no category {c['category']} in the taxonomy")
         for what, ref in refs:
-            known = leads if what == "lead" else destinations
+            known = {"lead": leads, "destination": destinations, "firm": firms}[what]
             if ref not in known:
                 problems.append(f"expectation at {e['at']}: no {what} {ref}")
     return problems

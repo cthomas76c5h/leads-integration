@@ -21,6 +21,13 @@
       "checksBody": false,
       "answers": [{ "status": 401, "body": "unauthorized: access token expired" }],
       "note": "The simulator injects this answer today; the receivers have no mode for it yet"
+    },
+    "lost-record": {
+      "model": "proposed",
+      "checksBody": true,
+      "answers": [{ "status": 201, "body": "accepted" }],
+      "lookup": "never-found",
+      "note": "Accepts the request, but a lookup by our lead reference never finds the record (RFC-008 §3.1, accepted-never-verified). In every other mode, a lookup finds what was accepted"
     }
   }
 }

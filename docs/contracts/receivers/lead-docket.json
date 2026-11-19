@@ -38,9 +38,11 @@
     "status": 422,
     "body": "missing {field}"
   },
+  "duplicates": "none",
   "toConfirm": [
     "The real status for an accepted lead (the fake receiver answers 201)",
     "How a revoked intake URL is answered (the lab treats 410 as hook removed)",
-    "Whether a lead with no caller name (a hang-up) is refused, or should be a lead problem and not sent"
+    "Whether a lead with no caller name (a hang-up) is refused, or should be a lead problem and not sent",
+    "Duplicate handling (idempotency key, lookup by our reference, or none): RFC-008 §4.3"
   ]
 }

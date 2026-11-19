@@ -28,7 +28,7 @@ time.** Today we cannot show that we do it.
 |---|---|
 | From the start | Real numbers on lost and late leads, from today's systems |
 | About two months | No lead lost without a trace; alerts on stopped connections; the daily operations screens |
-| About three months | Every new client reaches a person in time, by a backup route if needed; firms approve every change |
+| Three to four months | Every new client reaches a person in time, by a backup route if needed; firms approve every change |
 | Then | Firms see their week; six CRMs tested; one standard lead from phone and chat; the new bill beside the old; terms without lock-outs |
 | After | Packages launched; firms set themselves up; other software can receive our leads; a package for trades businesses |
 

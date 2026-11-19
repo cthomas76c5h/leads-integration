@@ -148,6 +148,10 @@
                 },
                 "minItems": 1,
                 "description": "The body fields its live revision sends (webhook kinds); the standard body if absent"
+              },
+              "duplicates": {
+                "$ref": "#/$defs/duplicates",
+                "description": "The duplicate handling this scenario assumes for the destination, where its kind's receiver contract has not confirmed one"
               }
             }
           }
@@ -198,8 +202,10 @@
         "gave-up",
         "not-sent",
         "held",
-        "cancelled"
-      ]
+        "cancelled",
+        "unknown"
+      ],
+      "description": "The model's delivery states. 'unknown' (RFC-008 §4.2-4.3): the last attempt was sent but no answer came, and the kind cannot tell a duplicate, so the delivery waits for an operator to check and resend or close"
     },
     "failureClass": {
       "enum": [
@@ -338,6 +344,10 @@
               "type": "boolean",
               "default": false,
               "description": "The caller left before giving a name"
+            },
+            "conversation": {
+              "type": "string",
+              "description": "The channel's own conversation id, the key that makes intake idempotent (RFC-008 §4.1)"
             }
           }
         },
@@ -359,7 +369,7 @@
           }
         },
         "action": {
-          "description": "An operator, senior operator or firm contact does something. change-mapping prepares a draft revision; approve is the firm contact approving it, after which it is live (setup's test and confirm steps are not modelled)",
+          "description": "An operator, senior operator or firm contact does something. change-mapping prepares a draft revision; approve is the firm contact approving it, after which it is live (setup's test and confirm steps are not modelled). change-routing prepares a draft revision with a new routing rule. Revisions are numbered per destination: the given live one is 1, and each approval makes the next one live. acknowledge: the firm contact confirms a lead reached them. correct-classification: a reviewer or the firm contact corrects a lead's category",
           "type": "object",
           "required": [
             "by",
@@ -371,7 +381,8 @@
               "enum": [
                 "operator",
                 "senior-operator",
-                "firm-contact"
+                "firm-contact",
+                "reviewer"
               ]
             },
             "do": {
@@ -383,7 +394,10 @@
                 "reconnect",
                 "send-missed",
                 "change-mapping",
-                "approve"
+                "approve",
+                "change-routing",
+                "acknowledge",
+                "correct-classification"
               ]
             },
             "destination": {
@@ -402,6 +416,105 @@
               },
               "minItems": 1,
               "description": "change-mapping: the body fields the draft revision sends"
+            },
+            "routing": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "categories": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "description": "change-routing: the routing rule the draft revision takes"
+            },
+            "applyToWaiting": {
+              "type": "boolean",
+              "default": false,
+              "description": "approve: whether deliveries still waiting move to the new revision (RFC-008 §5.2)"
+            },
+            "via": {
+              "enum": [
+                "sms-reply",
+                "link",
+                "portal"
+              ],
+              "description": "acknowledge: how the firm confirmed receipt (RFC-008 §3.1)"
+            },
+            "category": {
+              "type": "string",
+              "description": "correct-classification: the corrected call category"
+            }
+          }
+        },
+        "fault": {
+          "description": "Something goes wrong inside our own system (RFC-008 §10). Facts only: what happens, to which lead or delivery",
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "worker-crash-after-send",
+                "second-worker-claims",
+                "worker-stalls-before-send",
+                "worker-continues",
+                "lease-expires",
+                "database-unavailable",
+                "database-available",
+                "intake-event-repeated"
+              ],
+              "description": "worker-crash-after-send: the destination received the request and the worker died before recording an answer. second-worker-claims: another worker tries to claim a delivery that is already claimed. worker-stalls-before-send: a worker claims a delivery and stops just before transmitting; worker-continues resumes it. lease-expires: the claim of a stalled worker runs out. database-unavailable / database-available: our database stops and starts answering. intake-event-repeated: the channel sends a lead's completion event again"
+            },
+            "lead": {
+              "$ref": "#/$defs/id"
+            },
+            "destination": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        },
+        "access": {
+          "description": "A firm's user asks for a lead through a public boundary (RFC-008 §9); an access expectation says whether it is allowed",
+          "type": "object",
+          "required": [
+            "firm",
+            "lead",
+            "boundary"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "firm": {
+              "$ref": "#/$defs/id",
+              "description": "The firm the requester belongs to"
+            },
+            "lead": {
+              "$ref": "#/$defs/id"
+            },
+            "boundary": {
+              "enum": [
+                "read",
+                "list",
+                "export",
+                "resend"
+              ]
+            }
+          }
+        },
+        "cycleCloses": {
+          "description": "The firm's billing cycle closes: its statement is locked as rated (RFC-003)",
+          "type": "object",
+          "required": [
+            "firm"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "firm": {
+              "$ref": "#/$defs/id"
             }
           }
         }
@@ -409,7 +522,7 @@
       "additionalProperties": false
     },
     "expectation": {
-      "description": "A state that holds at the given time. Exactly one of destination, delivery, noDelivery, handOff, outcome",
+      "description": "A state that holds at the given time. Exactly one of destination, delivery, noDelivery, handOff, outcome, capture, access, classification, billing",
       "type": "object",
       "required": [
         "at"
@@ -474,6 +587,34 @@
               "type": "integer",
               "minimum": 1,
               "description": "How many deliveries this lead has to this destination, resends included"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The revision this delivery uses (RFC-008 §5.2)"
+            },
+            "evidence": {
+              "enum": [
+                "submitted",
+                "accepted",
+                "verified"
+              ],
+              "description": "The strongest evidence for this delivery (RFC-008 §3.1)"
+            },
+            "verifyOverdue": {
+              "type": "boolean",
+              "description": "Accepted, but the destination's lookup has not found the record within the set time"
+            },
+            "outcomes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/attemptOutcome"
+              },
+              "description": "Each attempt's outcome, in order"
+            },
+            "reason": {
+              "type": "string",
+              "description": "Words the reason must contain, for a cancelled or not-sent delivery"
             }
           }
         },
@@ -494,6 +635,13 @@
             "by": {
               "$ref": "#/$defs/id",
               "description": "The destination that reached the firm"
+            },
+            "evidence": {
+              "$ref": "#/$defs/evidence"
+            },
+            "escalated": {
+              "type": "boolean",
+              "description": "Escalated to an operator who calls the firm (RFC-008 §3.2)"
             }
           }
         },
@@ -529,9 +677,156 @@
               "$ref": "#/$defs/id"
             }
           }
+        },
+        "capture": {
+          "description": "What intake recorded for a lead (RFC-008 §4.1)",
+          "type": "object",
+          "required": [
+            "lead",
+            "is"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "lead": {
+              "$ref": "#/$defs/id"
+            },
+            "is": {
+              "enum": [
+                "recorded",
+                "not-recorded"
+              ]
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "How many leads exist for the lead's conversation"
+            },
+            "channelTold": {
+              "enum": [
+                "recorded",
+                "not-recorded"
+              ],
+              "description": "What intake answered the channel"
+            }
+          }
+        },
+        "access": {
+          "description": "The answer to the access step with the same firm, lead and boundary",
+          "type": "object",
+          "required": [
+            "firm",
+            "lead",
+            "boundary",
+            "is"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "firm": {
+              "$ref": "#/$defs/id"
+            },
+            "lead": {
+              "$ref": "#/$defs/id"
+            },
+            "boundary": {
+              "enum": [
+                "read",
+                "list",
+                "export",
+                "resend"
+              ]
+            },
+            "is": {
+              "enum": [
+                "allowed",
+                "refused"
+              ]
+            },
+            "audited": {
+              "type": "boolean"
+            }
+          }
+        },
+        "classification": {
+          "description": "A lead's current classification and its kept history (RFC-008 §6.2)",
+          "type": "object",
+          "required": [
+            "lead",
+            "category"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "lead": {
+              "$ref": "#/$defs/id"
+            },
+            "category": {
+              "type": "string"
+            },
+            "records": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Classification records kept for the lead, superseded ones included"
+            },
+            "offered": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/id"
+              },
+              "description": "Destinations offered to an operator because the lead now matches them"
+            }
+          }
+        },
+        "billing": {
+          "description": "How the lead's conversation is billed (RFC-008 §6.2)",
+          "type": "object",
+          "required": [
+            "lead",
+            "is"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "lead": {
+              "$ref": "#/$defs/id"
+            },
+            "is": {
+              "enum": [
+                "billable",
+                "free",
+                "under-review",
+                "credited-next-cycle"
+              ]
+            }
+          }
         }
       },
       "additionalProperties": false
+    },
+    "evidence": {
+      "enum": [
+        "submitted",
+        "accepted",
+        "verified",
+        "acknowledged"
+      ],
+      "description": "The strongest evidence reached (RFC-008 §3.1); 'acted on' is never part of the promise"
+    },
+    "attemptOutcome": {
+      "enum": [
+        "answered",
+        "not-sent",
+        "unknown",
+        "ours"
+      ],
+      "description": "How an attempt ended (RFC-008 §4.2)"
+    },
+    "duplicates": {
+      "enum": [
+        "idempotency-key",
+        "lookup",
+        "external-reference",
+        "none",
+        "harmless"
+      ],
+      "description": "How a destination handles a lead it may have seen (RFC-008 §4.3)"
     }
   }
 }

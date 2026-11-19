@@ -30,7 +30,7 @@ report then all read the same fact instead of guessing from text.
 
 Approve:
 
-1. The **taxonomy**: twelve categories, practice areas for new matters, and modifiers, versioned in one file.
+1. The **taxonomy**: nine kinds of call, practice areas for new matters, and modifiers, versioned in one file. Its three other entries (`system`, `line-handling`, `staff-routing`) mark call types that are not kinds of call, and leave the categories in its next version ([RFC-008 §6.3](008_delivery_guarantees_and_evidence.md#63-taxonomy-scope)).
 2. **Untangling the call-type field**: billing flags, staff names and phone settings move to their own places.
 3. **Classification at intake** by Answering AI, with a confidence, review of uncertain calls, and firm corrections.
 4. Categories as the input to **routing, windows to act, free-call rules and reports**.

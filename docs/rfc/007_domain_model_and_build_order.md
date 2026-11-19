@@ -6,7 +6,7 @@
 **Status:** Proposed — Awaiting stakeholder approval
 **Decision owner:** Engineering / Product Leadership
 **Reviewers:** Engineering, Product, Operations, Finance, Legal
-**Related:** RFC-001 to RFC-005 (each is one or more slices here) · RFC-006 (the lab is where each slice is proven)
+**Related:** RFC-001 to RFC-005 (each is one or more slices here) · RFC-006 (the lab is where each slice is proven) · RFC-008 (delivery guarantees, concurrency and evidence; revises sections 5, 6 and 8)
 **Detail:** [domain model: delivery](../lead-delivery/README.md) · [glossary](../../GLOSSARY.md) · [answers](../lead-delivery/answers.md) · [lessons](../lead-delivery/lessons.md) · [code map](../lead-delivery/code-map.md)
 
 ---
@@ -38,7 +38,7 @@ Approve:
 
 1. **The context map** (section 4): nine contexts, the language between them, and what each owns.
 2. **The aggregates and invariants** (section 5), including three corrections to today's model: the **hand-off** as its own aggregate, **classification recorded at intake**, and **billing read from conversations, not leads**.
-3. **The build order** (section 8): thirteen slices, each with the scenario that proves it and its estimated effort (about 60–90 person-weeks in all; 24–35 to a product a firm can rely on).
+3. **The build order** (section 8): thirteen slices, each with the scenario that proves it and its estimated effort (about 62–95 person-weeks in all; 29–44 to a product a firm can rely on), as revised by [RFC-008](008_delivery_guarantees_and_evidence.md).
 4. **The method** (section 9) as the definition of done for every feature.
 5. **The guarantees every implementation must keep** (section 6), whatever its language or infrastructure, and **scenarios and receiver contracts as language-neutral data files** that any implementation can be checked against.
 6. **Refactoring the lab towards this model** (section 10), slice by slice, as the reference implementation.
@@ -138,8 +138,8 @@ flowchart LR
 | **Accounts** | **Firm** (one identity across every channel), **Brand** (presentation only), users and roles | Anything about calls or deliveries |
 | **Call categories** | The taxonomy (versioned), each firm's mapping from **call types** to **call categories** | What a firm does with a category |
 | **Intake** | The **conversation** on any channel, the **caller**, **intake answers**, the **lead** with its classification | Where the lead goes |
-| **Firm configuration** | **Destinations**, **connections** (presence and fingerprint), **revisions** (routing rule and mapping), **setups** and **change requests** | Sending |
-| **Delivery** | **Deliveries**, **attempts**, the **hand-off** of each lead, retry and switch-off policy, destination health | What the firm wants (it reads live revisions) |
+| **Firm configuration** | **Destinations** and their **desired state**, **connections** (presence, fingerprint and authorization version), **revisions** (routing rule and mapping), **setups** and **change requests** | Sending; observed health |
+| **Delivery** | **Deliveries**, **attempts**, the **hand-off** of each lead, retry and switch-off policy, each destination's **observed health**, and the rule that decides whether a delivery may be sent ([RFC-008 §5](008_delivery_guarantees_and_evidence.md#5-destination-state-ownership-and-concurrency)) | What the firm wants (it reads desired state and live revisions) |
 | **Destination kinds** | One adapter per kind: the request it builds, how its answers are classified | Our rules; it only translates |
 | **Operations** | Alerts, operator actions, the read models behind every screen | The rules; it acts through commands |
 | **Usage and billing** | The usage ledger, non-billable rules, the price book, statements | Invoicing, payments and tax (bought) |
@@ -174,9 +174,9 @@ the whole model moves into README.md, as the one place it is stated.
 | | |
 |---|---|
 | Holds | The lead, its window to act (from the category, or the firm's shorter one), its deadline, when the fallback takes it (at once if the usual destination is paused or needs reconnection, otherwise at a third of the window), its state |
-| States | Pending → **Reached** (by which delivery, when) · **Reached by fallback** (which destination, why the usual one could not) · **Expired** |
+| States | Pending → **Reached** (by which delivery, when) · **Reached by fallback** (which destination, why the usual one could not) · **Expired**. Each reached hand-off also records its **evidence level** (accepted, verified, acknowledged) and when each was first reached ([RFC-008 §3](008_delivery_guarantees_and_evidence.md#3-evidence-levels-and-the-hand-off-promise)) |
 | Invariant | The hand-off never waits for the record ([README invariant 9](../lead-delivery/README.md#6-invariants)). Once Expired it stays Expired, whatever the record does later |
-| Events | `HandOffReached`, `FallbackUsed`, `HandOffExpired` |
+| Events | `HandOffReached`, `HandOffAcknowledged`, `FallbackUsed`, `HandOffEscalated`, `HandOffExpired` |
 
 This gives the one number ([strategy §7](../lead-delivery/strategy.md#7-measures))
 a record of its own, instead of a calculation every screen repeats.
@@ -203,9 +203,10 @@ is still billed correctly (as free, by rule).
 | Call categories | **Firm mapping** | Every call type of the firm maps to exactly one category; the firm confirms its mapping once; free text is a label, never a decision |
 | Intake | **Conversation** | One per call or chat, whatever its outcome; channel is an attribute, not a separate system |
 | Intake | **Lead** | Recorded once, never changed; production or test, never both; classification recorded with it |
-| Firm configuration | **Destination** (root) | Owns its **connection** (presence and fingerprint only), its state, its role (usual or fallback), its failure streak and its **revisions**. Exactly one live revision; a revision cannot change once sent for approval |
+| Firm configuration | **Destination** (root) | Owns its **desired state** (setting up, live, paused, removed), its **connection** (presence, fingerprint and authorization version only), its role (usual or fallback) and its **revisions**. Exactly one live revision; a revision cannot change once sent for approval |
 | Firm configuration | **Setup** and **Change request** (processes over one destination's draft revision) | Approval applies to one revision; an edit invalidates it; only an approved, tested, confirmed revision goes live ([RFC-001 workflow](../../../airi/webhook-lab/docs/rfc/001_lead_delivery_and_client_integration.md)) |
 | Delivery | **Delivery** | [README invariants 1–7](../lead-delivery/README.md#6-invariants) |
+| Delivery | **Destination health** | Observed from attempts: healthy, failing (its streak), authorization refused for a given authorization version, switched off. Only Delivery writes it; needs reconnection is derived, not stored ([RFC-008 §5.1](008_delivery_guarantees_and_evidence.md#51-two-owners-one-rule)) |
 | Delivery | **Hand-off** | Section 5.1 |
 | Operations | **Alert** | One per destination per cause, open until the cause clears; never one per delivery |
 | Operations | **Operator action** | Append-only; who, when, why, and what it changed |
@@ -226,7 +227,8 @@ Only these cross a boundary. Everything else stays inside its context.
 | `ConversationHandled` | Intake → Usage | Conversation id, firm, channel, duration, classification, caller number hash |
 | `LeadRecorded` | Intake → Delivery | The lead (contract v1), with its classification |
 | `RevisionWentLive` | Firm configuration → Delivery | Destination, revision, routing rule, mapping, role |
-| `DestinationStateChanged` | Delivery → Firm configuration, Operations | Live, paused, needs reconnection, switched off, and why |
+| `DesiredStateChanged` | Firm configuration → Delivery, Operations | Setting up, live, paused, removed; who and why; a sequence number per destination |
+| `DestinationHealthChanged` | Delivery → Firm configuration, Operations | Healthy, failing, authorization refused (for which version), switched off; a sequence number per destination |
 | Delivery and hand-off events | Delivery → Operations, Insight | [README §7](../lead-delivery/README.md#7-domain-events), plus section 5.1 |
 | `PriceBookPublished` | Usage → Terms | Version, effective date |
 
@@ -245,11 +247,11 @@ slice, and none can be added afterwards without rebuilding what came before.
 | Guarantee | From slice | What it means | Why it cannot wait | Simplest thing that satisfies it (not prescribed) |
 |---|---|---|---|---|
 | **Recorded with its plan, in one transaction** | 1 | A lead and one planned delivery per destination are saved together, before anything is sent | "Recorded before sent" ([README invariant 1](../lead-delivery/README.md#6-invariants)). Without it a lead can be lost between the call and the first attempt: production's gap today ([production-today](../lead-delivery/production-today.md)) | A deliveries table with `next_attempt_at`, written in the same transaction as the lead. No queue product needed |
-| **A stable lead identity, safe to receive twice** | 1 | Every attempt and every resend carries the same lead identity; receiving the same lead twice has no further effect, on our side or the destination's | Retries and resends mean a destination will see a lead more than once. Identity added later cannot be given to deliveries already made | The lead id sent as an idempotency key in a header and the body; a uniqueness rule on whatever we receive |
+| **A stable lead identity, safe to receive twice on our side** | 1 | Every attempt and every resend carries the same lead identity; a repeated event never creates a second conversation, lead or delivery here. **At the destination, duplicates are prevented only as far as the destination allows** ([RFC-008 §4](008_delivery_guarantees_and_evidence.md#4-guarantees-at-each-boundary)); exactly once is never promised | Retries and resends mean a destination will see a lead more than once. Identity added later cannot be given to deliveries already made | The lead id sent as an idempotency key in a header and the body; a uniqueness rule on whatever we receive; each destination kind's duplicate handling stated in its receiver contract |
 | **Destinations independent** | 2 | One slow or failing destination never delays or changes another's delivery | [README invariant 4](../lead-delivery/README.md#6-invariants). A design that sends a lead's destinations one after another inside one request has to be taken apart to fix this | Each delivery attempted on its own, with a timeout. A loop over due deliveries is enough; parallelism is an optimisation |
-| **Exactly one sender** | 2, or as soon as there is a second worker or system | Each delivery is attempted by one worker at a time, and each firm's leads are sent by one system at a time | Two senders deliver everything twice; none delivers nothing. Cheap to design in, costly to find in production | Claim a delivery before attempting it (for example a row lock, or a claimed-until time released if the worker dies); one flag per firm saying which system sends |
+| **Exactly one sender** | 2, or as soon as there is a second worker or system | Each delivery is attempted by one worker at a time, and each firm's leads are sent by one system at a time. A send is revalidated against the destination's eligibility, revision and authorization version immediately before it goes ([RFC-008 §5.3](008_delivery_guarantees_and_evidence.md#53-claims-and-revalidation)) | Two senders deliver everything twice; none delivers nothing. Cheap to design in, costly to find in production | A lease (`claimed_by`, `claimed_until`); an expired lease makes its attempt an **unknown outcome**, never a blind resend; one flag per firm saying which system sends |
 | **Time from a clock the tests control** | 0 | Every rule that reads time (retry schedule, window to act, fallback trigger, billing cycle, terms effective date) reads it from one injected clock | Windows to act and retries cannot be tested otherwise; the lab's two clock speeds are what happens without it ([lessons §5](../lead-delivery/lessons.md#5-the-demo-data-became-a-product-of-its-own)) | A clock passed to every decision function; the scenario runner advances it |
-| **Firm and test flag on every record** | 0 | Every lead, delivery, conversation, usage entry and action carries its firm, and whether it is a test | Firm isolation and keeping tests out of totals ([README invariant 5](../lead-delivery/README.md#6-invariants)) cannot be reliably added to existing data | Two required columns, and every query filtered by firm |
+| **Firm and test flag on every record, isolation enforced** | 0 | Every lead, delivery, conversation, usage entry and action carries its firm, and whether it is a test. Firm isolation is **enforced by the database**, not by query convention, and proved by cross-firm scenarios at every public boundary ([RFC-008 §9](008_delivery_guarantees_and_evidence.md#9-security-gates-from-the-first-slice)) | Firm isolation and keeping tests out of totals ([README invariant 5](../lead-delivery/README.md#6-invariants)) cannot be reliably added to existing data | Two required columns; row-level security or a firm-scoped database role per request |
 
 These are in addition to the invariants in [README §6](../lead-delivery/README.md#6-invariants)
 and section 5, which hold whatever the implementation.
@@ -347,17 +349,17 @@ flowchart LR
 
 | # | Slice: what someone can now do | Adds to the model | Proven by | Lab today |
 |---|---|---|---|---|
-| **0** | *Foundation:* nothing a firm sees yet | Glossary; Lead contract v1; event and outbox store; **Firm**; **test vs production** from the first line; operator action audit; one clock the scenarios control; the scenario runner and test control interface (section 6.3); the guarantees of section 6.1 | "A test lead never appears in a total, a streak or a report" | Test separation built; scenarios and receiver contracts written ([docs/contracts/](../contracts/README.md)); one clock and the runner missing |
-| **1** | **A caller's details reach the firm by email** | Minimal intake (chat or web form) → **lead** → one **delivery** with **attempts** → **accepted** | "Recorded before sent"; "the lead never changes" | Delivery side built; leads enter through the API and the simulator, not a real intake |
+| **0** | *Foundation:* nothing a firm sees yet | Glossary; Lead contract v1; event and outbox store; **Firm**; **test vs production** from the first line; operator action audit; one clock the scenarios control; the scenario runner and test control interface (section 6.3); the guarantees of section 6.1; **security gates**: firm isolation enforced by the database, credentials encrypted and never logged ([RFC-008 §9](008_delivery_guarantees_and_evidence.md#9-security-gates-from-the-first-slice)) | "A test lead never appears in a total, a streak or a report"; cross-firm-read | Test separation built; scenarios and receiver contracts written ([docs/contracts/](../contracts/README.md)); one clock and the runner missing |
+| **1** | **A real caller's details reach the firm by email** | The **conversation** record from the start; **real-channel ingestion**: conversations from today's chat system (then voice) translated at the boundary into the standard conversation and **lead**; idempotent intake; one **delivery** with **attempts** → **accepted**; usage collected in shadow from here on | "Recorded before sent"; "the lead never changes"; duplicate-intake; database-down-at-intake | Delivery side built; leads enter through the API and the simulator, not a real channel |
 | **2** | **A firm has several destinations, and each gets a decision** | **Destination** with state; routing rule (everything, or no chat leads); **not sent** with a reason; deliveries independent; **lead outcome** | "One destination down never delays another"; "every destination of the firm has a delivery for every lead" | Built (routing by call-type text) |
-| **3** | **Failures say what happened, and operators fix them where they find them** | Failure classes; retry policy; **retrying**, **refused**, **gave up**; **failure streak**; **switched off**; **needs reconnection**; **resend** under the same lead identity; operator and senior operator; the Delivery Center and Destinations screens | platform-outage, relay-timeouts, dead-endpoint, auth-expired, hook-gone, redirect, incident-now, mapping gap fixed and resent | Built; needs reconnection and lead-problem handling Proposed |
+| **3** | **Failures say what happened, and operators fix them where they find them** | Failure classes; retry policy; **retrying**, **refused**, **gave up**; **failure streak**; **switched off**; **needs reconnection**; **resend** under the same lead identity; operator and senior operator; the Delivery Center and Destinations screens; **leases, unknown outcomes and revalidation before sending**; desired state and observed health ([RFC-008 §4–5](008_delivery_guarantees_and_evidence.md#4-guarantees-at-each-boundary)); **one CRM certified end to end** against its sandbox (authorization, duplicate handling, delivery, verification) | platform-outage, relay-timeouts, dead-endpoint, auth-expired, hook-gone, redirect, incident-now, mapping gap fixed and resent; crash-after-send, double-claim, pause-during-send, accepted-never-verified | Built without leases or unknown outcomes; needs reconnection and lead-problem handling Proposed; no sandbox |
 | **4** | **Every call speaks one language** | **Taxonomy version**; **firm mapping** confirmed by the firm; **routing rule** by category, defaulting to today's behaviour | Every reference lead classified the same in F# and Python; "the default rule sends exactly what today's active call types send" | Taxonomy built; firm confirmation and category routing Proposed |
 | **5** | **Nothing a firm receives changes without its approval** | **Revision** owned by the destination; **setup** and **change request** processes; mapping as data; destination kind catalog; signed webhooks; the firm contact's approval link | "An edit after approval voids the approval"; "only the live revision takes production leads"; "a test lead goes only to the destination under test" | Built for webhooks, on `Setup` rather than the destination |
-| **6** | **Every lead reaches someone at the firm in time** | **Window to act** per category; the **hand-off** aggregate; **fallback** (role on a destination, agreed in an approved revision); **held** deliveries; **expired** first in every view | both-routes-down; "CRM down at 2 am: the emergency reaches the fallback within 5 minutes, the CRM record arrives later marked late"; "paused destination: held, not missed" | Windows and fallback built; hand-off inferred; held Proposed |
-| **7** | **Native CRMs work, and we know before the firm does** | One kind = a catalog row, a builder, a receiver contract and a sandbox test; scheduled test leads; **verified in CRM** where the CRM allows | "Every catalog kind builds a body its receiver accepts" (existing test); nightly sandbox run | Fake receivers built; sandboxes missing ([RFC-006](006_integration_lab.md)) |
+| **6** | **Every lead reaches someone at the firm in time** | **Window to act** per category; the **hand-off** aggregate; **fallback** (role on a destination, agreed in an approved revision); **held** deliveries; **expired** first in every view; **evidence levels**, acknowledgement links and replies, escalation for emergencies ([RFC-008 §3](008_delivery_guarantees_and_evidence.md#3-evidence-levels-and-the-hand-off-promise)) | both-routes-down; all-routes-down; routing-change-during-outage; "CRM down at 2 am: the emergency reaches the fallback within 5 minutes, the CRM record arrives later marked late"; "paused destination: held, not missed" | Windows and fallback built; hand-off inferred; held Proposed |
+| **7** | **The CRMs firms use work, and we know before the firm does** | The remaining CRMs, **chosen by demand and sandbox evidence**, not a fixed six; each = a catalog row, a builder, a receiver contract with its duplicate handling, and a sandbox test; scheduled test leads; **verified in CRM** where the CRM allows | "Every catalog kind builds a body its receiver accepts" (existing test); nightly sandbox run | Fake receivers built; sandboxes missing ([RFC-006](006_integration_lab.md)) |
 | **8** | **The firm sees proof** | Firm portal read models: proof of delivery, hand-off in time, the weekly "week in calls" | The firm report for a simulated week matches its deliveries and hand-offs | Built in the lab console; not in the firm portal |
-| **9** | **Answering AI classifies each call as it takes it**, on phone and chat alike | Classification at intake with confidence; review of uncertain calls; `ClassificationCorrected` updates the firm mapping; one conversation engine, channel as an attribute | "Low confidence → review queue"; "a correction changes future leads, never past ones" | Not built; categories derived from labels |
-| **10** | **Firms pay for conversations, and every bill can be explained** | **Conversation** → **usage entry** with its rule; **price book version**; **cycle statement** locked on close; shadow bill beside the legacy one | "Same inputs, same invoice"; "a closed cycle never changes"; "a wrong number with no lead is free by rule" | Built from leads, not conversations |
+| **9** | **Answering AI classifies each call as it takes it**, on phone and chat alike | Classification at intake with confidence; review of uncertain calls; `ClassificationCorrected` supersedes and updates the firm mapping; the **per-action decision policy** for uncertain classifications ([RFC-008 §6](008_delivery_guarantees_and_evidence.md#6-classification-a-policy-for-uncertainty-and-correction)); one conversation engine, channel as an attribute | "Low confidence → review queue"; "a correction changes future leads, never past ones"; classification-corrected | Not built; categories derived from labels |
+| **10** | **Firms pay for conversations, and every bill can be explained** | The shadow usage collected since slice 1 → **usage entry** with its rule; corrections by supersession and credit; **price book version**; **cycle statement** locked on close; shadow bill beside the legacy one | "Same inputs, same invoice"; "a closed cycle never changes"; "a wrong number with no lead is free by rule" | Built from leads, not conversations |
 | **11** | **Terms change without locking anyone out** | **Terms version** with **change kind**; scoped **acceptance**; the sign-in gate; price changes published as terms | "A grammar fix asks nobody"; "a price change asks admins from its effective date" | Built |
 | **12** | **Firms set themselves up; other software receives our leads** | Self-serve connect and approve; the public contract; Zapier; benchmarks (aggregate only); a trades pack (service lines in place of practice areas, inside Call categories) | "Signup to first accepted lead with no operator involved" | Not built |
 
@@ -366,14 +368,19 @@ flowchart LR
 - **1–3 before everything else.** Category routing, "in time" and proof can only be measured once every delivery ends in a recorded state with a reason.
 - **5 before 6.** A fallback must be agreed in an approved revision; RFC-001 forbids silent rerouting.
 - **4 before 6 and 9.** The window to act and classification at intake both need the taxonomy.
-- **9 before 10.** Billing reads conversations, and the free-call rules read the category set at intake.
-- **10 and 11 are otherwise independent.** They can move earlier if the business needs them, at the cost of re-rating once conversations replace leads.
+- **9 before 10.** The free-call rules read the category set at intake, and its decision policy (RFC-008 §6).
+- **Conversations from slice 1.** Every conversation is recorded, and its usage collected in shadow, from the first real intake, so billing decisions rest on real history.
+- **One CRM in slice 3, the rest in slice 7.** The adapter interface is proven on one real CRM before more are built.
+- **10 and 11 are otherwise independent.** They can move earlier if the business needs them, at the cost of re-rating once slice 9 lands.
 
 ### Tasks and effort
 
 What each slice takes to build from scratch, in **person-weeks**, each ±30%.
-**About 60–90 in total**, plus the conversation engine (12–24 or more). A product a
-firm can rely on (slices 0–6) is **24–35**: about three months for three engineers.
+**About 62–95 in total**, plus the conversation engine (12–24 or more). A product a
+firm can rely on (slices 0–6) is **29–44**: three to four months for three engineers.
+These include the revisions of [RFC-008](008_delivery_guarantees_and_evidence.md#11-changes-to-rfc-007s-build-order):
+real intake and security from the start, one CRM certified early, and evidence
+levels for the hand-off.
 
 The estimates assume:
 
@@ -386,43 +393,46 @@ Each slice includes its scenarios, read models, contract and screens, as the
 
 | # | Slice | Tasks | RFC | Effort |
 |---|---|---|---|---|
-| **0** | Foundation | Repository, CI, deploy, migrations; event and outbox store; firm and test flag on every record; audit log; injectable clock; sign-in (bought); Lead contract v1; scenario runner and test control interface; the [contract formats](../contracts/README.md) fixed | 006, 007 | 4–6 |
-| **1** | A lead reaches the firm by email | Minimal intake (web form and API); Lead; Delivery and Attempt; the email kind; a basic Leads view | 001 | 2–3 |
+| **0** | Foundation | Repository, CI, deploy, migrations; event and outbox store; firm and test flag on every record, isolation enforced by the database with cross-firm tests; credentials encrypted, never logged; audit log; injectable clock; sign-in (bought); Lead and conversation contracts v1; scenario runner and test control interface; the [contract formats](../contracts/README.md) fixed | 006, 007, 008 | 5–8 |
+| **1** | A real caller's details reach the firm by email | The conversation record; ingestion from today's chat system, then voice, translated at the boundary; idempotent intake; Lead; Delivery and Attempt; the email kind; shadow usage; a basic Leads view | 001, 008 | 4–6 |
 | **2** | Every destination gets a decision | Destination with state; routing rule (all leads, or no chat leads); not sent with a reason; independent deliveries; lead outcome; the webhook kind, signed | 001, 005 | 2–3 |
-| **3** | Failures say what happened | Failure classes; retry policy; failure streak; switched off; needs reconnection; resend under the same lead identity; operator roles; Delivery Center, Destinations, the problem drawer; an alert per destination; the outage scenarios | 001 | 5–7 |
+| **3** | Failures say what happened | Failure classes; retry policy; failure streak; switched off; needs reconnection; resend under the same lead identity; operator roles; Delivery Center, Destinations, the problem drawer; an alert per destination; leases, unknown outcomes, revalidation; desired state and observed health; one CRM certified end to end; the outage and concurrency scenarios | 001, 005, 008 | 6–9 |
 | **4** | One language for calls | Taxonomy versions; the firm mapping and the firm's confirmation; routing by category; the reference-lead checks; existing call types imported | 002 | 3–4 |
 | **5** | Change only with approval | Revisions on the destination; setup (connect, approve, test, confirm, go live); change requests; the mapping editor; the catalog as data; the firm contact's approval page | 001, 005 | 5–7 |
-| **6** | In time | Window to act; the hand-off aggregate and its timers; the fallback role; held deliveries and their release; expired first in every view; the SMS kind | 001 | 3–5 |
-| **7** | Native CRMs | Per kind: adapter, receiver contract, sandbox test; OAuth where a kind needs it; scheduled test leads; verified in CRM. Six kinds at 1–2 each | 005, 006 | 6–12 |
+| **6** | In time | Window to act; the hand-off aggregate and its timers; the fallback role; held deliveries and their release; expired first in every view; the SMS kind; evidence levels, acknowledgement links and replies, escalation | 001, 008 | 4–7 |
+| **7** | The CRMs firms use | The remaining CRMs, chosen by demand and sandbox evidence. Per kind: adapter, receiver contract with duplicate handling, sandbox test; OAuth where a kind needs it; scheduled test leads; verified in CRM. Up to five more at 1–2 each | 005, 006 | 5–10 |
 | **8** | The firm sees proof | The firm portal and its sign-in; proof of delivery; the weekly "week in calls" | 001, 002 | 3–5 |
-| **9** | Intake classifies the call | Classification with confidence; the review queue; firm corrections update the mapping | 002 | 4–6 |
-| **10** | Billing on value | Conversations; the usage ledger; versioned non-billable rules; the price book; plan changes with proration; locked statements; shadow comparison; controls; bought invoicing connected | 003 | 7–10 |
+| **9** | Intake classifies the call | Classification with confidence; the per-action decision policy; the review queue; corrections by supersession, with their billing and routing effects | 002, 008 | 5–7 |
+| **10** | Billing on value | Rating the usage collected since slice 1; the usage ledger; credits and corrections; versioned non-billable rules; the price book; plan changes with proration; locked statements; shadow comparison; controls; bought invoicing connected | 003 | 6–9 |
 | **11** | Terms | Versions with a change kind; scoped acceptance; the sign-in gate and notices; Word import; coverage | 004 | 2–3 |
 | **12** | Self-serve and platform | Self-serve connect and approve; the public versioned contract and its documentation; Zapier; benchmarks (aggregate only, with opt-out); the trades pack | 002, 005 | 10–14 |
-| | Production readiness | Observability; backups restored on a schedule; security review; data retention; preparation for a security certification | — | 4–6 |
-| | **Total** | | | **60–91** |
+| | Operational drills | Security gates are in every slice's acceptance ([RFC-008 §9](008_delivery_guarantees_and_evidence.md#9-security-gates-from-the-first-slice)); what remains: restore and failover drills, on-call, data retention, preparation for a security certification | — | 2–3 |
+| | **Total** | | | **62–95** |
 
 **The conversation engine** (12–24 or more) is a track of its own: the AI that
 takes calls and chats, one engine for both channels, producing the standard lead.
-It is the largest unknown. Slices 1 to 8 do not wait for it; they run on slice 1's
-minimal intake, and slice 9 is where the two meet.
+It is the largest unknown. Slices 1 to 8 do not wait for it: they run on real
+conversations taken in from today's chat and voice systems in slice 1, so real
+intake (interrupted calls, missing details, repeat callers, late completion) is
+proven early. Slice 9 is where the engine and the platform meet.
 
-**Working in parallel.** Slices 0 to 3 are one sequence (13–19), about 6–8 weeks
-for two or three engineers. After slice 3 the work splits into three streams:
+**Working in parallel.** Slices 0 to 3 are one sequence (17–26), about 8–10 weeks
+for three engineers. After slice 3 the work splits into three streams:
 categories and intake (4 → 9), configuration and CRMs (5 → 7), and in time and
-proof (6 → 8). Billing and terms (10, 11) can start from slice 1's conversation
-record and re-rate once slice 9 lands.
+proof (6 → 8). Billing and terms (10, 11) start from the usage collected since
+slice 1 and re-rate once slice 9 lands.
 
 | Milestone | After slices | Effort | About |
 |---|---|---|---|
-| Reliable delivery operators can run | 0–3 | 13–19 | 2 months, three engineers |
-| A product a firm can rely on: delivery in time, changes approved | 0–6 | 24–35 | 3 months, three engineers |
-| The full product except self-serve | 0–11 | 47–71 | 5–7 months, four engineers |
-| The platform | 0–12, with production readiness | 60–91 | |
+| Reliable delivery operators can run, on real conversations | 0–3 | 17–26 | 2 to 2.5 months, three engineers |
+| A product a firm can rely on: delivery in time, changes approved | 0–6 | 29–44 | 3–4 months, three engineers |
+| The full product except self-serve | 0–11 | 50–78 | 5–7 months, four engineers |
+| The platform | 0–12, with operational drills | 62–95 | |
 
 **What would move these numbers most:**
 
-- **How many CRMs are needed** (slice 7). If CRM delivery is as rare as the data suggests ([strategy 2.4](../lead-delivery/strategy.md#24-the-integration-strategy-rests-on-an-untested-assumption)), two or three kinds may be enough: 3–6 fewer.
+- **How many CRMs are needed** (slice 7). If CRM delivery is as rare as the data suggests ([strategy 2.4](../lead-delivery/strategy.md#24-the-integration-strategy-rests-on-an-untested-assumption)), one or two beyond slice 3's may be enough: 2–6 fewer.
+- **What today's channels expose** (slice 1). Translating their conversations is cheap if they finalise cleanly, and costlier if completion events are late, repeated or partial.
 - **Classification and conversation quality** (slice 9 and the engine). Accurate first time keeps them low; heavy human review pushes them up.
 - **The billing rules** (slice 10). The free-call thresholds are still to be confirmed with real call data.
 
@@ -521,6 +531,7 @@ passing.
 | D8 | The lab | Refactored to this model in the phases of section 10.1 |
 | D9 | What every implementation must guarantee | The six guarantees of section 6.1; everything else left to the implementation (section 6.2) |
 | D10 | How an implementation proves it follows the model | Scenarios and receiver contracts as language-neutral data files, run through the public contract and a test control interface (section 6.3) |
+| D11 | Revisions from the architecture review | Adopted as [RFC-008](008_delivery_guarantees_and_evidence.md): sections 5, 6 and 8 revised in place |
 
 Once approved, D2 to D5 are recorded in [answers.md](../lead-delivery/answers.md)
 with their reasons, and the model in section 5 moves into

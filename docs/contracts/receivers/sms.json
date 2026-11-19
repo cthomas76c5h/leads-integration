@@ -23,5 +23,6 @@
   "refusesMissing": {
     "status": 422,
     "body": "missing {field}"
-  }
+  },
+  "duplicates": "harmless"
 }

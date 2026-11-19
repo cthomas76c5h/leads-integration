@@ -3,21 +3,51 @@
   "kind": "clio-grow",
   "label": "Clio Grow (inbox lead)",
   "model": "lab",
-  "request": { "method": "POST", "contentType": "application/json" },
+  "request": {
+    "method": "POST",
+    "contentType": "application/json"
+  },
   "requires": [
-    { "field": "inbox_lead.from_first", "from": "caller first name, or N/A" },
-    { "field": "inbox_lead.from_last", "from": "caller last name, or N/A" },
-    { "field": "inbox_lead.from_phone", "from": "caller phone, or N/A" },
-    { "field": "inbox_lead.from_message", "from": "the message with the intake answers appended" },
-    { "field": "inbox_lead.from_source", "from": "the lead's source" }
+    {
+      "field": "inbox_lead.from_first",
+      "from": "caller first name, or N/A"
+    },
+    {
+      "field": "inbox_lead.from_last",
+      "from": "caller last name, or N/A"
+    },
+    {
+      "field": "inbox_lead.from_phone",
+      "from": "caller phone, or N/A"
+    },
+    {
+      "field": "inbox_lead.from_message",
+      "from": "the message with the intake answers appended"
+    },
+    {
+      "field": "inbox_lead.from_source",
+      "from": "the lead's source"
+    }
   ],
-  "optional": [{ "field": "inbox_lead.from_email", "from": "caller email, or N/A" }],
-  "accepts": { "status": 201 },
-  "refusesMissing": { "status": 422, "body": "missing {field}" },
+  "optional": [
+    {
+      "field": "inbox_lead.from_email",
+      "from": "caller email, or N/A"
+    }
+  ],
+  "accepts": {
+    "status": 201
+  },
+  "refusesMissing": {
+    "status": 422,
+    "body": "missing {field}"
+  },
+  "duplicates": "none",
   "toConfirm": [
     "Where the firm's inbox lead token goes in the real request (the lab keeps only its presence and fingerprint)",
     "The real status for an accepted lead",
     "How the real API answers an expired or revoked token, and whether the lab's expired-auth mode (401) matches it",
-    "Whether N/A for a missing name is accepted, or should be a lead problem (not sent)"
+    "Whether N/A for a missing name is accepted, or should be a lead problem (not sent)",
+    "Duplicate handling (idempotency key, lookup by our reference, or none): RFC-008 §4.3"
   ]
 }

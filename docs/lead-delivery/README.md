@@ -59,7 +59,11 @@ Delivery must work from what was recorded.
 
 The contexts beyond delivery (accounts, usage and billing, terms), the
 **hand-off** as an aggregate of its own, and the order features are built in are
-proposed in [RFC-007](../rfc/007_domain_model_and_build_order.md).
+proposed in [RFC-007](../rfc/007_domain_model_and_build_order.md). Evidence levels
+for deliveries and hand-offs, the guarantee at each boundary, unknown outcomes,
+and the split of a destination's state into desired state and observed health are
+proposed in [RFC-008](../rfc/008_delivery_guarantees_and_evidence.md); until they
+are approved, the rules below stand as written.
 
 ## 2. Aggregates
 

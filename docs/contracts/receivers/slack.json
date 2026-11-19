@@ -20,6 +20,7 @@
     "status": 422,
     "body": "missing {field}"
   },
+  "duplicates": "harmless",
   "toConfirm": [
     "How a removed incoming-webhook URL is answered, and whether it matches the lab's hook-removed rule (410)"
   ]

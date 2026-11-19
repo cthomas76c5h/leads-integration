@@ -45,5 +45,9 @@
   "refusesMissing": {
     "status": 422,
     "body": "missing {field}"
-  }
+  },
+  "duplicates": "idempotency-key",
+  "toConfirm": [
+    "api-2 answers 208 Already Reported for an answer_id it already has (docs/lead-delivery/production-today.md); confirm the lab's message_id (the lead id) is what it keys on"
+  ]
 }

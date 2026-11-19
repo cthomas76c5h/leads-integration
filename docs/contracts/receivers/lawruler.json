@@ -38,7 +38,9 @@
     "status": 422,
     "body": "missing {field}"
   },
+  "duplicates": "none",
   "toConfirm": [
-    "Retired (answers.md): its production handler is already off. Kept so imported rows are not lost; no sandbox work planned"
+    "Retired (answers.md): its production handler is already off. Kept so imported rows are not lost; no sandbox work planned",
+    "Duplicate handling (idempotency key, lookup by our reference, or none): RFC-008 §4.3"
   ]
 }

@@ -177,15 +177,17 @@ flowchart LR
 | Milestone | Slices | What firms and operators get | Why this order |
 |---|---|---|---|
 | **Measure** | Alongside slice 0 | The read-only production feed ([RFC-006](../rfc/006_integration_lab.md)): real loss, CRM usage, the call mix, call lengths | Replaces this document's assumptions with numbers that size the slices: how many CRMs slice 7 needs, the windows slice 6 uses, the free-call rules slice 10 applies |
-| **1. Reliable delivery** | 0–3 | Every lead recorded before it is sent; every destination gets a decision with a reason; retries, failure classes, destinations stopped and needing reconnection; resend; the Delivery Center and an alert per destination | Stops silent loss, the main risk; everything later is measured on deliveries that always end in a recorded state |
-| **2. In time, with approval** | 4–6 | Call categories as the language of a call; routing by category; nothing a firm receives changes without its approval; the window to act, the fallback and held deliveries | The product firms buy: every new client reaching a person in time. Fallback needs an approved revision, and windows need the taxonomy |
-| **3. Proof, CRMs and classification** | 7–9 | The six native CRMs, tested against their sandboxes; proof of delivery and the weekly report in the firm portal; Answering AI classifying each call as it takes it | Proof earns the trust self-serve depends on; classification at intake needs the conversation engine |
+| **1. Reliable delivery** | 0–3 | Real conversations taken in from today's chat and voice systems from the start; every lead recorded before it is sent; every destination gets a decision with a reason; retries, failure classes, destinations stopped and needing reconnection; resend; the Delivery Center and an alert per destination; one CRM certified end to end; firm isolation enforced from the first slice | Stops silent loss, the main risk; everything later is measured on deliveries that always end in a recorded state |
+| **2. In time, with approval** | 4–6 | Call categories as the language of a call; routing by category; nothing a firm receives changes without its approval; the window to act, the fallback and held deliveries; proof of hand-off at two levels, accepted and confirmed, with escalation for emergencies | The product firms buy: every new client reaching a person in time. Fallback needs an approved revision, and windows need the taxonomy |
+| **3. Proof, CRMs and classification** | 7–9 | The other CRMs firms use, chosen by demand and sandbox evidence; proof of delivery and the weekly report in the firm portal; Answering AI classifying each call as it takes it | Proof earns the trust self-serve depends on; classification at intake needs the conversation engine |
 | **4. Billing and terms** | 10–11 | Billing per handled conversation with free-call rules, shadow bills beside the old ones; terms versions asked only of the users they concern | Billing reads conversations and the category set at intake |
 | **5. Self-serve and platform** | 12 | Firms connect and approve destinations themselves; a published contract for other software; Zapier; benchmarks; a trades package | Builds on reliable, provable delivery; reduces onboarding and support load |
 
 The conversation engine (the AI that takes calls and chats, one engine for both)
-is a track of its own; milestones 1 and 2 run on a minimal intake and do not wait
-for it. Today's systems and their gaps against the model are recorded in
+is a track of its own; milestones 1 and 2 run on real conversations taken in
+from today's channels and do not wait for it. The guarantees each milestone must
+prove, and the failure scenarios that gate production, are in
+[RFC-008](../rfc/008_delivery_guarantees_and_evidence.md). Today's systems and their gaps against the model are recorded in
 [production-today.md](production-today.md) as evidence, not as a plan.
 
 **The lab's role throughout:** prove each slice against its scenarios

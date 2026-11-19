@@ -42,9 +42,11 @@
     "status": 422,
     "body": "missing {field}"
   },
+  "duplicates": "none",
   "toConfirm": [
     "The real status for an accepted lead (the fake receiver answers 201)",
     "How the form id (held as api_key) is addressed in the real request",
-    "Retired with the legacy forms if no firm uses them (answers.md)"
+    "Retired with the legacy forms if no firm uses them (answers.md)",
+    "Duplicate handling (idempotency key, lookup by our reference, or none): RFC-008 §4.3"
   ]
 }

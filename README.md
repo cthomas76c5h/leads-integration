@@ -14,14 +14,14 @@ airi (SQLite)   ──┘   (shape only)                          └─► … 
 
 ## Start here
 
-New to this work? Read these in order. The first five are enough to build a
+New to this work? Read these in order. The first six are enough to build a
 slice; the rest are for when you need them.
 
 **What is agreed and what is draft.** Not everything here has the same standing:
 
 | Agreed: build on it | Draft: expect it to change |
 |---|---|
-| The glossary, and the decisions in [answers.md](docs/lead-delivery/answers.md) (each marked *Decided*) | [RFC-001 to RFC-007](docs/rfc/README.md): proposed, awaiting approval. RFC-007 (the model and build order) is the newest |
+| The glossary, and the decisions in [answers.md](docs/lead-delivery/answers.md) (each marked *Decided*) | [RFC-001 to RFC-008](docs/rfc/README.md): proposed, awaiting approval. RFC-007 (the model and build order) and RFC-008 (the guarantees and evidence, which revises RFC-007) are the newest |
 | The product is **built new, to the domain model**, in RFC-007's slices; api-2 is not extended ([answers](docs/lead-delivery/answers.md#routing-and-integrations)); the milestones are the [roadmap](docs/lead-delivery/strategy.md#5-roadmap) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a draft, with 16 scenarios and a receiver contract for every catalog kind; no runner yet, and no CRM contract confirmed against its sandbox |
 | Every rule in the [domain model](docs/lead-delivery/README.md) marked *Lab* or *Production* | Every rule marked *Proposed*: agreed direction, not built |
 
@@ -36,10 +36,11 @@ at once); each says how the lab differs in its `today` field. They are not bugs.
 | 2 | [GLOSSARY.md](GLOSSARY.md) | The words. Code, screens and docs use them as written | 15 min |
 | 3 | [lead-delivery/README.md](docs/lead-delivery/README.md) | The delivery model: a lead's journey, lifecycles, policies, invariants, events | 30 min |
 | 4 | [RFC-007](docs/rfc/007_domain_model_and_build_order.md) | The whole product's contexts, what any implementation must guarantee, the order to build features in, and how each is built | 30 min |
-| 5 | [contracts/](docs/contracts/README.md) | The checks a feature must pass, as scenario and receiver files | 10 min |
-| 6 | [lead-delivery/answers.md](docs/lead-delivery/answers.md) | Every decision, why, and what would change it | 15 min |
-| 7 | [lead-delivery/operations.md](docs/lead-delivery/operations.md) | What operators do, screen by screen | 15 min |
-| 8 | [lead-delivery/code-map.md](docs/lead-delivery/code-map.md) | Where each flow lives in this lab's code (only if you work on the lab) | 10 min |
+| 5 | [RFC-008](docs/rfc/008_delivery_guarantees_and_evidence.md) | What each guarantee means at each boundary, evidence for a hand-off, who owns a destination's state, and the failure scenarios that gate production | 25 min |
+| 6 | [contracts/](docs/contracts/README.md) | The checks a feature must pass, as scenario and receiver files | 10 min |
+| 7 | [lead-delivery/answers.md](docs/lead-delivery/answers.md) | Every decision, why, and what would change it | 15 min |
+| 8 | [lead-delivery/operations.md](docs/lead-delivery/operations.md) | What operators do, screen by screen | 15 min |
+| 9 | [lead-delivery/code-map.md](docs/lead-delivery/code-map.md) | Where each flow lives in this lab's code (only if you work on the lab) | 10 min |
 
 Later, by need: the direction and roadmap ([strategy.md](docs/lead-delivery/strategy.md)),
 what building the lab taught us ([lessons.md](docs/lead-delivery/lessons.md)), what

@@ -71,7 +71,7 @@ at a time. The engineering detail is the build order in
 |---|---|---|
 | **From the start** | Real numbers from today's systems: what is lost, what is late, which CRMs are used, the mix of calls | Real numbers instead of the lab's |
 | **About two months** | Reliable delivery: every lead recorded before it is sent, retried, and accounted for; the daily operations screens; an alert whenever a firm's connection stops | No lead lost without a trace; problems found by us, not reported by firms |
-| **About three months** | Delivery in time: calls sorted by kind; the backup route; held leads sent on when a connection returns; nothing a firm receives changes without its approval | Every new client reaching a person at the firm in time |
+| **Three to four months** | Delivery in time: calls sorted by kind; the backup route; held leads sent on when a connection returns; nothing a firm receives changes without its approval | Every new client reaching a person at the firm in time |
 | **Then** | The six CRMs tested against their own test accounts; firms seeing their week and proof of delivery; calls sorted as they come in; the new bill beside the old for two months; terms without lock-outs | Firms seeing what they get; every firm's new bill checked against its old one |
 | **After that** | The three packages, launched in groups; firms setting up their own connections; a published way for other software to receive leads; a package for trades businesses | A product suite with predictable revenue, and firms onboarding themselves |
 
@@ -81,7 +81,7 @@ at a time. The engineering detail is the build order in
 |---|---|
 | **How sure are these numbers?** | They come from a development copy and a simulated week, so they show patterns, not totals. Real numbers from today's systems replace them before we build; we will revise any answer they overturn. |
 | **Why build new instead of fixing the current system?** | The current system makes one attempt per lead, keeps no record of what it skips and has no tests; retrofitting that costs more than building to the model we already have. We build in steps a firm can use, prove each in this lab first, and move firms across one at a time, so nothing waits for a big switch. |
-| **What does it take?** | About three months for three engineers to delivery firms can rely on: reliable, in time, changed only with the firm's approval. The full product in five to seven months with four. Billing buys its invoicing software and builds the call record. These are estimates; the real numbers firm them up. |
+| **What does it take?** | Three to four months for three engineers to delivery firms can rely on: reliable, in time, changed only with the firm's approval. The full product in five to seven months with four. Billing buys its invoicing software and builds the call record. These are estimates; the real numbers firm them up. |
 | **Will firms lose their own names for kinds of call?** | No. They keep their wording; the standard kind sits underneath, for reports, routing and billing. |
 | **Does the backup route send client information somewhere new?** | Only somewhere the firm agreed in advance, and the firm sees every time it is used. |
 | **What happens at night?** | Retries and the backup route work around the clock, and urgent calls have a 15-minute limit with a text message. Late leads are the first thing the owner sees the next morning. |

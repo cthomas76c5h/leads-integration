@@ -20,5 +20,9 @@
   "refusesMissing": {
     "status": 422,
     "body": "missing {field}"
-  }
+  },
+  "duplicates": "idempotency-key",
+  "toConfirm": [
+    "Receivers are expected to deduplicate on the signed webhook-id header (the lead id, the same on every retry); a receiver that does not honour it gets duplicates after an unknown outcome"
+  ]
 }

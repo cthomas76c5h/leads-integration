@@ -11,7 +11,8 @@
     "request",
     "requires",
     "accepts",
-    "refusesMissing"
+    "refusesMissing",
+    "duplicates"
   ],
   "additionalProperties": false,
   "properties": {
@@ -129,6 +130,16 @@
           "description": "{field} stands for the missing field"
         }
       }
+    },
+    "duplicates": {
+      "enum": [
+        "idempotency-key",
+        "lookup",
+        "external-reference",
+        "none",
+        "harmless"
+      ],
+      "description": "How this kind handles a lead it may have seen, which decides what follows an unknown outcome (RFC-008 §4.3). idempotency-key: ignores a request with a key it has seen. lookup: we can ask whether a record with our lead reference exists. external-reference: stores our reference but does not deduplicate. none: no way to tell. harmless: a second copy costs nothing. 'none' until confirmed"
     },
     "toConfirm": {
       "type": "array",

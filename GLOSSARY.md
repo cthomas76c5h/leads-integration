@@ -96,6 +96,14 @@ _Avoid_: ticket, support request
 **Live**:
 The state of a destination that receives production leads.
 
+**Desired state**:
+What the firm and operators want a destination to be: setting up, live, paused or removed. Owned by firm configuration.
+_Avoid_: status (too broad)
+
+**Observed health**:
+What delivery has seen of a destination: healthy, failing, authorization refused, or switched off. Owned by delivery; combined with the desired state to decide whether a delivery may be sent.
+_Avoid_: status (too broad)
+
 **Paused**:
 A destination an operator has stopped on purpose. Its leads are held for the record, and handed off through its fallback.
 _Avoid_: disabled
@@ -129,12 +137,24 @@ _Avoid_: post, send, CRM lead
 One request to the destination within a delivery, with what it answered.
 _Avoid_: try (in writing), post
 
+**Unknown outcome**:
+An attempt that was sent but never answered: a timeout while waiting, a reset connection, a worker lost mid-send. The destination may or may not have the lead; what follows depends on how that destination kind handles duplicates.
+_Avoid_: timeout (that is one cause), transient failure (that is for attempts that cannot have arrived)
+
 **Accepted**:
-The destination acknowledged the lead. It is the strongest claim the system can make.
+The destination answered that it took the lead. The strongest claim a receiver's answer alone supports; it is not proof that a person has the lead.
 _Avoid_: delivered to CRM, success
 
 **Verified in CRM**:
 Someone (the firm, or an API that allows it) confirmed the record exists in the CRM.
+
+**Acknowledged**:
+A person at the firm, or a workflow the firm authorised, confirmed receipt of a lead: a reply to the text, a click on the signed link, the lead opened in the firm portal.
+_Avoid_: read (opening an email is not counted), seen
+
+**Evidence level**:
+The strongest proof a delivery or hand-off has: submitted, accepted, verified or acknowledged. The one number is reported at two of them, accepted and confirmed.
+_Avoid_: confidence (that belongs to classification)
 
 **Refused**:
 The destination answered and rejected the lead; sending the same thing again will not help.
