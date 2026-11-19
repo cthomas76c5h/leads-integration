@@ -8,7 +8,7 @@
 /// It rewrites delivery history only. Existing leads keep their content and are
 /// spread over the window; the firms with CRM destinations are topped up with
 /// synthetic leads (Seed.lead) so the CRM paths have traffic. Nothing is sent:
-/// each attempt is decided by the real rules (Dispatch.routingExclusion,
+/// each attempt is decided by the real rules (Routing.decide,
 /// Payloads, FakeCrm, Policy, Dispatch.transition), at real time (no TIME_SCALE).
 module LeadIntegrations.Simulate
 
@@ -440,7 +440,7 @@ let run (db: Db.Database) (opts: Options) : Summary =
                        let rec make tries =
                            let l, _ = Seed.lead rnd seedOpts f
                            let l = { l with Webchat = false; Source = "Answering AI" }
-                           if tries > 0 && (l.FirstName = "" || (Dispatch.routingExclusion f conns[pp] l).IsSome) then make (tries - 1) else l
+                           if tries > 0 && (l.FirstName = "" || (Routing.decide f { rows[pp] with Connection = conns[pp] } l).Outcome <> "planned") then make (tries - 1) else l
                        ({ Id = Secrets.newId simPrefix; FirmId = f.Id; Test = false; CreatedAt = nowMs - ago * minute; Lead = make 50 }: LeadEvent) |]
             | _ -> [||]
         let added = Array.append added incidentLeads
@@ -505,10 +505,8 @@ let run (db: Db.Database) (opts: Options) : Summary =
             for id in connectionsOf fid do
                 enqueue (longEnd + 30L * minute) (Reactivate id)
             enqueue (longEnd + 40L * minute) (Replay((fun x -> x.D.FirmId = fid && x.D.Status = "failed"), 200)))
-        // Someone retries two hang-ups by hand: the receiver still needs a name.
-        enqueue (at 1 15 5) (Replay((fun x -> x.D.Kind = "answering-legal" && x.D.Status = "failed" && x.Attempts.Count > 0 && x.Attempts[x.Attempts.Count - 1].ResponseSnippet.Contains "missing first_name"), 2))
 
-        let newSim (e: LeadEvent) (c: Connection) status reason (t: int64) replayOf template =
+        let newSim (e: LeadEvent) (c: Connection) status reason (decision: RoutingDecision) (t: int64) replayOf template =
             let sim =
                 { D =
                     { Id = Secrets.newId "dlv"
@@ -522,6 +520,7 @@ let run (db: Db.Database) (opts: Options) : Summary =
                       Status = status
                       Stage = ""
                       Reason = reason
+                      Decision = decision
                       NextAttemptAt = Nullable()
                       ReplayOf = replayOf
                       CreatedAt = t
@@ -609,9 +608,11 @@ let run (db: Db.Database) (opts: Options) : Summary =
                         // A destination added in the app gets only leads from after it existed.
                         let existed = not (c.Source = Source.manual && c.CreatedAt > e.CreatedAt)
                         if take && existed then
-                            match (if e.Test then None else Dispatch.routingExclusion f c e.Lead) with
-                            | Some reason -> newSim e c "skipped" reason e.CreatedAt null None
-                            | None -> newSim e c "pending" null e.CreatedAt null None
+                            if e.Test then newSim e c "pending" null Unchecked.defaultof<RoutingDecision> e.CreatedAt null None
+                            else
+                                let decision = Routing.decide f { rows[id] with Connection = c } e.Lead
+                                if decision.Outcome = "planned" then newSim e c "pending" null decision e.CreatedAt null None
+                                else newSim e c "skipped" decision.Reason decision e.CreatedAt null None
                 | Send sim -> if sim.D.Status = "pending" then send sim t
                 | Pause id -> conns[id] <- { conns[id] with Enabled = false }
                 | Reactivate id -> conns[id] <- { conns[id] with Status = "active"; DisabledReason = null; ConsecutiveFailures = 0 }
@@ -621,9 +622,11 @@ let run (db: Db.Database) (opts: Options) : Summary =
                         sims |> Seq.exists (fun x -> x.D.EventId = e.Id && x.Attempts |> Seq.exists (fun a -> a.Outcome = "delivered"))
                     // As Dispatch.runFallbacks: never for a lead the firm's routing sends nowhere on purpose.
                     let mine = sims |> Seq.filter (fun x -> x.D.EventId = e.Id) |> Array.ofSeq
-                    let excludedByRouting = mine.Length > 0 && mine |> Array.forall (fun x -> x.D.Status = "skipped")
+                    let excludedByRouting =
+                        mine.Length > 0 && mine |> Array.forall (fun x -> x.D.Status = "skipped" && not (Diagnose.isLeadProblem x.D.Reason))
                     match fallbackOf.TryGetValue e.FirmId with
-                    | true, id when not handedOff && not excludedByRouting && conns[id].Status = "active" -> newSim e conns[id] "pending" null t null None
+                    | true, id when not handedOff && not excludedByRouting && conns[id].Status = "active" ->
+                        newSim e conns[id] "pending" null Unchecked.defaultof<RoutingDecision> t null None
                     | _ -> ()
                 | Replay(pick, limit) ->
                     let chosen = sims |> Seq.filter (fun x -> x.D.CreatedAt < t && pick x) |> Seq.truncate limit |> Array.ofSeq
@@ -631,7 +634,7 @@ let run (db: Db.Database) (opts: Options) : Summary =
                         let c = conns[old.D.ConnectionId]
                         if c.Status = "active" then
                             replays <- replays + 1
-                            newSim events[old.D.EventId] c "pending" null t old.D.Id old.Template
+                            newSim events[old.D.EventId] c "pending" null old.D.Decision t old.D.Id old.Template
 
         // ----- Write the result -----
         for e in leads do

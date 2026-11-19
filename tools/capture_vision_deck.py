@@ -62,11 +62,12 @@ def main():
             areas.setdefault(x["firmId"], set()).add(x["mapping"]["practiceArea"])
     varied = max(areas, key=lambda f: len(areas[f]))
     attention = get("/api/deliveries?status=attention&test=false&limit=500")
-    failed = get("/api/deliveries?status=failed&test=false&limit=500")
+    not_sent = get("/api/deliveries?status=skipped&test=false&limit=500")
     hook = next(d for d in attention if d["kind"] == "webhook")
     smokeball = next(d for d in attention if d["kind"] == "smokeball")
     docket = next(d for d in attention if d["kind"] == "lead-docket" and d["diagnosis"]["class"] == "connection")
-    hang_up = next(d for d in failed if d["diagnosis"] and d["diagnosis"]["class"] == "lead")
+    # A hang-up a CRM cannot take: not sent, as a lead problem (RFC-009), never refused.
+    hang_up = next(d for d in not_sent if d["diagnosis"] and d["diagnosis"]["class"] == "lead")
 
     errors = []
     with sync_playwright() as p:

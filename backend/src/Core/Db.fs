@@ -158,7 +158,8 @@ CREATE TABLE IF NOT EXISTS deliveries (
   has_template INTEGER NOT NULL DEFAULT 0,
   next_attempt_at INTEGER NULL,
   replay_of TEXT NULL,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  decision TEXT NULL           -- RoutingDecision JSON: why this lead goes, or not, to this destination
 );
 CREATE INDEX IF NOT EXISTS deliveries_due ON deliveries(status, next_attempt_at);
 CREATE INDEX IF NOT EXISTS deliveries_created ON deliveries(created_at);
@@ -322,7 +323,9 @@ let openDatabase (path: string) : Database =
     cmd.CommandText <- schema
     cmd.ExecuteNonQuery() |> ignore
     // Columns added after a database was first created (SQLite has no ADD COLUMN IF NOT EXISTS).
-    for table, column, definition in [ "firms", "time_zone", "TEXT NOT NULL DEFAULT 'America/New_York'" ] do
+    for table, column, definition in
+        [ "firms", "time_zone", "TEXT NOT NULL DEFAULT 'America/New_York'"
+          "deliveries", "decision", "TEXT NULL" ] do
         use probe = conn.CreateCommand()
         probe.CommandText <- $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = '{column}'"
         if Convert.ToInt64(probe.ExecuteScalar()) = 0L then

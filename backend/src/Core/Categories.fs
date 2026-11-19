@@ -79,6 +79,9 @@ type private Rule =
 let private taxonomyDoc = lazy (JsonDocument.Parse(resource "taxonomy.json").RootElement.Clone())
 let private coverageDoc = lazy (JsonDocument.Parse(resource "coverage.json").RootElement.Clone())
 
+/// The taxonomy version every classification is made under; recorded with each routing decision.
+let version () = taxonomyDoc.Value.GetProperty("version").GetInt32()
+
 let private modifierRules =
     lazy
         [| for m in taxonomyDoc.Value.GetProperty("modifiers").EnumerateArray() -> str m "id", rx (str m "pattern") |]

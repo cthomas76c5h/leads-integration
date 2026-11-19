@@ -185,12 +185,24 @@ export interface Delivery {
   /** 'accepted' = receiver answered 2xx. Never "in CRM" from HTTP alone. */
   stage: DeliveryStage;
   reason: string | null;
+  /** Why this lead goes, or not, to this destination (RFC-009). Null for tests, fallback hand-offs, older deliveries. */
+  decision: RoutingDecision | null;
   nextAttemptAt: number | null;
   replayOf: string | null;
   createdAt: number;
   attempts: Attempt[];
   /** What is wrong and why, worked out by the server. Null when nothing is. */
   diagnosis: Diagnosis | null;
+}
+
+export interface RoutingDecision {
+  outcome: 'planned' | 'not-sent-routing' | 'not-sent-lead';
+  rule: string;
+  category: string;
+  practiceArea: string | null;
+  taxonomyVersion: number;
+  matchedOn: string | null;
+  reason: string | null;
 }
 
 /** GLOSSARY.md failure classes, plus 'routing' (not sent on purpose) and 'stopped' (destination stopped first). */

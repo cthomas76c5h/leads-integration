@@ -124,8 +124,10 @@ sequenceDiagram
 3. **Planned.** Each destination decides, in order:
    1. Destination **Paused** or **Needs reconnection** → **Held** for the record, and the hand-off goes to the firm's **fallback** at once. *Held is Proposed. The lab holds a delivery that was already waiting when its destination was paused (checked at send time; `pending`, no next attempt, reason "held: destination paused"; sent on resume), but a lead recorded while paused still gets no delivery (a missed lead), and production records nothing at all. Fallback is Lab.*
    2. Destination still Setting up → no production delivery (test leads only). *Lab.*
-   3. **Routing rule** excludes it (category, or chat lead not wanted) → **Not sent**, with the reason. *Lab, routing by active call-type text. Category routing is Proposed.*
-   4. Lead lacks a field this destination requires (a hang-up to a CRM that needs a name) → **Not sent**, lead problem. *Proposed. Today the destination refuses it.*
+   3. **Routing rule** excludes it (category, practice area, or chat lead not wanted) → **Not sent**, with the reason. *Lab: by category where the destination has a rule; a CRM with no rule yet keeps the active call-type rule. Production routes by call-type text.*
+   4. Lead lacks a field this destination requires (a hang-up to a CRM that needs a name) → **Not sent**, lead problem. *Lab. Production sends it and the destination refuses it.*
+
+   Each step is recorded as the delivery's **routing decision** (planned, not sent for routing, or not sent for a lead problem), with the rule, classification and taxonomy version it used ([RFC-009 §3.2](../rfc/009_routing_by_category.md#32-the-routing-decision)). *Lab, without the revision: the lab's rule is a destination setting, not yet a revision.*
    5. Otherwise → queued.
 4. **Sent.** Each queued delivery is attempted independently; one slow or broken
    destination never delays another. *Lab. Production posts to each CRM in turn,
@@ -217,9 +219,10 @@ record afterwards: the most serious outcome, shown first.
 ### Routing
 
 - *Production:* if the lead's call type is not one of the firm's active call types (or the firm has none), the lead goes to none of its CRMs. It compares after trimming `" ,.;:-*"` from the ends and lowercasing, so "Personal-Injury" and "Personal Injury" differ.
-- *Lab:* the same rule per CRM destination, but only when the firm has active call types, and ignoring all punctuation (looser than production). Notifications and Answering Legal take every lead.
+- *Lab:* the routing rule is per destination and by **call category**: the categories it takes, optionally narrowed to practice areas for new matters ([RFC-009](../rfc/009_routing_by_category.md)). Each destination decides on its own; no order, no first match. A destination with no rule takes every lead, except a CRM, which keeps the legacy rule (the firm's active call types, ignoring all punctuation) until it has one.
+- *Lab:* an imported CRM's rule is **seeded** from its firm's active call types, so nothing it receives changes: 117 of 122 active CRM firms get "new matters". A firm whose active call types split a category keeps the legacy rule and is listed in the import notes for review. A rule already on a destination is never overwritten by an import.
 - *Production and Lab:* a destination can refuse chat leads.
-- *Proposed:* the routing rule is per destination and by **call category**: "new matters only", "everything", "new matters and existing clients". Today's active flag already means "new matter" for 99.8% of active call types, so the default rule ("CRMs take new matters, notifications take everything") reproduces current behaviour while making it explicit and the same for every destination kind.
+- *Proposed:* the rule lives in the destination's revision and changes only by approval (RFC-001); uncertain classifications route wide ([RFC-008 §6.1](../rfc/008_delivery_guarantees_and_evidence.md#61-each-action-decides-on-its-own-terms)).
 
 ### Retry
 
@@ -245,7 +248,8 @@ to act. Set by Answering AI in [delivery-timing.json](delivery-timing.json).
 ### Switch-off
 
 - *Lab:* 5 production deliveries in a row that end refused or gave up switch the destination off. An accepted delivery resets the streak. Test leads never count.
-- *Proposed:* only **configuration problems** and **gave up** count. A **lead problem** (a hang-up a CRM cannot take) is about one lead and must not switch off the firm's destination; a **connection problem** moves it to needs reconnection at once instead of after 5 lost leads.
+- *Lab:* a **lead problem** (a hang-up a CRM cannot take) is not sent, so it never reaches the destination or its streak.
+- *Proposed:* only **configuration problems** and **gave up** count; a **connection problem** moves it to needs reconnection at once instead of after 5 lost leads.
 
 ### Window to act and fallback
 

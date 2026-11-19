@@ -50,7 +50,10 @@ interface Connection {
   sourceRef: string | null;  // id in the source system, e.g. api-2 CRM row id
   credentials: CredentialField[];
   settings: Record<string, string>; // non-secret settings, e.g. { sendWebchats: 'false' }; role: 'fallback' marks the firm's
-                                     // agreed fallback: it gets no leads directly, only hand-offs whose fallback delay passed (1 h; 15 min for emergencies and custody)
+                                     // agreed fallback: it gets no leads directly, only hand-offs whose fallback delay passed (1 h; 15 min for emergencies and custody).
+                                     // The routing rule (RFC-009): routeCategories: 'new-matter,existing-client' (taxonomy ids), and
+                                     // routePracticeAreas: 'personal-injury,…' (narrows new matters; absent = all). No routeCategories:
+                                     // a CRM takes the firm's active call types (legacy), anything else every lead. Imports seed CRMs'.
   enabled: boolean;        // as configured (import: the source's enabled flag)
   status: 'active' | 'disabled';     // delivery health: disabled after 410 or repeated failures
   disabledReason: string | null;
@@ -165,6 +168,8 @@ interface Delivery {
   /** What the operator can claim. 'accepted' = receiver answered 2xx. Never 'in CRM' from HTTP alone. */
   stage: 'queued' | 'accepted' | 'refused' | 'not-sent';
   reason: string | null;
+  /** Why this lead goes, or not, to this destination. Null for test leads, fallback hand-offs and older deliveries. */
+  decision: RoutingDecision | null;
   nextAttemptAt: number | null;
   replayOf: string | null;
   createdAt: number;
@@ -174,11 +179,26 @@ interface Delivery {
 }
 
 /**
+ * Made once, when the lead is recorded (RFC-009 §3.2), and kept with the delivery.
+ * 'not-sent-routing' and 'not-sent-lead' deliveries have status 'skipped'; the reason of a
+ * lead problem starts "lead problem: ", and its diagnosis class is 'lead'.
+ */
+interface RoutingDecision {
+  outcome: 'planned' | 'not-sent-routing' | 'not-sent-lead';
+  rule: string;              // the destination's rule in words when decided, e.g. 'new-matter; no chat leads'
+  category: string;          // the lead's classification it used
+  practiceArea: string | null;
+  taxonomyVersion: number;
+  matchedOn: string | null;  // 'new-matter', 'call type' (legacy rule), 'every call'; null unless planned
+  reason: string | null;     // why not sent; null when planned
+}
+
+/**
  * The failure classes of GLOSSARY.md, plus the two "not failures" an operator still
  * has to read: 'routing' (not sent on purpose) and 'stopped' (cancelled because the
  * destination was switched off or removed).
  *   transient      no answer, 408/425/429/5xx; retrying, or gave up when retrying=false
- *   lead           this lead lacks what the destination requires (a hang-up to a CRM)
+ *   lead           this lead lacks what the destination requires (a hang-up to a CRM): not sent, or refused
  *   configuration  refused for a reason in the destination's setup (mapping, missing ID, redirect)
  *   connection     401/403/410: only the firm can reconnect
  *   ours           we could not build the request
@@ -437,7 +457,7 @@ non-alphanumerics turned into `_` and trimmed ("Date of accident?" →
 | GET | `/api/firms/{id}/report` | | `FirmReport`: the last 7 days, production leads |
 | POST | `/api/firms` | `{ name, timeZone? }` | `FirmDetail` (source `manual`; `timeZone` defaults to `America/New_York`) |
 | PATCH | `/api/firms/{id}` | `{ timeZone }` | `FirmDetail`. Set by Answering AI; 422 unless an IANA name (`America/Los_Angeles`) |
-| POST | `/api/firms/{id}/leads` | `{ variant?: 'full' \| 'sparse', callType?: string, webchat?: boolean, referenceLead?: string }` | `{ event: LeadEvent, deliveries: Delivery[], mapping: CallMapping }` — one delivery per enabled, active connection; `skipped` with a reason when routing excludes it. `referenceLead` sends that reference lead as-is; `callType` then replaces its call type (e.g. the firm's own name for the same category) |
+| POST | `/api/firms/{id}/leads` | `{ variant?: 'full' \| 'sparse', callType?: string, webchat?: boolean, referenceLead?: string }` | `{ event: LeadEvent, deliveries: Delivery[], mapping: CallMapping }` — one delivery per enabled, active connection, each with its routing `decision`; `skipped` with a reason when routing excludes it or the lead lacks what the destination requires. `referenceLead` sends that reference lead as-is; `callType` then replaces its call type (e.g. the firm's own name for the same category) |
 | GET | `/api/call-categories` | | `Taxonomy` |
 | GET | `/api/call-categories/classify?name=` | | `CallMapping` |
 | GET | `/api/reference-leads` | | `ReferenceLead[]` |
@@ -482,5 +502,5 @@ elsewhere). Without it they answer 404. Never enabled outside a test run.
 | POST | `/api/test/clock` | `{ at: number }` | `{ now }`. Sets the one clock every rule reads (`Domain.now`); from then on it moves only when set or advanced |
 | POST | `/api/test/advance` | `{ to: number }` | `{ now, passes }`. Moves the clock to `to`, stopping at every due retry and at least once a minute to run the worker: fallbacks, then every due delivery. Retry jitter is zero, so runs repeat exactly |
 | PUT | `/api/test/receivers/{key}` | `{ mode? } \| { status, body?, retryAfter? } \| { noAnswer: true }`, plus `requires?: string[]` | `{ ok: true }`. How the fake receiver answers requests whose URL carries `?dest={key}`, until set again. `mode` is one of the [receiver modes](contracts/receivers/modes.json) the lab implements; `noAnswer` waits past the delivery timeout |
-| PUT | `/api/test/connections/{id}` | `{ settings?: Record<string, string>, mapping?: string[] }` | `Connection`. Settings the public routes do not expose (`role: 'fallback'`, `sendWebchats: 'false'`); `mapping` sets a webhook's live mapping from field labels (First name, Last name, Email, Phone, Note) |
-| PUT | `/api/test/firms/{id}/contact-types` | `{ name: string, active: boolean }[]` | `FirmDetail`. The firm's call types, which the lab routes CRMs by |
+| PUT | `/api/test/connections/{id}` | `{ settings?: Record<string, string>, mapping?: string[] }` | `Connection`. Settings the public routes do not expose (`role: 'fallback'`, `sendWebchats: 'false'`, `routeCategories`, `routePracticeAreas`); `mapping` sets a webhook's live mapping from field labels (First name, Last name, Email, Phone, Note) |
+| PUT | `/api/test/firms/{id}/contact-types` | `{ name: string, active: boolean }[]` | `FirmDetail`. The firm's call types, which a CRM with no routing rule is routed by |

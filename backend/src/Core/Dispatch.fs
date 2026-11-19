@@ -17,26 +17,12 @@ type Options =
       Address: Address.Policy
       UserAgent: string }
 
-/// "Personal Injury" and "personal-injury" are the same contact type (api-2
-/// strips punctuation and case before matching).
-let normalizeType (s: string) =
-    (if isNull s then "" else s).ToLowerInvariant() |> String.filter Char.IsLetterOrDigit
-
 let private setting (c: Connection) key =
     match c.Settings.TryGetValue key with
     | true, v -> v
     | _ -> ""
 
-/// Why a production lead does not go to this connection, or None to send it.
-let routingExclusion (firm: Store.FirmRow) (c: Connection) (lead: Lead) : string option =
-    let k = Catalog.tryFind c.Kind
-    let activeTypes = firm.ContactTypes |> Array.filter _.Active |> Array.map (fun t -> normalizeType t.Name)
-    if lead.Webchat && setting c "sendWebchats" = "false" then Some "chat leads are switched off for this destination"
-    elif k.IsSome && k.Value.Category = "crm" && activeTypes.Length > 0 && not (Array.contains (normalizeType lead.CallType) activeTypes) then
-        Some $"call type \"{lead.CallType}\" is not routed: it matches none of the firm's active contact types"
-    else None
-
-let private newDelivery (event: LeadEvent) (c: Connection) status reason (nowMs: int64) : Delivery =
+let private newDelivery (event: LeadEvent) (c: Connection) status reason (decision: RoutingDecision) (nowMs: int64) : Delivery =
     { Id = Secrets.newId "dlv"
       EventId = event.Id
       ConnectionId = c.Id
@@ -48,15 +34,22 @@ let private newDelivery (event: LeadEvent) (c: Connection) status reason (nowMs:
       Status = status
       Stage = ""
       Reason = reason
+      Decision = decision
       NextAttemptAt = (if status = "pending" then Nullable nowMs else Nullable())
       ReplayOf = null
       CreatedAt = nowMs
       Attempts = [||]
       Diagnosis = null }
 
-/// Record the lead, then one delivery per destination: production leads go to
-/// every enabled, active, live connection (routing may mark one skipped); a
-/// test goes only to `onlyConnection`, carrying `template` when given.
+/// A delivery planned, or not sent, as the routing decision says.
+let private decided (event: LeadEvent) (c: Connection) (decision: RoutingDecision) (nowMs: int64) =
+    if decision.Outcome = "planned" then newDelivery event c "pending" null decision nowMs
+    else newDelivery event c "skipped" decision.Reason decision nowMs
+
+/// Record the lead, then one delivery per destination: production leads get a
+/// routing decision at every enabled, active, live connection (Routing.decide:
+/// planned, or not sent with a reason); a test goes only to `onlyConnection`,
+/// carrying `template` when given, and is not routed.
 let publish (db: Database) (firmId: string) (lead: Lead) (test: bool) (onlyConnection: string option) (template: string option) =
     write db (fun s ->
         let firm = Store.firmOrFail s firmId
@@ -70,20 +63,18 @@ let publish (db: Database) (firmId: string) (lead: Lead) (test: bool) (onlyConne
         Store.insertEvent s event
         let targets =
             Store.connectionsOf s firmId
-            |> Array.map _.Connection
-            |> Array.filter (fun c ->
+            |> Array.filter (fun row ->
+                let c = row.Connection
                 match onlyConnection with
                 | Some id -> c.Id = id
                 // A fallback takes only hand-offs that are running late (runFallbacks), never every lead.
                 | None -> c.Enabled && c.Status = "active" && setting c "stage" <> "setup" && setting c "role" <> "fallback")
         let deliveries =
             targets
-            |> Array.map (fun c ->
-                let excluded = if test then None else routingExclusion firm c lead
+            |> Array.map (fun row ->
                 let d =
-                    match excluded with
-                    | Some reason -> newDelivery event c "skipped" reason t
-                    | None -> newDelivery event c "pending" null t
+                    if test then newDelivery event row.Connection "pending" null Unchecked.defaultof<RoutingDecision> t
+                    else decided event row.Connection (Routing.decide firm row lead) t
                 Store.insertDelivery s d (if d.Status = "pending" then template else None)
                 d.Id)
         event, deliveries)
@@ -121,7 +112,8 @@ let replay (db: Database) (deliveryId: string) =
 /// delivery now, oldest first, with routing applied as it would have been.
 let sendMissed (db: Database) (connectionId: string) =
     write db (fun s ->
-        let c = (Store.connectionOrFail s connectionId).Connection
+        let row = Store.connectionOrFail s connectionId
+        let c = row.Connection
         if c.Status <> "active" || not c.Enabled || setting c "stage" = "setup" then
             fail 409 "the destination is not live: reactivate or resume it first"
         let firm = Store.firmOrFail s c.FirmId
@@ -129,13 +121,9 @@ let sendMissed (db: Database) (connectionId: string) =
         let mutable queued = 0
         let mutable notSent = 0
         for e in Store.missedEvents s connectionId do
-            match routingExclusion firm c e.Lead with
-            | Some reason ->
-                Store.insertDelivery s (newDelivery e c "skipped" reason t) None
-                notSent <- notSent + 1
-            | None ->
-                Store.insertDelivery s (newDelivery e c "pending" null t) None
-                queued <- queued + 1
+            let d = decided e c (Routing.decide firm row e.Lead) t
+            Store.insertDelivery s d None
+            if d.Status = "pending" then queued <- queued + 1 else notSent <- notSent + 1
         {| queued = queued; notSent = notSent |})
 
 /// Is this the firm's fallback: the destination it agreed takes the hand-off when the usual one cannot in time.
@@ -156,8 +144,10 @@ let runFallbacks (db: Database) (nowMs: int64) : int =
                                       WHERE x.event_id = e.id AND a.outcome = 'delivered')
                      AND NOT EXISTS (SELECT 1 FROM deliveries x WHERE x.event_id = e.id AND x.connection_id = c.id)
                      -- Not a lead the firm's routing sends nowhere on purpose: the fallback never overrides routing.
+                     -- A lead problem is not routing: that lead is still owed a hand-off.
                      AND NOT (EXISTS (SELECT 1 FROM deliveries x WHERE x.event_id = e.id)
-                              AND NOT EXISTS (SELECT 1 FROM deliveries x WHERE x.event_id = e.id AND x.status <> 'skipped'))"""
+                              AND NOT EXISTS (SELECT 1 FROM deliveries x WHERE x.event_id = e.id
+                                                AND NOT (x.status = 'skipped' AND COALESCE(x.reason, '') NOT LIKE 'lead problem:%')))"""
                 [ nowMs - 2L * 86_400_000L ]
                 (fun r -> Read.str r 0, Read.str r 1)
         let mutable queued = 0
@@ -167,7 +157,7 @@ let runFallbacks (db: Database) (nowMs: int64) : int =
                 // The fallback's own clock (Urgency.fallbackAfterMs), not a share of the window to act.
                 if nowMs - e.CreatedAt >= Urgency.fallbackAfterMs (Categories.classify e.Lead.CallType).Category then
                     let c = (Store.connectionOrFail s connectionId).Connection
-                    Store.insertDelivery s (newDelivery e c "pending" null nowMs) None
+                    Store.insertDelivery s (newDelivery e c "pending" null Unchecked.defaultof<RoutingDecision> nowMs) None
                     queued <- queued + 1
             | None -> ()
         queued)

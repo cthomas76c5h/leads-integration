@@ -9,6 +9,12 @@ open LeadIntegrations.Domain
 
 let private blank (s: string) = String.IsNullOrWhiteSpace s
 
+/// How a not-sent delivery's reason marks a lead problem (Routing.decide), as opposed
+/// to a routing exclusion. Only an exclusion means no hand-off is owed.
+let leadProblemPrefix = "lead problem: "
+
+let isLeadProblem (reason: string) = not (isNull reason) && reason.StartsWith leadProblemPrefix
+
 /// The receiver's own words, when its answer was JSON that said something.
 let receiverWords (snippet: string) : string option =
     if blank snippet then None
@@ -45,6 +51,7 @@ let diagnose (kind: string) (status: string) (reason: string) (attempts: Attempt
     let make cls cause retrying = Diagnosis(cls, cause, retrying)
     match status with
     | "delivered" -> null
+    | "skipped" when isLeadProblem reason -> make "lead" (stripPrefix leadProblemPrefix reason) false
     | "skipped" -> make "routing" reason false
     | "pending"
     | "delivering" -> if attempts.Length = 0 then null else make "transient" said true

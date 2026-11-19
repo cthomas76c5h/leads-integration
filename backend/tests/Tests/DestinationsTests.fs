@@ -80,7 +80,12 @@ let tests =
                       Store.listDeliveries s { Status = "attention"; FirmId = null; ConnectionId = null; Test = Nullable false; Limit = 500; Offset = 0 })
               Expect.equal sum.NeedsAttention attention.Length "the tile and the list agree"
               Expect.isTrue (attention |> Array.forall (fun d -> d.Delivery.Status = "failed" && d.Delivery.Diagnosis.Class <> "lead")) "no lead problems in it"
-              Expect.isGreaterThan sum.LeadProblems 0 "hang-ups are counted apart"
+              // Hang-ups are decided at planning now: not sent, as lead problems, so no CRM refuses one.
+              Expect.equal sum.LeadProblems 0 "no refusals for what the lead lacks"
+              let notSent =
+                  Db.read t.Db (fun s ->
+                      Store.listDeliveries s { Status = "skipped"; FirmId = null; ConnectionId = null; Test = Nullable false; Limit = 500; Offset = 0 })
+              Expect.isTrue (notSent |> Array.exists (fun d -> d.Delivery.Diagnosis.Class = "lead" && d.Delivery.Attempts.Length = 0)) "hang-ups not sent, as lead problems"
               Expect.isGreaterThan sum.Late 0 "the incident is late"
               Expect.isGreaterThan sum.Accepted 0 "accepted this week"
               Expect.isGreaterThan sum.StoppedDestinations 0 "stopped destinations"

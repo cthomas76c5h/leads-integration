@@ -3,13 +3,12 @@
   "name": "lead-problem",
   "story": "A caller hangs up before giving a name. MyCase requires one, so the lead is not sent there, as a lead problem: one lead's gap never counts against the firm's destination. The firm still has it by email.",
   "slice": 3,
-  "model": "proposed",
+  "model": "lab",
   "proves": [
     "docs/lead-delivery/README.md#3-a-leads-journey (planning step 4: a lead lacking a required field is not sent)",
     "docs/lead-delivery/README.md#switch-off (proposed: a lead problem never counts toward the streak)",
     "docs/lead-delivery/answers.md#speed-window-to-act-fallback-holding (hang-ups are not sent to CRMs)"
   ],
-  "today": "The lab sends it: MyCase's receiver refuses it (422, missing first_name) and the refusal counts toward the switch-off streak. Kinds that fill a blank name with N/A, such as Clio Grow, accept it.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [

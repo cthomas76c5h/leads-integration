@@ -131,8 +131,13 @@ class LabAdapter:
             settings = {"email": {"recipients": "intake@example.com"}, "sms": {"to": "+15555550199"}}.get(d["kind"], {})
             if d.get("role") == "fallback":
                 settings["role"] = "fallback"
-            if d.get("routing", {}).get("chatLeads") is False:
+            routing = d.get("routing", {})
+            if routing.get("chatLeads") is False:
                 settings["sendWebchats"] = "false"
+            if routing.get("categories"):
+                settings["routeCategories"] = ",".join(routing["categories"])
+            if routing.get("practiceAreas"):
+                settings["routePracticeAreas"] = ",".join(routing["practiceAreas"])
             body = {}
             if settings:
                 body["settings"] = settings
@@ -145,26 +150,6 @@ class LabAdapter:
                 self.api.ok("PATCH", f"/api/connections/{c['id']}", {"enabled": False})
             elif state != "live":
                 raise Unsupported(f"starting a destination as {state}")
-        self._category_routing(given)
-
-    def _category_routing(self, given):
-        """The lab routes every CRM of a firm by the firm's active call types, not per destination."""
-        catalog = {k["kind"]: k for k in self.api.ok("GET", "/api/catalog")}
-        by_firm = {}
-        for d in given["destinations"]:
-            cats = d.get("routing", {}).get("categories")
-            if cats is None:
-                continue
-            if catalog.get(d["kind"], {}).get("category") != "crm":
-                raise Unsupported(f"routing {d['kind']} by category (the lab routes only CRMs by call type)")
-            by_firm.setdefault(d["firm"], set()).add(tuple(sorted(cats)))
-        for firm, sets in by_firm.items():
-            crms = [d for d in given["destinations"] if d["firm"] == firm and catalog.get(d["kind"], {}).get("category") == "crm"]
-            if len(sets) > 1 or any("routing" not in d or "categories" not in d["routing"] for d in crms):
-                raise Unsupported("different category routing for CRMs of one firm (the lab routes all of a firm's CRMs alike)")
-            wanted = set(next(iter(sets)))
-            types = sorted({r["lead"]["callType"] for r in self._refs() if r["expect"]["category"] in wanted})
-            self.api.ok("PUT", f"/api/test/firms/{self.firms[firm]}/contact-types", [{"name": t, "active": True} for t in types])
 
     def _refs(self):
         if self.refs is None:

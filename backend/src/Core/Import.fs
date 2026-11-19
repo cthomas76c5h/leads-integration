@@ -56,7 +56,7 @@ let private union (a: 'T[]) (b: 'T[]) = Array.append a b |> Array.distinct
 
 let private mergeContactTypes (a: ContactType[]) (b: ContactType[]) =
     Array.append a b
-    |> Array.groupBy (fun t -> Dispatch.normalizeType t.Name)
+    |> Array.groupBy (fun t -> Routing.normalizeType t.Name)
     |> Array.map (fun (_, ts) -> { ts[0] with Active = ts |> Array.exists _.Active })
 
 let private placeholderFirmId (system: string) = $"firm_orphans_{system}"
@@ -77,12 +77,33 @@ let apply (db: Database) (origin: string) (batch: Batch) : ImportRun =
     if not sharedKeys.IsEmpty then
         let firms = batch.Firms |> Array.filter (fun f -> sharedKeys.Contains f.KeyHash) |> Array.length
         notes.Add $"{firms} firms share {sharedKeys.Count} Answering Legal key(s) with another firm in {batch.System}: not matched across systems by key"
+    let mutable seeded = 0
+    let unseeded = ResizeArray<string>()
     write db (fun s ->
         let upsertConnection (firmId: string) (ic: ImportedConnection) (extra: (string * string) list) =
             let set = Dictionary<string, string>(ic.Settings)
             for k, v in extra do
                 set[k] <- v
-            match Store.tryConnectionBySource s batch.System ic.SourceRef with
+            let existing = Store.tryConnectionBySource s batch.System ic.SourceRef
+            // A routing rule already on the destination stays (an approved rule is never overwritten);
+            // a CRM without one is seeded from the firm's call types (RFC-009).
+            let kept = existing |> Option.map _.Connection.Settings |> Option.filter (fun x -> x.ContainsKey Routing.categoriesKey)
+            match kept with
+            | Some old ->
+                for k in [ Routing.categoriesKey; Routing.practiceAreasKey ] do
+                    match old.TryGetValue k with
+                    | true, v -> set[k] <- v
+                    | _ -> ()
+            | None when Catalog.tryFind ic.Kind |> Option.exists (fun k -> k.Category = "crm") ->
+                let firm = Store.firmOrFail s firmId
+                match Routing.seed firm.ContactTypes with
+                | Some(categories, areas) ->
+                    set[Routing.categoriesKey] <- String.Join(",", categories)
+                    if not areas.IsEmpty then set[Routing.practiceAreasKey] <- String.Join(",", areas)
+                    seeded <- seeded + 1
+                | None -> unseeded.Add $"{firm.Name} ({ic.Name})"
+            | None -> ()
+            match existing with
             | Some existing ->
                 Store.updateConnection
                     s
@@ -189,6 +210,12 @@ let apply (db: Database) (origin: string) (batch: Batch) : ImportRun =
                 upsertConnection pid c [ ("orphaned", "true") ]
             notes.Add $"{batch.Orphans.Length} connection(s) had no firm in {batch.System}; kept under \"Unassigned {batch.System} CRM rows\""
 
+        if seeded > 0 then notes.Add $"{seeded} CRM routing rule(s) seeded from the firm's active call types"
+        if unseeded.Count > 0 then
+            notes.Add(
+                $"{unseeded.Count} CRM(s) keep the legacy call-type rule: the firm's active call types cannot be said as categories; review: "
+                + String.Join("; ", unseeded |> Seq.truncate 20)
+            )
         let run =
             { Id = Secrets.newId "imp"
               System = batch.System

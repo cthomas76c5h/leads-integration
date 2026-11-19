@@ -103,6 +103,22 @@ type Diagnosis(cls: string, cause: string, retrying: bool) =
     member _.Cause = cause
     member _.Retrying = retrying
 
+/// Why a lead goes, or does not go, to one destination (RFC-009 §3.2). Made once,
+/// when the lead is recorded, and kept with the delivery, so it can be explained
+/// and reproduced later from the lead, the rule and the taxonomy version.
+type RoutingDecision =
+    { /// planned | not-sent-routing | not-sent-lead
+      Outcome: string
+      /// The destination's rule in words, as it was when the decision was made.
+      Rule: string
+      Category: string
+      PracticeArea: string
+      TaxonomyVersion: int
+      /// What the rule matched: a category, "call type" (the legacy rule) or "every call". Null when not planned.
+      MatchedOn: string
+      /// Why not sent, in the firm's words. Null when planned.
+      Reason: string }
+
 type Delivery =
     { Id: string
       EventId: string
@@ -115,6 +131,9 @@ type Delivery =
       Status: string // pending | delivering | delivered | failed | cancelled | skipped
       Stage: string // queued | accepted | refused | not-sent
       Reason: string
+      /// Why this lead goes, or not, to this destination (Routing.decide). Null for test
+      /// leads, fallback hand-offs and deliveries recorded before decisions were.
+      Decision: RoutingDecision
       NextAttemptAt: Nullable<int64>
       ReplayOf: string
       CreatedAt: int64

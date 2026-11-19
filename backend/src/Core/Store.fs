@@ -210,7 +210,7 @@ let attemptsOf (s: Session) (deliveryId: string) =
         readAttempt
 
 let private deliveryCols =
-    "d.id, d.event_id, d.connection_id, c.name, c.kind, f.id, f.name, d.test, d.status, d.reason, d.next_attempt_at, d.replay_of, d.created_at, d.template, d.has_template"
+    "d.id, d.event_id, d.connection_id, c.name, c.kind, f.id, f.name, d.test, d.status, d.reason, d.next_attempt_at, d.replay_of, d.created_at, d.template, d.has_template, d.decision"
 
 let private deliveryFrom =
     "FROM deliveries d JOIN connections c ON c.id = d.connection_id JOIN firms f ON f.id = c.firm_id"
@@ -230,6 +230,10 @@ let private readDelivery (s: Session) (r: DbDataReader) : DeliveryRow =
           Status = status
           Stage = ""
           Reason = Read.str r 9
+          Decision =
+            match Read.str r 15 with
+            | null -> Unchecked.defaultof<RoutingDecision>
+            | json -> Json.deserialize json
           NextAttemptAt = Read.int64N r 10
           ReplayOf = Read.str r 11
           CreatedAt = Read.int64 r 12
@@ -454,7 +458,9 @@ let private leadSql =
                 WHERE x.event_id = e.id AND a.outcome = 'delivered'),
               (SELECT c2.name || CASE WHEN c2.settings LIKE '%"role":"fallback"%' THEN '|fallback' ELSE '' END
                  FROM attempts a JOIN deliveries x ON x.id = a.delivery_id JOIN connections c2 ON c2.id = x.connection_id
-                WHERE x.event_id = e.id AND a.outcome = 'delivered' ORDER BY a.at LIMIT 1)
+                WHERE x.event_id = e.id AND a.outcome = 'delivered' ORDER BY a.at LIMIT 1),
+              -- Not sent because the rule excludes it; a lead problem still owes the firm a hand-off.
+              COALESCE(SUM(d.status = 'skipped' AND COALESCE(d.reason, '') NOT LIKE 'lead problem:%'), 0)
        FROM events e
        JOIN firms f ON f.id = e.firm_id
        LEFT JOIN deliveries d ON d.event_id = e.id
@@ -474,7 +480,7 @@ let private readLead (r: DbDataReader) : LeadSummary * Lead =
     let mapping = Categories.classify lead.CallType
     // No hand-off is owed for a test lead, nor for one the firm's routing sends nowhere on purpose
     // (every destination excluded it): it cannot be late or missed, and is not in the in-time numbers.
-    let excludedByRouting = counts.Total > 0 && counts.Skipped = counts.Total
+    let excludedByRouting = counts.Total > 0 && Read.int r 13 = counts.Total
     let handOff =
         if Read.bool r 3 || excludedByRouting then Unchecked.defaultof<HandOff>
         else
@@ -550,10 +556,11 @@ let leadOrFail (s: Session) (id: string) : LeadDetail =
 
 let insertDelivery (s: Session) (d: Delivery) (template: string option) =
     s.Execute
-        """INSERT INTO deliveries (id, event_id, connection_id, test, status, reason, template, has_template, next_attempt_at, replay_of, created_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)"""
+        """INSERT INTO deliveries (id, event_id, connection_id, test, status, reason, template, has_template, next_attempt_at, replay_of, created_at, decision)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)"""
         [ d.Id; d.EventId; d.ConnectionId; d.Test; d.Status; d.Reason; Option.toObj template; template.IsSome
-          (if d.NextAttemptAt.HasValue then box d.NextAttemptAt.Value else null); d.ReplayOf; d.CreatedAt ]
+          (if d.NextAttemptAt.HasValue then box d.NextAttemptAt.Value else null); d.ReplayOf; d.CreatedAt
+          (if isNull (box d.Decision) then null else Json.serialize d.Decision) ]
     |> ignore
 
 /// Missed leads: the firm's production leads since this destination's first

@@ -55,7 +55,7 @@ let private drain (db: Db.Database) (client: HttpClient) =
 let tests =
     testList
         "api"
-        [ test "a synthetic lead reaches every imported CRM's fake receiver; routing skips what api-2 would skip" {
+        [ test "a synthetic lead reaches every imported CRM's fake receiver; routing skips what the firm's rule excludes" {
               use t = new TempDb()
               let imported =
                   { firm "1" "Rose & Associates" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ]; conn "11" "lead-docket" [ ("api_key", "https://x") ] ] with
@@ -76,10 +76,13 @@ let tests =
                       Expect.equal (d.GetProperty("stage").GetString()) "accepted" "accepted, never 'in CRM'"
                   let rec' = json (client.GetAsync("/api/received").Result)
                   Expect.equal (rec'.GetArrayLength()) 2 "the receivers saw both"
-                  // Not routed: a call type the firm has no contact type for.
-                  let res = json (post client $"/api/firms/{firmId}/leads" """{"callType":"Bankruptcy"}""")
+                  // Not routed: the rule seeded from the firm's call types takes new matters, not court calls.
+                  let res = json (post client $"/api/firms/{firmId}/leads" """{"callType":"*Court Calls"}""")
                   let skipped = res.GetProperty("deliveries").EnumerateArray() |> Seq.map (fun d -> d.GetProperty("status").GetString()) |> Seq.toList
-                  Expect.equal skipped [ "skipped"; "skipped" ] "skipped like api-2"
+                  Expect.equal skipped [ "skipped"; "skipped" ] "skipped, with a reason"
+                  let decision = res.GetProperty("deliveries").Item(0).GetProperty("decision")
+                  Expect.equal (decision.GetProperty("outcome").GetString()) "not-sent-routing" "the decision is recorded"
+                  Expect.equal (decision.GetProperty("rule").GetString()) "new-matter" "with the rule it used"
               finally
                   app.StopAsync().Wait()
           }
@@ -219,7 +222,7 @@ let tests =
                   app.StopAsync().Wait()
           }
 
-          test "a reference lead routes by the firm's contact types, under the firm's own name for the category" {
+          test "an imported CRM routes by category: the firm's own label for it does not matter" {
               use t = new TempDb()
               let imported =
                   { firm "1" "A" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ] ] with
@@ -232,9 +235,9 @@ let tests =
                   let m = detail.GetProperty("contactTypes").Item(0).GetProperty("mapping")
                   Expect.equal (m.GetProperty("category").GetString()) "new-matter" "contact types carry their mapping"
                   Expect.equal (m.GetProperty("practiceArea").GetString()) "personal-injury" "practice area"
-                  // As written, the reference lead's call type is not one of this firm's: skipped.
+                  // The rule seeded from the firm's call types is "new matters": the reference lead's own label is one.
                   let asIs = json (post client $"/api/firms/{firmId}/leads" """{"referenceLead":"nm-personal-injury"}""")
-                  Expect.equal (asIs.GetProperty("deliveries").Item(0).GetProperty("status").GetString()) "skipped" "not routed as written"
+                  Expect.equal (asIs.GetProperty("deliveries").Item(0).GetProperty("status").GetString()) "pending" "routed as written"
                   Expect.equal (asIs.GetProperty("mapping").GetProperty("category").GetString()) "new-matter" "mapping returned"
                   // Under the firm's own name for the same category: sent, with the reference lead's intake.
                   let res = json (post client $"/api/firms/{firmId}/leads" """{"referenceLead":"nm-personal-injury","callType":"*New PI Calls"}""")

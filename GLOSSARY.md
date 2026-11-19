@@ -79,8 +79,15 @@ The firm's authorization that lets a destination reach its external system: an A
 _Avoid_: credentials (the secret itself, which is never stored or shown)
 
 **Routing rule**:
-Which leads a destination takes: by call category, and whether it takes chat leads.
+Which leads a destination takes: the call categories, the practice areas for new matters, and whether it takes chat leads. Each destination's rule is evaluated on its own, with no order between destinations.
 _Avoid_: filter, contact-type match
+
+**Routing decision**:
+Why one lead goes, or does not go, to one destination: **planned**, **not sent** (routing) or **not sent** (lead problem), with the rule, the classification and the taxonomy version it used. Made once, when the lead is recorded, and kept with the delivery. *Lab.*
+_Avoid_: filter result, match
+
+**Planned**:
+A routing decision that a delivery follows. *Lab.* For a paused destination, a planned delivery is held, not missed. *Proposed.*
 
 **Mapping**:
 How a lead's fields become the fields the destination expects.

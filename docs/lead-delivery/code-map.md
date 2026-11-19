@@ -48,8 +48,9 @@ is also a reading order: each file uses only those above it.
 1. `Handlers.sendLead` → `Dispatch.publish`. Everything below is one transaction (`Db.write`), so a lead is never recorded without its deliveries.
 2. `Store.insertEvent` records the lead.
 3. `Store.connectionsOf` lists the firm's destinations; only enabled, active ones not in setup are taken (a test lead goes only to the destination under test).
-4. `Dispatch.routingExclusion` decides each one: a chat lead to a destination that refuses chats, or a CRM whose firm has active call types none of which match, is **not sent** (`skipped`, with the reason). Otherwise `pending`.
-5. `Store.insertDelivery` writes each delivery (built by `Dispatch.newDelivery`).
+4. `Routing.decide` ([Routing.fs](../../backend/src/Core/Routing.fs)) decides each production lead, one destination at a time: a chat lead to a destination that refuses chats, or a call outside the destination's rule (`routeCategories`, `routePracticeAreas` settings; the legacy active-call-type rule for a CRM without one), is **not sent** for routing. A lead whose body would lack a field the kind requires, but only because the lead is missing it (`Routing.leadProblem`), is **not sent** as a lead problem (reason `lead problem: …`). Otherwise `pending`. Test leads are not routed.
+5. `Store.insertDelivery` writes each delivery (built by `Dispatch.newDelivery`) with its `RoutingDecision` (`decision` column). Only a routing exclusion counts as "the firm's routing sends it nowhere" (`Store.readLead`, `Dispatch.runFallbacks`); a lead problem is still owed a hand-off.
+6. On import, `Import.apply` seeds a CRM's rule with `Routing.seed` from the firm's active call types, unless the destination already has one.
 
 ## 2. A delivery is sent, retried and settles
 
@@ -72,7 +73,7 @@ is also a reading order: each file uses only those above it.
 Every delivery read from the database passes through `Store.withAttempts`, which adds:
 
 - **Stage** (`Store.stageOf`): queued, accepted, refused or not sent: what we can claim.
-- **Diagnosis** (`Diagnose.diagnose`): the failure class and the cause in the receiver's words (`Diagnose.receiverWords`). The class is checked in this order: `routing` (not sent), `transient` while retrying, `stopped` (cancelled), `ours` (`body:`), `configuration` (address refused, 3xx), `connection` (401, 403, 410), `lead` (a 4xx about a name or phone the lead does not have), `configuration` (any other 4xx), `transient` (gave up).
+- **Diagnosis** (`Diagnose.diagnose`): the failure class and the cause in the receiver's words (`Diagnose.receiverWords`). The class is checked in this order: `lead` (not sent, `lead problem:`), `routing` (not sent), `transient` while retrying, `stopped` (cancelled), `ours` (`body:`), `configuration` (address refused, 3xx), `connection` (401, 403, 410), `lead` (a 4xx about a name or phone the lead does not have), `configuration` (any other 4xx), `transient` (gave up).
 
 The frontend only renders it:
 
@@ -139,7 +140,7 @@ Every timestamp is UTC milliseconds; delivery rules are elapsed durations and ne
 - **Firms and destinations:** the importers (`backend/src/Import/`: `Api2.fs`, `Chatbot.fs`, `Airi.fs`) → `Import.apply`. Secrets are reduced to presence and a fingerprint in `Import.credential`; import findings come from `Issues.compute`.
 - **Call types → call categories:** `Categories.classify`, from `docs/call-categories/taxonomy.json` (see [call-categories](../call-categories/README.md)).
 - **Synthetic leads:** `Seed.lead` and `Seed.run`, which go through `Dispatch.publish` like real leads.
-- **A simulated week:** `Simulate.run`. It replaces delivery history without sending anything: its own `Publish` and `send` steps, but the same `routingExclusion`, `buildFor`, `FakeCrm.checkWith`, `Policy.classify` and `Dispatch.transition` as the worker. Its `scenarios` list is a catalogue of operator situations, each with a `Story`.
+- **A simulated week:** `Simulate.run`. It replaces delivery history without sending anything: its own `Publish` and `send` steps, but the same `Routing.decide`, `buildFor`, `FakeCrm.checkWith`, `Policy.classify` and `Dispatch.transition` as the worker. Its `scenarios` list is a catalogue of operator situations, each with a `Story`.
 
 ## Tests: the rules, executable
 

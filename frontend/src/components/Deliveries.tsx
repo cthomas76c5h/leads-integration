@@ -22,14 +22,17 @@ export function Journey({ d }: { d: Delivery }) {
 
 export function StatusBadge({ d, resolved = false }: { d: Delivery; resolved?: boolean }) {
   if (resolved) return <span className="badge muted">Resolved by resend</span>;
-  // Refused for something the lead lacks: nothing at the destination can fix it.
-  if (d.status === 'failed' && d.diagnosis?.class === 'lead') return <span className="badge muted">Lead problem</span>;
+  // Not sent, or refused, for something the lead lacks: nothing at the destination can fix it.
+  if ((d.status === 'failed' || d.status === 'skipped') && d.diagnosis?.class === 'lead') return <span className="badge muted">Lead problem</span>;
   const s = STATUS[d.status];
   return <span className={`badge ${s.tone}`}>{s.label}</span>;
 }
 
 export function Attempts({ d }: { d: Delivery }) {
-  if (d.attempts.length === 0) return <p className="muted small">No attempt yet{d.reason ? `: ${d.reason}` : ''}.</p>;
+  if (d.attempts.length === 0) {
+    const rule = d.decision ? ` Rule: ${d.decision.rule}; this call: ${d.decision.category}${d.decision.practiceArea ? `, ${d.decision.practiceArea}` : ''}.` : '';
+    return <p className="muted small">{d.status === 'skipped' ? 'Not sent' : 'No attempt yet'}{d.reason ? `: ${d.reason}` : ''}.{rule}</p>;
+  }
   return (
     <>
       {d.attempts.map((a) => (

@@ -29,6 +29,7 @@
     <Compile Include="Urgency.fs" />
     <Compile Include="Db.fs" />
     <Compile Include="Store.fs" />
+    <Compile Include="Routing.fs" />
     <Compile Include="DemoNames.fs" />
     <Compile Include="Dispatch.fs" />
     <Compile Include="Destinations.fs" />

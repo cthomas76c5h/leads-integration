@@ -49,7 +49,7 @@ totals; real numbers from today's systems replace them before we build.
 | [Proof of delivery](06-firm-report-proof-of-delivery.png) | For one firm, what each of its connections did with this week's leads |
 | [A lead past its time limit](09-lead-expired-past-window.png) | The same outage at a firm without a backup route: the lead arrived over two hours late |
 | [The backup firm's week](10-firm-report-fallback-in-time.png) | Every lead reached that firm in time, two of them by the backup route |
-| [A hang-up the CRM refused](13-drawer-lead-problem.png) | Why it is not treated as a fault: the caller gave no name |
+| [A hang-up the CRM cannot take](13-drawer-lead-problem.png) | Not sent, as a lead problem, instead of refused: the caller gave no name, and the firm still has it by email |
 | [A setup problem](14-drawer-setup-problem-edit-mapping.png) | The CRM's own words ("missing Phone"), what to do, and the button that does it |
 | [Fixing it as a draft](15-edit-mapping-draft-revision.png) | The fix waits for the firm's approval; nothing live changes until then |
 | [What we send a CRM](16-see-what-we-send.png) | The exact information sent, and what the CRM would refuse |

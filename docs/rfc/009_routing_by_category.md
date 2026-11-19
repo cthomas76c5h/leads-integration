@@ -183,8 +183,17 @@ in its method's order:
 | **Seeding** | Each firm's rule derived from its active call types by the equivalence check; the five that differ reviewed by Onboarding; the taxonomy fixes of 2.2 made first |
 | **Contract, screens** | [api.md](../api.md) first; the rule in plain words in setup and change requests; every *not sent* in the Delivery Center with its reason and revision |
 
-Before seeding production, rerun the check on the production feed, weighted by
-leads, not call types.
+**Built in the lab (November 2026):** the rule per destination (categories,
+practice areas, chat leads), `Routing.decide` shared by the worker and the
+simulator, the routing decision recorded on every delivery, lead problems not
+sent, and rules seeded on import. The scenarios `routing-by-category` and
+`lead-problem` now pass as `lab`. Still to build: the rule on a revision with
+approval (slice 5), routing wide under uncertainty (slice 9, needs confidence),
+the confirmed firm mapping, and the screen to read and change a rule.
+
+The build does not wait for production data. When the production feed exists,
+the same check is rerun on it, weighted by leads, and any answer it overturns is
+revised in [answers.md](../lead-delivery/answers.md).
 
 ### Out of scope
 
@@ -214,13 +223,17 @@ leads, not call types.
 
 **Firms need more than categories.** *Mitigation:* the discovery questions in 6.1; a field is added only with a scenario and a firm that needs it.
 
-### 6.1 Open questions
+### 6.1 Decided on the evidence at hand
 
-| # | Question | Evidence so far | Who |
-|---|---|---|---|
-| Q1 | Should line handling (after hours, away, patch) change **routing**, or only urgency and the channel? | 2 call types at 2 firms | Five firms ([S11–S12](../discovery/scenarios.md#routing)) |
-| Q2 | How should a call for a named person reach that person? | 1 new-client call type; 9.8% of all call-type names are people | Staff assignment RFC ([S13](../discovery/scenarios.md#routing)) |
-| Q3 | Do firms want "new matters to the CRM, the rest by email"? | Matches 117 of 122 configurations | Five firms ([strategy](../lead-delivery/strategy.md#8-what-we-know-what-we-assume-and-how-we-check)) |
+Each question was decided from the data already held, without waiting on
+interviews or the production feed; [answers.md](../lead-delivery/answers.md#routing-and-integrations)
+states each answer, why, and what would change it.
+
+| # | Question | Evidence |
+|---|---|---|
+| Q1 | Does line handling (after hours, away, patch) change routing? | 2 call types at 2 firms |
+| Q2 | How does a call for a named person reach that person? | 1 new-client call type at CRM firms; 9.8% of all call-type names are people |
+| Q3 | How is each firm's rule set at switch-over? | The default matches 117 of 122 configurations |
 
 ---
 
