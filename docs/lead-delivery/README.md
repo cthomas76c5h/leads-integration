@@ -122,7 +122,7 @@ sequenceDiagram
 2. **Classified.** The call type maps to a call category (and practice area for
    new matters). *Lab.*
 3. **Planned.** Each destination decides, in order:
-   1. Destination **Paused** or **Needs reconnection** → **Held** for the record, and the hand-off goes to the firm's **fallback** at once. *Held is Proposed: the lab creates no delivery (a missed lead) and production nothing at all. Fallback is Lab.*
+   1. Destination **Paused** or **Needs reconnection** → **Held** for the record, and the hand-off goes to the firm's **fallback** at once. *Held is Proposed. The lab holds a delivery that was already waiting when its destination was paused (checked at send time; `pending`, no next attempt, reason "held: destination paused"; sent on resume), but a lead recorded while paused still gets no delivery (a missed lead), and production records nothing at all. Fallback is Lab.*
    2. Destination still Setting up → no production delivery (test leads only). *Lab.*
    3. **Routing rule** excludes it (category, or chat lead not wanted) → **Not sent**, with the reason. *Lab, routing by active call-type text. Category routing is Proposed.*
    4. Lead lacks a field this destination requires (a hang-up to a CRM that needs a name) → **Not sent**, lead problem. *Proposed. Today the destination refuses it.*
@@ -191,7 +191,7 @@ stateDiagram-v2
 |---|---|---|
 | Setting up | Setup not live; test leads only | Not modelled: a CRM row is enabled or not |
 | Live | `status=active`, `enabled` | `enabled=true` |
-| Paused | `enabled=false` (leads get no delivery) | `enabled=false` (leads get no record) |
+| Paused | `enabled=false`: deliveries already waiting are held and sent on resume; leads recorded while paused get no delivery | `enabled=false` (leads get no record) |
 | Needs reconnection | 410 → `disabled`; 401 counts toward the streak | Not modelled; token-refresh jobs run separately |
 | Switched off | `disabled` after 5 failures in a row | Not modelled; one global alert |
 

@@ -600,6 +600,16 @@ let cancelPendingFor (s: Session) (connectionId: string) (reason: string) =
         [ connectionId; reason ]
     |> ignore
 
+/// Why a waiting delivery is not being sent: its destination is paused. A stand-in for
+/// the model's Held state (docs/lead-delivery/README.md §4): pending, with no next attempt.
+let heldReason = "held: destination paused"
+
+/// A paused destination resumed: its held deliveries (pending, no next attempt) fall due now.
+let releaseHeld (s: Session) (connectionId: string) (nowMs: int64) : int =
+    s.Execute
+        "UPDATE deliveries SET next_attempt_at=$2, reason=NULL WHERE connection_id=$1 AND status='pending' AND next_attempt_at IS NULL"
+        [ connectionId; nowMs ]
+
 /// After a restart, a delivery left 'delivering' never got its answer recorded: send it again.
 let requeueInterrupted (s: Session) (nowMs: int64) =
     s.Execute "UPDATE deliveries SET status='pending', next_attempt_at=$1 WHERE status='delivering'" [ nowMs ]

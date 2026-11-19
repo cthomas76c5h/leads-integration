@@ -185,7 +185,9 @@ let patchConnection (c: Ctx) (id: string) : EndpointHandler =
                     if b.Reactivate.HasValue && b.Reactivate.Value then
                         { x with Status = "active"; DisabledReason = null; ConsecutiveFailures = 0 }
                     else x
-                Store.updateConnection s x)
+                Store.updateConnection s x
+                // Resumed (or reactivated) and able to send: deliveries held while paused fall due now.
+                if x.Enabled && x.Status = "active" then Store.releaseHeld s x.Id (now ()) |> ignore)
             return! ok (connection c id) ctx
         }
 

@@ -135,6 +135,42 @@ let tests =
                   app.StopAsync().Wait()
           }
 
+          test "a delivery waiting when its destination is paused is held, not sent, and goes on resume" {
+              use t = new TempDb()
+              Import.apply t.Db origin (batch Domain.Source.api2 [ firm "1" "A" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ] ] ]) |> ignore
+              let app, client = server t.Db
+              let patch (id: string) (body: string) =
+                  let req = new HttpRequestMessage(HttpMethod.Patch, $"/api/connections/{id}")
+                  req.Content <- new StringContent(body, Encoding.UTF8, "application/json")
+                  Expect.equal (int (client.SendAsync(req).Result.StatusCode)) 200 "patched"
+              let received () = (json (client.GetAsync("/api/received").Result)).GetArrayLength()
+              try
+                  let c = (Db.read t.Db Store.allConnections).[0].Connection
+                  let firmId = (json (client.GetAsync("/api/firms").Result)).GetProperty("items").[0].GetProperty("id").GetString()
+                  // Recorded while live: planned, due, not yet sent. Then the operator pauses.
+                  let lead = json (post client $"/api/firms/{firmId}/leads" """{"callType":"personal-injury"}""")
+                  let deliveryId = lead.GetProperty("deliveries").[0].GetProperty("id").GetString()
+                  patch c.Id """{"enabled":false}"""
+                  drain t.Db client
+                  Expect.equal (received ()) 0 "nothing reaches a paused destination"
+                  let held = (Db.read t.Db (fun s -> Store.deliveryOrFail s deliveryId)).Delivery
+                  Expect.equal held.Status "pending" "still waiting"
+                  Expect.equal held.Reason Store.heldReason "held, and says why"
+                  Expect.isFalse held.NextAttemptAt.HasValue "with no next attempt"
+                  // An operator's test lead still goes: it is a deliberate check, not production traffic.
+                  post client $"/api/connections/{c.Id}/test" "" |> ignore
+                  drain t.Db client
+                  Expect.equal (received ()) 1 "the test lead was sent"
+                  Expect.equal (Db.read t.Db (fun s -> Store.deliveryOrFail s deliveryId)).Delivery.Status "pending" "the production lead is still held"
+                  // Resume: the held delivery goes at once.
+                  patch c.Id """{"enabled":true}"""
+                  drain t.Db client
+                  Expect.equal (received ()) 2 "sent on resume"
+                  Expect.equal (Db.read t.Db (fun s -> Store.deliveryOrFail s deliveryId)).Delivery.Status "delivered" "and accepted"
+              finally
+                  app.StopAsync().Wait()
+          }
+
           test "a flaky receiver is retried until it accepts" {
               use t = new TempDb()
               Import.apply t.Db origin (batch Domain.Source.api2 [ firm "1" "A" "k" [ conn "10" "mycase" [ "token", "t"; "refresh_token", "r" ] ] ]) |> ignore

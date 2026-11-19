@@ -441,7 +441,7 @@ non-alphanumerics turned into `_` and trimmed ("Date of accident?" →
 | POST | `/api/firms/{id}/connections` | `{ kind, name?, deliveryUrl? }` | `Connection` (source `manual`; URL checked: https, or localhost in dev) |
 | GET | `/api/destinations?q=&health=&kind=&firmActive=all&limit=50&offset=0` | | `{ total: number, counts: Record<DestinationHealth, number>, missed: number, items: DestinationRow[] }` most urgent first. `counts` and `missed` (destinations with missed leads) cover the filter without `health`; `health=missed` lists those with missed leads. Only active firms unless `firmActive=all` |
 | POST | `/api/connections/{id}/send-missed` | | `{ queued: number, notSent: number }`: a delivery for each missed lead, routing applied. 409 unless the destination is live |
-| PATCH | `/api/connections/{id}` | `{ enabled?, deliveryUrl?, reactivate?: true }` | `Connection` |
+| PATCH | `/api/connections/{id}` | `{ enabled?, deliveryUrl?, reactivate?: true }` | `Connection`. `enabled: false` pauses it: new leads get no delivery to it, and deliveries already waiting are not sent but held (`status: 'pending'`, no `nextAttemptAt`, `reason: 'held: destination paused'`). `enabled: true` resumes it and makes every held delivery due at once |
 | GET | `/api/connections/{id}/preview?variant=full` | | `{ url, headers: Record<string,string>, body: string, errors: string[] }` |
 | POST | `/api/connections/{id}/test` | | `Delivery` (test lead to this connection only) |
 | GET | `/api/leads?q=&firmId=&category=&outcome=&test=&limit=50&offset=0` | | `{ total: number, items: LeadSummary[] }` newest first. `q` matches caller, phone, call type or firm name; `category` is a call-category id |

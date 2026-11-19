@@ -246,6 +246,10 @@ let attempt (db: Database) (http: HttpClient) (opts: Options) (random: unit -> f
         | None, _ -> finish "cancelled" "connection removed"
         | _, None -> finish "cancelled" "event missing"
         | Some c, _ when c.Connection.Status <> "active" -> finish "cancelled" $"connection disabled: {c.Connection.DisabledReason}"
+        // Paused since this delivery was planned: hold it, unsent, until the destination resumes
+        // (Store.releaseHeld). Checked here, at send time, not only when the lead was recorded.
+        // A test lead is an operator's deliberate check, so it still goes.
+        | Some c, _ when not c.Connection.Enabled && not d.Test -> finish "pending" Store.heldReason
         | Some c, Some event ->
             match buildFor c row.Template event.Id event.Lead with
             | Error errors -> finish "failed" ("body: " + String.Join("; ", errors)) // a broken body never fixes itself on retry

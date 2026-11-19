@@ -79,7 +79,7 @@ The frontend only renders it:
 | Action | UI | Backend |
 |---|---|---|
 | Resend | `ProblemPanel`; bulk in the Delivery Center | `Handlers.replay` → `Dispatch.replay`: a new delivery for the same lead, `replayOf` set |
-| Pause, resume, reactivate | `ProblemPanel`; Destinations `Row` | `Handlers.patchConnection` |
+| Pause, resume, reactivate | `ProblemPanel`; Destinations `Row` | `Handlers.patchConnection`. A delivery whose destination is paused is held at send time (`Dispatch.attempt`: pending, no next attempt, `Store.heldReason`); resuming or reactivating releases it (`Store.releaseHeld`). Test leads still go |
 | Send a test lead | same | `Handlers.testConnection` → `Dispatch.testConnection` (a test lead to this destination only) |
 | Send missed leads | Destinations `Row` | `Handlers.sendMissed` → `Dispatch.sendMissed`, over `Store.missedEvents`; routing applies |
 | Edit mapping | `MappingFix` in [Fix.tsx](../../frontend/src/components/Fix.tsx), reusing `MappingEditor` from [Onboarding.tsx](../../frontend/src/pages/Onboarding.tsx) | `Handlers.patchSetup` → `Onboarding.update` (a draft version; live unchanged), then `send` → `decide` (the firm, through its secure link) → `test` → `confirm` → `goLive`. State: `Onboarding.stateOf` |

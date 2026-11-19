@@ -8,7 +8,7 @@
     "docs/lead-delivery/README.md#3-a-leads-journey (planning step 1: paused is held, hand-off to the fallback at once)",
     "docs/lead-delivery/answers.md#speed-window-to-act-fallback-holding (held records sent with the original time, marked late)"
   ],
-  "today": "The lab gives a paused destination no delivery at all (a missed lead), so the fallback waits a third of the window (20 minutes) instead of going at once; on resume an operator sends the missed leads.",
+  "today": "The lab holds deliveries that were already waiting when a destination is paused, and sends them on resume. But a lead recorded while the destination is paused gets no delivery at all (a missed lead), so the fallback waits a third of the window (20 minutes) instead of going at once; on resume an operator sends the missed leads.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [
