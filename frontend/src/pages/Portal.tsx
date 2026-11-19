@@ -129,7 +129,7 @@ function Billing({ s, cycle, setCycle, isAdmin, onChanged }: {
         <div className="tile"><span>{s.inProgress ? 'Estimated so far' : 'Total for the cycle'}</span><strong>{money(s.totalCents)}</strong><small className="muted">{last ? `${last.planName} · ${money(last.feeCents)} a cycle` : 'No plan'}</small></div>
         <div className="tile"><span>Conversations</span><strong>{s.billable}</strong><small className="muted">billed · {s.free} free by rule · {s.conversations} in all</small></div>
         <div className="tile"><span>New matters</span><strong>{s.value.newMatters}</strong><small className="muted">in this cycle</small></div>
-        <div className="tile"><span>Reached you in time</span><strong>{onTime === null ? '—' : `${onTime}%`}</strong><small className={s.value.expired ? 'bad' : 'muted'}>{s.value.expired ? `${plural(s.value.expired, 'lead')} past its window` : 'every lead within its window'}</small></div>
+        <div className="tile"><span>Reached you in time</span><strong>{onTime === null ? '—' : `${onTime}%`}</strong><small className={s.value.expired ? 'bad' : 'muted'}>{s.value.expired ? `${plural(s.value.expired, 'lead')} past ${s.value.expired === 1 ? 'its' : 'their'} window` : 'every lead within its window'}</small></div>
       </div>
 
       <section className="card" aria-labelledby="use-h">

@@ -64,7 +64,7 @@ function Body({ r, l }: { r: FirmReport; l: ReturnType<typeof labels> }) {
         <div className="tile"><span>After hours</span><strong>{r.afterHours}</strong><small className="muted">calls outside 8 am – 6 pm or at weekends</small></div>
         <div className={`tile ${h.expired ? 'alert' : ''}`}>
           <span>Reached you in time</span><strong>{pctOf(h.onTime, h.onTime + h.expired + h.waiting)}</strong>
-          <small className={h.expired ? 'bad' : 'muted'}>{h.expired ? `${plural(h.expired, 'lead')} past its window` : 'every lead within its window'}{h.viaFallback ? ` · ${h.viaFallback} by your fallback` : ''}</small>
+          <small className={h.expired ? 'bad' : 'muted'}>{h.expired ? `${plural(h.expired, 'lead')} past ${h.expired === 1 ? 'its' : 'their'} window` : 'every lead within its window'}{h.viaFallback ? ` · ${h.viaFallback} by your fallback` : ''}</small>
         </div>
         <div className="tile">
           <span>Urgent calls in time</span><strong>{h.urgentTotal ? `${h.urgentOnTime} of ${h.urgentTotal}` : '—'}</strong>
