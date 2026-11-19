@@ -87,7 +87,7 @@ The api-2 password comes from `pgpass.conf` or `PGPASSWORD`.
 | Firms | 5,541. api-2 5,505, chatbot 208, airi 2 |
 | Matched across systems | 174 chatbot firms are the same firm as an api-2 client |
 | CRM rows (api-2) | 444. MyCase 219, Clio Grow 177, Lead Docket 16, Lawmatics 26 (three integrations), Smokeball 4, PracticePanther 2 |
-| Enabled in api-2 | 9 of 444. api-2 sends only to `enabled` rows, so this local copy delivers to 9 CRMs. Check against production |
+| Enabled in api-2 | 8 of 444. api-2 sends only to `enabled` rows, so this local copy delivers to 8 CRMs. Check against production |
 | Shared keys | 18 chatbot firms share 4 Answering Legal keys: their leads land in one account |
 | OAuth without token | 18 rows: the firm must authorize again |
 | Not on disk | chatbot HubSpot configs; airi production destinations |

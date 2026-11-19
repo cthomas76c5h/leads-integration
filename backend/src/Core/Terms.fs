@@ -138,7 +138,7 @@ let seed (s: Session) (nowMs: int64) =
     for sql in [ "DELETE FROM terms_acceptances"; "DELETE FROM terms_versions" ] do
         s.Execute sql [] |> ignore
     let day = 86_400_000L
-    let promotions = [ "6. Promotions", "Promotional offers have their own terms, shown when you take them up; they end on the date stated." ]
+    let promotions = [ ("6. Promotions", "Promotional offers have their own terms, shown when you take them up; they end on the date stated.") ]
     let local = DateTimeOffset.FromUnixTimeMilliseconds(nowMs - 5L * 3_600_000L)
     let nextMonth = DateTimeOffset(local.Year, local.Month, 1, 0, 0, 0, TimeSpan.Zero).AddMonths(1).ToUnixTimeMilliseconds() + 5L * 3_600_000L
     let history =

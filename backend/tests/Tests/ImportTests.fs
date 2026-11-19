@@ -13,7 +13,7 @@ let tests =
               let api2 =
                   batch Domain.Source.api2 [ firm "17" "Rose & Associates" "al_key_rose" [ conn "501" "mycase" [ "token", "tok"; "refresh_token", "ref" ] ] ]
               let chatbot =
-                  batch Domain.Source.chatbot [ firm "4" "Rose and Associates PLLC" "al_key_rose" [ conn "tenant-4-web-lead" "answering-legal" [ "api_key", "al_key_rose" ] ] ]
+                  batch Domain.Source.chatbot [ firm "4" "Rose and Associates PLLC" "al_key_rose" [ conn "tenant-4-web-lead" "answering-legal" [ ("api_key", "al_key_rose") ] ] ]
               Import.apply t.Db origin api2 |> ignore
               Import.apply t.Db origin chatbot |> ignore
               Import.apply t.Db origin api2 |> ignore // again: no duplicates
@@ -48,7 +48,7 @@ let tests =
           test "a key shared by several firms matches none of them, and is flagged" {
               use t = new TempDb()
               Import.apply t.Db origin (batch Domain.Source.api2 [ firm "1" "Real Firm" "shared" [] ]) |> ignore
-              let web id = conn $"tenant-{id}-web-lead" "answering-legal" [ "api_key", "shared" ]
+              let web id = conn $"tenant-{id}-web-lead" "answering-legal" [ ("api_key", "shared") ]
               let run = Import.apply t.Db origin (batch Domain.Source.chatbot [ firm "4" "Tenant A" "shared" [ web 4 ]; firm "5" "Tenant B" "shared" [ web 5 ] ])
               let total, _ = Db.read t.Db (fun s -> Store.listFirms s { Q = null; Kind = null; Source = null; IssuesOnly = false; Limit = 50; Offset = 0 })
               Expect.equal total 3 "three separate firms, nothing merged"
@@ -59,7 +59,7 @@ let tests =
 
           test "orphaned CRM rows are kept and flagged" {
               use t = new TempDb()
-              Import.apply t.Db origin { batch Domain.Source.api2 [] with Orphans = [| conn "77" "clio-grow" [ "api_key", "k" ] |] } |> ignore
+              Import.apply t.Db origin { batch Domain.Source.api2 [] with Orphans = [| conn "77" "clio-grow" [ ("api_key", "k") ] |] } |> ignore
               let c = (Db.read t.Db Store.allConnections).[0].Connection
               Expect.exists c.Issues (fun i -> i.Code = "orphaned") "flagged"
           }

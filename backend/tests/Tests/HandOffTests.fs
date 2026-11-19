@@ -7,7 +7,9 @@ open LeadIntegrations
 open LeadIntegrations.Domain
 
 let private minute = 60_000L
-let private now = DateTimeOffset(2026, 11, 19, 17, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds()
+/// Half an hour ahead of the real clock: Dispatch.publish stamps leads with the real time,
+/// so a lead it publishes is past a third of its hour by `now` on any day the tests run.
+let private now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 30L * minute
 
 /// A firm with an email destination and an agreed SMS fallback.
 let private firmWithFallback () =

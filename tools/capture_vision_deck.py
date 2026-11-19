@@ -81,7 +81,7 @@ def main():
 
         def at(text, tag="h2"):
             el = page.locator(tag, has_text=text).first
-            el.scroll_into_view_if_needed()
+            el.evaluate("e => e.scrollIntoView({block: 'start'})")
             page.evaluate("window.scrollBy(0, -90)")
             page.wait_for_timeout(400)
 

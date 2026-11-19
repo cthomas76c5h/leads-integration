@@ -44,7 +44,7 @@ let tests =
           }
 
           test "template values are JSON-escaped; unknown custom field is empty; unknown field is an error" {
-              let vars = dict [ "full_name", "Jane \"JD\" Doe" ] :> IDictionary<_, _>
+              let vars = dict [ ("full_name", "Jane \"JD\" Doe") ] :> IDictionary<_, _>
               let r = Template.render """{"n":"{{full_name}}","c":"{{custom.nope|default:'x'}}"}""" vars
               Expect.isTrue r.Ok "renders"
               Expect.equal r.Body """{"n":"Jane \"JD\" Doe","c":"x"}""" "escaped"
