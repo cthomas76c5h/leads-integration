@@ -68,6 +68,7 @@ export interface FirmSummary {
 }
 
 export interface FirmDetail extends FirmSummary {
+  timeZone: string;
   sourcesDetail: FirmSource[];
   contactTypes: { name: string; active: boolean; mapping: CallMapping }[];
   customLabels: string[];
@@ -379,6 +380,7 @@ export interface LeadSummary {
 
 /** "Your week in calls": one firm's last 7 days in call categories, with proof of delivery. */
 export interface FirmReport {
+  timeZone: string;
   firmId: string; firmName: string; from: number; to: number;
   calls: number; newMatters: number; urgent: number; afterHours: number; chats: number; hangUps: number;
   byCategory: { id: string; count: number }[];
@@ -411,6 +413,7 @@ export type Tier = 'answer' | 'deliver' | 'insight';
 export interface Price { id: string; plan: string; version: number; tier: Tier; name: string; monthlyCents: number; included: number; overageCents: number; effectiveFrom: number }
 export interface StatementCheck { code: string; severity: 'bad' | 'warn'; message: string }
 export interface Statement {
+  timeZone: string;
   firmId: string; firmName: string; cycleFrom: number; cycleTo: number; inProgress: boolean; lockedAt: number | null;
   segments: { planName: string; tier: Tier; from: number; to: number; feeCents: number; included: number; note: string }[];
   conversations: number; billable: number; free: number; units: number; included: number; overage: number;

@@ -11,8 +11,9 @@ open LeadIntegrations.Domain
 let private minute = 60_000L
 let private hour = 60L * minute
 let private day = 24L * hour
-/// Billing cycles follow US Eastern dates (standard time).
-let private eastern = -5L * hour
+/// Billing cycles follow the company's calendar (Zones.company), daylight saving included,
+/// so every invoice shares one calendar whatever the firm's own zone.
+let private calendar = lazy (Zones.find Zones.company)
 
 // ----- Types -----
 
@@ -87,6 +88,8 @@ type Statement =
       CycleFrom: int64
       /// Exclusive: the next cycle's first day.
       CycleTo: int64
+      /// The calendar the cycle's dates are on (IANA; Zones.company).
+      TimeZone: string
       InProgress: bool
       /// Set when the cycle closed and its statement was kept as it was.
       LockedAt: Nullable<int64>
@@ -160,13 +163,15 @@ let conversations (events: LeadEvent[]) : Conversation[] =
 
 // ----- Cycles -----
 
-/// The cycle containing t for an account billed on `cycleDay`: [from, to) in UTC ms, anchored on Eastern dates.
+/// The cycle containing t for an account billed on `cycleDay`: [from, to) in UTC ms, from
+/// midnight on the company calendar (daylight saving included) to the same day next month.
 let cycleOf (cycleDay: int) (t: int64) : int64 * int64 =
-    let local = DateTimeOffset.FromUnixTimeMilliseconds(t + eastern)
+    let zone = calendar.Value
+    let local = Zones.toLocal zone t
     let anchor =
-        let thisMonth = DateTimeOffset(local.Year, local.Month, cycleDay, 0, 0, 0, TimeSpan.Zero)
+        let thisMonth = DateTime(local.Year, local.Month, cycleDay)
         if local.Day >= cycleDay then thisMonth else thisMonth.AddMonths(-1)
-    anchor.ToUnixTimeMilliseconds() - eastern, anchor.AddMonths(1).ToUnixTimeMilliseconds() - eastern
+    Zones.fromLocal zone anchor, Zones.fromLocal zone (anchor.AddMonths 1)
 
 // ----- Reading -----
 
@@ -294,6 +299,7 @@ let rate (s: Session) (a: Account) (from: int64) (until: int64) (nowMs: int64) :
       FirmName = a.FirmName
       CycleFrom = from
       CycleTo = until
+      TimeZone = Zones.company
       InProgress = nowMs < until
       LockedAt = Nullable()
       Segments = segments |> Array.map fst
@@ -399,8 +405,8 @@ let seedPriceBook (s: Session) (nowMs: int64) =
     for sql in [ "DELETE FROM invoices"; "DELETE FROM subscriptions"; "DELETE FROM price_book" ] do
         s.Execute sql [] |> ignore
     let nextMonth =
-        let local = DateTimeOffset.FromUnixTimeMilliseconds(nowMs + eastern)
-        DateTimeOffset(local.Year, local.Month, 1, 0, 0, 0, TimeSpan.Zero).AddMonths(1).ToUnixTimeMilliseconds() - eastern
+        let local = Zones.toLocal calendar.Value nowMs
+        Zones.fromLocal calendar.Value (DateTime(local.Year, local.Month, 1).AddMonths 1)
     for version, from, factor in [ 1, 0L, 1.0; 2, nextMonth, 1.05 ] do
         for tier, label, add in tiers do
             for included, cents, over in volumes do

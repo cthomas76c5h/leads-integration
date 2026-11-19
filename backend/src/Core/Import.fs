@@ -143,6 +143,7 @@ let apply (db: Database) (origin: string) (batch: Batch) : ImportRun =
                           KeyHash = f.KeyHash
                           KeyFingerprint = f.KeyFingerprint
                           Active = f.Active
+                          TimeZone = Zones.company
                           ContactTypes = f.ContactTypes
                           CustomLabels = f.CustomLabels
                           CreatedAt = now () }
@@ -182,7 +183,8 @@ let apply (db: Database) (origin: string) (batch: Batch) : ImportRun =
                       Active = false
                       ContactTypes = [||]
                       CustomLabels = [||]
-                      CreatedAt = now () }
+                      CreatedAt = now ()
+                      TimeZone = Zones.company }
             for c in batch.Orphans do
                 upsertConnection pid c [ ("orphaned", "true") ]
             notes.Add $"{batch.Orphans.Length} connection(s) had no firm in {batch.System}; kept under \"Unassigned {batch.System} CRM rows\""

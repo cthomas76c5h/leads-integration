@@ -45,6 +45,8 @@ type FirmReport =
       FirmName: string
       From: int64
       To: int64
+      /// The firm's time zone (IANA): the dates on this report are shown in it.
+      TimeZone: string
       Calls: int
       NewMatters: int
       Urgent: int
@@ -58,11 +60,9 @@ type FirmReport =
       Labels: Label[] }
 
 let private hour = 3_600_000L
-/// Firms' hours are US Eastern (standard time); office hours 8 am to 6 pm on weekdays.
-let private eastern = -5L * hour
-
-let afterHours (t: int64) =
-    let local = DateTimeOffset.FromUnixTimeMilliseconds(t + eastern)
+/// Office hours are 8 am to 6 pm on weekdays, in the firm's own time zone (daylight saving included).
+let afterHours (zone: TimeZoneInfo) (t: int64) =
+    let local = Zones.toLocal zone t
     let weekend = local.DayOfWeek = DayOfWeek.Saturday || local.DayOfWeek = DayOfWeek.Sunday
     weekend || local.Hour < 8 || local.Hour >= 18
 
@@ -86,10 +86,11 @@ let build (s: Session) (firmId: string) (nowMs: int64) : FirmReport =
       FirmName = firm.Name
       From = from
       To = nowMs
+      TimeZone = firm.TimeZone
       Calls = leads.Length
       NewMatters = leads |> Array.filter (fun l -> l.Mapping.Category = "new-matter") |> Array.length
       Urgent = urgent.Length
-      AfterHours = leads |> Array.filter (fun l -> afterHours l.CreatedAt) |> Array.length
+      AfterHours = leads |> Array.filter (fun l -> afterHours (Zones.find firm.TimeZone) l.CreatedAt) |> Array.length
       Chats = leads |> Array.filter _.Webchat |> Array.length
       HangUps = leads |> Array.filter (fun l -> l.Caller = "") |> Array.length
       ByCategory = counts (leads |> Seq.map (fun l -> l.Mapping.Category))

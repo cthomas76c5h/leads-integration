@@ -97,6 +97,10 @@ every other kind's body is fixed in `Payloads.build`.
 3. A destination with the setting `role: fallback` is skipped by `Dispatch.publish`. `Dispatch.runFallbacks`, called every few seconds by `DeliveryWorker`, gives it any lead with no accepted delivery once `Urgency.fallbackAfterMs` has passed, once per lead.
 4. The simulator does the same with its `HandOffCheck` action.
 
+## 4b2. Time zones
+
+Every timestamp is UTC milliseconds; delivery rules are elapsed durations and need no zone. [Zones.fs](../../backend/src/Core/Zones.fs) converts for calendars, by IANA name: `Billing.cycleOf` on the company's zone (`Zones.company`, daylight saving included), `Report.afterHours` on the firm's (`FirmRow.TimeZone`, set with `PATCH /api/firms/{id}`). The frontend's `format.ts` helpers take an optional zone: the firm report and portal pass the firm's or the statement's. The simulator keeps fixed Eastern standard time: it is demo data.
+
 ## 4c. Billing and terms of service
 
 1. **Price book and accounts:** `Billing.seedPriceBook` and `Billing.seedAccounts` (called by the simulator) fill `price_book`, `billing_accounts` and `subscriptions` ([Db.fs](../../backend/src/Core/Db.fs) schema).

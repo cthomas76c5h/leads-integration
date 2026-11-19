@@ -18,9 +18,11 @@ type FirmRow =
       Active: bool
       ContactTypes: ContactType[]
       CustomLabels: string[]
-      CreatedAt: int64 }
+      CreatedAt: int64
+      /// IANA name: the firm's office hours and the dates it reads (Zones.fs).
+      TimeZone: string }
 
-let private firmCols = "id, name, key_hash, key_fingerprint, active, contact_types, custom_labels, created_at"
+let private firmCols = "id, name, key_hash, key_fingerprint, active, contact_types, custom_labels, created_at, time_zone"
 
 let private readFirm (r: DbDataReader) =
     { Id = Read.str r 0
@@ -30,18 +32,21 @@ let private readFirm (r: DbDataReader) =
       Active = Read.bool r 4
       ContactTypes = Json.deserializeOr [||] (Read.str r 5)
       CustomLabels = Json.deserializeOr [||] (Read.str r 6)
-      CreatedAt = Read.int64 r 7 }
+      CreatedAt = Read.int64 r 7
+      TimeZone = (match Read.str r 8 with null | "" -> Zones.company | z -> z) }
 
 let insertFirm (s: Session) (f: FirmRow) =
     s.Execute
-        $"INSERT INTO firms ({firmCols}) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)"
-        [ f.Id; f.Name; f.KeyHash; f.KeyFingerprint; f.Active; Json.serialize f.ContactTypes; Json.serialize f.CustomLabels; f.CreatedAt ]
+        $"INSERT INTO firms ({firmCols}) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)"
+        [ f.Id; f.Name; f.KeyHash; f.KeyFingerprint; f.Active; Json.serialize f.ContactTypes; Json.serialize f.CustomLabels; f.CreatedAt
+          (if isNull f.TimeZone then Zones.company else f.TimeZone) ]
     |> ignore
 
 let updateFirm (s: Session) (f: FirmRow) =
     s.Execute
-        "UPDATE firms SET name=$2, key_hash=$3, key_fingerprint=$4, active=$5, contact_types=$6, custom_labels=$7 WHERE id=$1"
-        [ f.Id; f.Name; f.KeyHash; f.KeyFingerprint; f.Active; Json.serialize f.ContactTypes; Json.serialize f.CustomLabels ]
+        "UPDATE firms SET name=$2, key_hash=$3, key_fingerprint=$4, active=$5, contact_types=$6, custom_labels=$7, time_zone=$8 WHERE id=$1"
+        [ f.Id; f.Name; f.KeyHash; f.KeyFingerprint; f.Active; Json.serialize f.ContactTypes; Json.serialize f.CustomLabels
+          (if isNull f.TimeZone then Zones.company else f.TimeZone) ]
     |> ignore
 
 let tryFirm (s: Session) (id: string) =
@@ -756,6 +761,8 @@ type FirmDetail =
       IssueCount: int
       LiveDestinations: int
       Active: bool
+      /// IANA name (Zones.fs).
+      TimeZone: string
       SourcesDetail: FirmSource[]
       ContactTypes: ContactTypeView[]
       CustomLabels: string[]
@@ -823,6 +830,7 @@ let firmDetail (s: Session) (id: string) (setups: obj[]) : FirmDetail =
       IssueCount = countIssues conns
       LiveDestinations = conns |> Array.filter (fun c -> c.Enabled && c.Status = "active") |> Array.length
       Active = f.Active
+      TimeZone = f.TimeZone
       SourcesDetail = srcs
       ContactTypes = f.ContactTypes |> Array.map (fun t -> { Name = t.Name; Active = t.Active; Mapping = Categories.classify t.Name })
       CustomLabels = f.CustomLabels

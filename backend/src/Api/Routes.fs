@@ -49,7 +49,8 @@ let endpoints (c: Ctx) : Endpoint list =
             routef "/api/client/setups/{%s}/connect" (fun t -> g (clientConnect c t))
             routef "/api/client/setups/{%s}/decision" (fun t -> g (clientDecision c t)) ]
       PATCH
-          [ routef "/api/connections/{%s}" (fun id -> g (patchConnection c id))
+          [ routef "/api/firms/{%s}" (fun id -> g (patchFirm c id))
+            routef "/api/connections/{%s}" (fun id -> g (patchConnection c id))
             routef "/api/setups/{%s}" (fun id -> g (patchSetup c id)) ]
       yield! Receivers.endpoints c.Db
       // Scenario runs only (docs/api.md, "Test control"); Config refuses it against the lab's database.

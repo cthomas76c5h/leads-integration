@@ -16,7 +16,16 @@ type Ctx =
 // ----- Bodies -----
 
 [<CLIMutable>]
-type NewFirm = { Name: string }
+type NewFirm = { Name: string; TimeZone: string }
+
+[<CLIMutable>]
+type FirmPatch = { TimeZone: string }
+
+/// An IANA name, or a 422 that says what is expected.
+let private zoneOrFail (zone: string) =
+    match Zones.tryFind zone with
+    | Some _ -> zone
+    | None -> fail 422 $"timeZone: \"{zone}\" is not an IANA time zone name, like America/New_York"
 
 [<CLIMutable>]
 type NewLead = { Variant: string; CallType: string; Webchat: bool; ReferenceLead: string }
@@ -80,8 +89,9 @@ let firm (c: Ctx) (id: string) : EndpointHandler =
 let createFirm (c: Ctx) : EndpointHandler =
     fun ctx ->
         task {
-            let! b = body { Name = null } ctx
+            let! b = body { Name = null; TimeZone = null } ctx
             if String.IsNullOrWhiteSpace b.Name then fail 422 "name is required"
+            let zone = if String.IsNullOrWhiteSpace b.TimeZone then Zones.company else zoneOrFail b.TimeZone
             let id = Secrets.newId "firm"
             Db.write c.Db (fun s ->
                 Store.insertFirm
@@ -93,9 +103,19 @@ let createFirm (c: Ctx) : EndpointHandler =
                       Active = true
                       ContactTypes = [||]
                       CustomLabels = [||]
-                      CreatedAt = now () }
+                      CreatedAt = now ()
+                      TimeZone = zone }
                 Store.upsertFirmSource s id { System = Source.manual; SourceId = id; Name = b.Name.Trim(); Active = true })
             return! created (Db.read c.Db (fun s -> Store.firmDetail s id [||])) ctx
+        }
+
+let patchFirm (c: Ctx) (id: string) : EndpointHandler =
+    fun ctx ->
+        task {
+            let! b = body { TimeZone = null } ctx
+            let zone = zoneOrFail b.TimeZone
+            Db.write c.Db (fun s -> Store.updateFirm s { Store.firmOrFail s id with TimeZone = zone })
+            return! ok (Db.read c.Db (fun s -> Store.firmDetail s id (firmSetups c id))) ctx
         }
 
 let sendLead (c: Ctx) (firmId: string) : EndpointHandler =

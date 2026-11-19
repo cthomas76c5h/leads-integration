@@ -40,8 +40,9 @@ export function Report({ query }: { query: URLSearchParams }) {
 function Body({ r, l }: { r: FirmReport; l: ReturnType<typeof labels> }) {
   const h = r.handOff;
   const handed = h.onTime + h.expired;
-  const from = new Date(r.from).toLocaleDateString([], { month: 'short', day: 'numeric' });
-  const to = new Date(r.to).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  // The firm's own dates: its report reads in its time zone, wherever the viewer is.
+  const from = new Date(r.from).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: r.timeZone });
+  const to = new Date(r.to).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: r.timeZone });
   const areas = r.byPracticeArea.map((a) => ({ id: a.id, label: l.area(a.id) ?? a.id, value: a.count, strong: a.id !== 'unspecified' }));
   const categories = r.byCategory.map((c) => ({ id: c.id, label: l.category(c.id), value: c.count, strong: c.id === 'new-matter' }));
 

@@ -16,6 +16,7 @@
     <Compile Include="Catalog.fs" />
     <Compile Include="Issues.fs" />
     <Compile Include="Timing.fs" />
+    <Compile Include="Zones.fs" />
     <Compile Include="Policy.fs" />
     <Compile Include="Signing.fs" />
     <Compile Include="Template.fs" />

@@ -35,9 +35,10 @@ let private firmWithAccount () =
 let tests =
     testList
         "billing and terms"
-        [ test "a cycle runs from its anchor day to the same day next month, on Eastern dates" {
+        [ test "a cycle runs from its anchor day to the same day next month, on the company's calendar" {
               let from, until = Billing.cycleOf 15 now
-              let et (ms: int64) = DateTimeOffset.FromUnixTimeMilliseconds(ms - 5L * 3_600_000L)
+              // Dates on the company's calendar, daylight saving included (November 1, 2026 is still EDT at midnight).
+              let et (ms: int64) = Zones.toLocal (Zones.find Zones.company) ms
               Expect.equal ((et from).Month, (et from).Day) (11, 15) "from the 15th"
               Expect.equal ((et until).Month, (et until).Day) (12, 15) "to the 15th of next month"
               let from1, _ = Billing.cycleOf 1 now

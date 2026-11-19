@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS firms (
   active INTEGER NOT NULL DEFAULT 1,
   contact_types TEXT NOT NULL DEFAULT '[]',
   custom_labels TEXT NOT NULL DEFAULT '[]',
+  time_zone TEXT NOT NULL DEFAULT 'America/New_York', -- IANA name: office hours and the dates the firm reads
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS firms_key ON firms(key_hash);
@@ -320,6 +321,14 @@ let openDatabase (path: string) : Database =
     use cmd = conn.CreateCommand()
     cmd.CommandText <- schema
     cmd.ExecuteNonQuery() |> ignore
+    // Columns added after a database was first created (SQLite has no ADD COLUMN IF NOT EXISTS).
+    for table, column, definition in [ "firms", "time_zone", "TEXT NOT NULL DEFAULT 'America/New_York'" ] do
+        use probe = conn.CreateCommand()
+        probe.CommandText <- $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = '{column}'"
+        if Convert.ToInt64(probe.ExecuteScalar()) = 0L then
+            use alter = conn.CreateCommand()
+            alter.CommandText <- $"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+            alter.ExecuteNonQuery() |> ignore
     db
 
 /// A private in-memory-like database for tests: a temp file, deleted by the caller.

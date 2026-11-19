@@ -6,6 +6,10 @@ operators what happened when it did not arrive. The model and workflows are in
 
 ## Firms and calls
 
+**Time zone**:
+The region a firm keeps its office hours in, as an IANA name (America/Los_Angeles), set by Answering AI; America/New_York by default. It sets the firm's after-hours count and the dates on what the firm reads. Delivery never needs it: windows and retries are elapsed time.
+_Avoid_: offset, EST/PST (they ignore daylight saving)
+
 **Firm**:
 A law firm (or other business) whose calls Answering AI answers.
 _Avoid_: client, account, customer

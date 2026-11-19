@@ -8,8 +8,10 @@ export const ago = (t: number): string => {
   return `${Math.round(s / 86_400)}d ago`;
 };
 
-export const clock = (t: number): string => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-export const when = (t: number): string => new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+/** Times and dates show in the viewer's own zone unless a page passes one: a firm's pages use
+ *  the firm's zone, statements the billing calendar's (docs/api.md, timeZone fields). */
+export const clock = (t: number, timeZone?: string): string => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone });
+export const when = (t: number, timeZone?: string): string => new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short', timeZone });
 export const leadNo = (eventId: string): string => `#${eventId.slice(-6).toUpperCase()}`;
 
 export const pretty = (text: string): string => {
@@ -39,7 +41,7 @@ export const duration = (ms: number): string => {
 export const money = (cents: number): string => (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
 /** A calendar date: "Nov 15". */
-export const day = (t: number): string => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' });
+export const day = (t: number, timeZone?: string): string => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone });
 
 export const plural = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`;
 

@@ -46,6 +46,46 @@ let tests =
               Expect.isGreaterThan (Array.sum Policy.retryScheduleMs) (60L * 3_600_000L) "retries cover most of the 72-hour window"
           }
 
+          test "billing cycles start at midnight New York time, in summer and in winter" {
+              let utc (y, m, d, h, mi) = System.DateTimeOffset(y, m, d, h, mi, 0, System.TimeSpan.Zero).ToUnixTimeMilliseconds()
+              // 00:30 on July 1 in New York (EDT, UTC-4) is in July's cycle, which began at 04:00 UTC.
+              let summerFrom, _ = Billing.cycleOf 1 (utc (2026, 7, 1, 4, 30))
+              Expect.equal summerFrom (utc (2026, 7, 1, 4, 0)) "summer: midnight is 04:00 UTC"
+              // 23:30 on June 30 in New York is still June's.
+              let juneFrom, juneTo = Billing.cycleOf 1 (utc (2026, 7, 1, 3, 30))
+              Expect.equal juneFrom (utc (2026, 6, 1, 4, 0)) "the previous cycle"
+              Expect.equal juneTo summerFrom "ends where July's starts"
+              // In winter (EST, UTC-5) midnight is 05:00 UTC.
+              let winterFrom, _ = Billing.cycleOf 1 (utc (2026, 12, 1, 5, 30))
+              Expect.equal winterFrom (utc (2026, 12, 1, 5, 0)) "winter: midnight is 05:00 UTC"
+          }
+
+          test "office hours are the firm's own: 6:30 pm in New York is 3:30 pm in Los Angeles" {
+              let t = System.DateTimeOffset(2026, 11, 18, 23, 30, 0, System.TimeSpan.Zero).ToUnixTimeMilliseconds() // a Wednesday
+              Expect.isTrue (Report.afterHours (Zones.find "America/New_York") t) "after hours in New York"
+              Expect.isFalse (Report.afterHours (Zones.find "America/Los_Angeles") t) "office hours in Los Angeles"
+              Expect.isNone (Zones.tryFind "Eastern-ish") "not an IANA name"
+              Expect.equal (Zones.find "Eastern-ish").Id (Zones.find Zones.company).Id "an unknown zone falls back to the company's"
+          }
+
+          test "an older database gains the time zone column when opened, with the default" {
+              let path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"li-old-{System.Guid.NewGuid():N}.db")
+              try
+                  do
+                      use c = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path};Pooling=False")
+                      c.Open()
+                      use cmd = c.CreateCommand()
+                      cmd.CommandText <- "CREATE TABLE firms (id TEXT PRIMARY KEY, name TEXT NOT NULL, key_hash TEXT NULL, key_fingerprint TEXT NULL, active INTEGER NOT NULL DEFAULT 1, contact_types TEXT NOT NULL DEFAULT '[]', custom_labels TEXT NOT NULL DEFAULT '[]', created_at INTEGER NOT NULL); INSERT INTO firms (id, name, created_at) VALUES ('firm_old', 'Old Firm', 1);"
+                      cmd.ExecuteNonQuery() |> ignore
+                  let db = Db.openDatabase path
+                  let f = Db.read db (fun s -> Store.firmOrFail s "firm_old")
+                  Expect.equal f.TimeZone "America/New_York" "existing firms get the company's zone"
+              finally
+                  Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools()
+                  for suffix in [ ""; "-wal"; "-shm" ] do
+                      try System.IO.File.Delete(path + suffix) with _ -> ()
+          }
+
           test "delivery timings: read from the settings file; a malformed one never runs" {
               let s = Timing.parse """{"windowToAct":{"default":"72h","emergency":"24h"},"fallbackAfter":{"default":"1h"},"retrySchedule":["5s","2d"]}"""
               Expect.equal s.WindowToAct["default"] (72L * 3_600_000L) "hours"

@@ -80,6 +80,7 @@ interface FirmSummary {
 }
 
 interface FirmDetail extends FirmSummary {
+  timeZone: string;                 // IANA name ('America/New_York' by default): the firm's office hours and the dates it reads
   sourcesDetail: FirmSource[];
   contactTypes: { name: string; active: boolean; mapping: CallMapping }[]; // api-2 routing: a lead goes out only if its callType matches an active one
   customLabels: string[];           // intake question labels seen in the sources (for synthetic leads)
@@ -230,6 +231,7 @@ interface HandOff {
 /** "Your week in calls": one firm's last 7 days in call categories, with proof of delivery. */
 interface FirmReport {
   firmId: string; firmName: string; from: number; to: number;
+  timeZone: string;               // the firm's IANA zone: show this report's dates in it; afterHours is 8 am–6 pm weekdays there
   calls: number; newMatters: number; urgent: number; afterHours: number; chats: number; hangUps: number;
   byCategory: { id: string; count: number }[];        // call-category ids
   byPracticeArea: { id: string; count: number }[];    // new matters; 'unspecified' when the call type names none
@@ -301,6 +303,7 @@ interface Price { id: string /* plan@version */; plan: string; version: number; 
 interface Statement {
   firmId: string; firmName: string;
   cycleFrom: number; cycleTo: number;            // [from, to): cycleTo is the next cycle's first day
+  timeZone: string;                              // the calendar cycles are on: the company's ('America/New_York'), daylight saving included
   inProgress: boolean; lockedAt: number | null;
   segments: { planName: string; tier: string; from: number; to: number; feeCents: number; included: number; note: string }[];  // a plan change splits the cycle
   conversations: number; billable: number; free: number;
@@ -432,7 +435,8 @@ non-alphanumerics turned into `_` and trimmed ("Date of accident?" →
 | GET | `/api/firms?q=&kind=&source=&issues=1&limit=50&offset=0` | | `{ total: number, items: FirmSummary[] }`; by name, or with `q` best matches first (active firms with live destinations, then names starting with `q`) |
 | GET | `/api/firms/{id}` | | `FirmDetail` |
 | GET | `/api/firms/{id}/report` | | `FirmReport`: the last 7 days, production leads |
-| POST | `/api/firms` | `{ name }` | `FirmDetail` (source `manual`) |
+| POST | `/api/firms` | `{ name, timeZone? }` | `FirmDetail` (source `manual`; `timeZone` defaults to `America/New_York`) |
+| PATCH | `/api/firms/{id}` | `{ timeZone }` | `FirmDetail`. Set by Answering AI; 422 unless an IANA name (`America/Los_Angeles`) |
 | POST | `/api/firms/{id}/leads` | `{ variant?: 'full' \| 'sparse', callType?: string, webchat?: boolean, referenceLead?: string }` | `{ event: LeadEvent, deliveries: Delivery[], mapping: CallMapping }` — one delivery per enabled, active connection; `skipped` with a reason when routing excludes it. `referenceLead` sends that reference lead as-is; `callType` then replaces its call type (e.g. the firm's own name for the same category) |
 | GET | `/api/call-categories` | | `Taxonomy` |
 | GET | `/api/call-categories/classify?name=` | | `CallMapping` |

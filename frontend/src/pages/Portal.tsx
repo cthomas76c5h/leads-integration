@@ -114,9 +114,9 @@ function Billing({ s, cycle, setCycle, isAdmin, onChanged }: {
       <section className="card portal-head" aria-labelledby="bill-h">
         <div className="grow">
           <p className="eyebrow">Billing · {s.firmName}</p>
-          <h2 id="bill-h">{day(s.cycleFrom)} – {day(s.cycleTo - DAY)}</h2>
+          <h2 id="bill-h">{day(s.cycleFrom, s.timeZone)} – {day(s.cycleTo - DAY, s.timeZone)}</h2>
           <p className="muted small">
-            {s.inProgress ? `Current cycle · ${plural(daysLeft, 'day')} left` : s.lockedAt ? `Closed · this statement was locked on ${day(s.lockedAt)} and will not change` : 'Closed'}
+            {s.inProgress ? `Current cycle · ${plural(daysLeft, 'day')} left` : s.lockedAt ? `Closed · this statement was locked on ${day(s.lockedAt, s.timeZone)} and will not change` : 'Closed'}
           </p>
         </div>
         <div className="tabs" role="tablist" aria-label="Billing cycle">
@@ -138,7 +138,7 @@ function Billing({ s, cycle, setCycle, isAdmin, onChanged }: {
           <span style={{ inlineSize: `${Math.max(used ? 1.5 : 0, share * 100)}%` }} className={used > s.included ? 'over' : ''} />
         </div>
         {s.segments.length > 1 && (
-          <p className="small">Your plan changed on {day(s.segments[1]?.from ?? s.cycleFrom)}: {s.segments.map((x) => `${x.planName} (${day(x.from)} – ${day(x.to - 1)}, ${x.included} included)`).join(', then ')}. Each part is charged for its share of the cycle.</p>
+          <p className="small">Your plan changed on {day(s.segments[1]?.from ?? s.cycleFrom, s.timeZone)}: {s.segments.map((x) => `${x.planName} (${day(x.from, s.timeZone)} – ${day(x.to - 1)}, ${x.included} included)`).join(', then ')}. Each part is charged for its share of the cycle.</p>
         )}
       </section>
 

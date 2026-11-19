@@ -23,6 +23,8 @@ TypeScript frontend (`frontend/`). Design: RFC-001 in
 - **Credentials are never stored or shown.** Importers reduce every secret to
   present + fingerprint the moment they read it. Imported connections deliver
   only to the local fake receivers (`/receiver/crm/{kind}`), never to a real CRM.
+- **Time is UTC milliseconds; calendars use IANA zones** (`Zones.fs`), never fixed
+  offsets: billing on the company's zone, a firm's hours and dates on its own.
 - **No caller PII.** Leads are synthetic; importers read lead rows for intake
   *labels* only. `backend/data/` (real firm names) is git-ignored.
 - The api-2 import is read-only (`default_transaction_read_only`). Keep it so.

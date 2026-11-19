@@ -84,6 +84,26 @@ let tests =
                   app.StopAsync().Wait()
           }
 
+          test "a firm's time zone: the company's by default, set by an IANA name, anything else refused" {
+              use t = new TempDb()
+              let app, client = server t.Db
+              try
+                  let created = json (post client "/api/firms" """{"name":"Coast Law"}""")
+                  Expect.equal (created.GetProperty("timeZone").GetString()) "America/New_York" "the company's by default"
+                  let id = created.GetProperty("id").GetString()
+                  let patch (body: string) =
+                      let req = new HttpRequestMessage(HttpMethod.Patch, $"/api/firms/{id}")
+                      req.Content <- new StringContent(body, Encoding.UTF8, "application/json")
+                      client.SendAsync(req).Result
+                  let ok = patch """{"timeZone":"America/Los_Angeles"}"""
+                  Expect.equal (int ok.StatusCode) 200 "set"
+                  Expect.equal ((json ok).GetProperty("timeZone").GetString()) "America/Los_Angeles" "and kept"
+                  Expect.equal (int (patch """{"timeZone":"PST"}""").StatusCode) 422 "an abbreviation is refused"
+                  Expect.equal (int (post client "/api/firms" """{"name":"X","timeZone":"-05:00"}""").StatusCode) 422 "so is a fixed offset"
+              finally
+                  app.StopAsync().Wait()
+          }
+
           test "test control does not exist unless the API starts with it" {
               use t = new TempDb()
               let app, client = server t.Db
