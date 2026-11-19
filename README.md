@@ -1,16 +1,6 @@
 # lead-integrations
 
-An MVP for one question: **which lead-delivery integrations does Answering AI
-support, and does each one work?** It imports every firm and delivery
-configuration from the three existing systems, shows them side by side, and
-sends synthetic leads through each integration to local stand-ins that check
-the payload the way the real CRM would.
-
-```
-api-2 (Postgres) ─┐                         ┌─► /receiver/crm/clio-grow   checks inbox_lead.*
-chatbot (dump)  ──┼─► import ─► SQLite ─► outbox ─► worker ─┼─► /receiver/crm/mycase      checks first_name, …
-airi (SQLite)   ──┘   (shape only)                          └─► … one per catalog kind
-```
+An MVP for lead delivery
 
 ## Start here
 
@@ -22,7 +12,7 @@ slice; the rest are for when you need them.
 | Agreed: build on it | Draft: expect it to change |
 |---|---|
 | The glossary, and the decisions in [answers.md](docs/lead-delivery/answers.md) (each marked *Decided*) | [RFC-001 to RFC-008](docs/rfc/README.md): proposed, awaiting approval. RFC-007 (the model and build order) and RFC-008 (the guarantees and evidence, which revises RFC-007) are the newest |
-| The product is **built new, to the domain model**, in RFC-007's slices; api-2 is not extended ([answers](docs/lead-delivery/answers.md#routing-and-integrations)); the milestones are the [roadmap](docs/lead-delivery/strategy.md#5-roadmap) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a draft, with 26 scenarios (including RFC-008's ten failure-injection scenarios) and a receiver contract for every catalog kind; the runner plays them against the lab (`python tools/run_scenarios.py`); no CRM contract confirmed against its sandbox |
+| The product is **built new, to the domain model**, in RFC-007's slices; ([answers](docs/lead-delivery/answers.md#routing-and-integrations)); the milestones are the [roadmap](docs/lead-delivery/strategy.md#5-roadmap) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a draft, with 26 scenarios (including RFC-008's ten failure-injection scenarios) and a receiver contract for every catalog kind; the runner plays them against the lab (`python tools/run_scenarios.py`); no CRM contract confirmed against its sandbox |
 | Every rule in the [domain model](docs/lead-delivery/README.md) marked *Lab* or *Production* | Every rule marked *Proposed*: agreed direction, not built |
 
 A scenario marked `"model": "proposed"` is expected to fail against the lab
@@ -51,8 +41,8 @@ and the proposal for each area ([rfc/](docs/rfc/README.md)).
 
 ```sh
 cd backend
-dotnet run --project src/Import -- all      # api-2 (read-only), chatbot dump, airi dev db
-dotnet run --project src/Api                 # http://localhost:5080
+dotnet run --project src/Import -- all
+dotnet run --project src/Api                # http://localhost:5080
 dotnet run --project tests/Tests --artifacts-path ../.testbuild   # tests; safe while the API runs
 python ../tools/run_scenarios.py            # every contract scenario against a fresh lab
 dotnet run --project src/Import -- seed --leads 200   # synthetic traffic; the API's worker delivers it
@@ -89,7 +79,6 @@ script with core and backup screens, our answers). Before capturing screenshots,
 `dotnet run --project src/Import -- demo-names` gives every firm a fictional name
 (re-importing restores the real ones), so no real firm appears in a deck. Regenerate its screenshots with the API running:
 `python tools/capture_vision_deck.py` (Python Playwright with Chromium).
-The api-2 password comes from `pgpass.conf` or `PGPASSWORD`.
 
 ## What is where
 
@@ -104,9 +93,9 @@ The api-2 password comes from `pgpass.conf` or `PGPASSWORD`.
 | `docs/lead-delivery/` | Start with `strategy.md` (direction and roadmap); `answers.md` (every decision); `lessons.md` (what building it taught us); the domain model, operator workflows and screens, how production compares, and `code-map.md`: where each flow lives in the code |
 | `docs/api.md` | The contract between backend and frontend |
 | `backend/src/Core/Catalog.fs` | Every integration kind, its auth, and what each source system calls it: the table to agree on |
-| `backend/src/Core/Payloads.fs` | The body each kind receives (from api-2's serializers) |
+| `backend/src/Core/Payloads.fs` | The body each kind receives |
 | `backend/src/Core/FakeCrm.fs` | What each stand-in receiver requires |
-| `backend/src/Core/Dispatch.fs` | Routing (api-2 contact types, webchat switch), outbox, retries, disable on 410 |
+| `backend/src/Core/Dispatch.fs` | Routing, outbox, retries, disable on 410 |
 | `backend/src/Core/Onboarding.fs` | RFC-001 §4–6: versions, approvals, draft revisions, discard |
 | `backend/src/Import/` | One reader per source system |
 | `frontend/src/pages/` | Integrations overview, firms, delivery graph, Delivery Center, onboarding; `review.tsx` is the client page |
@@ -121,15 +110,3 @@ The api-2 password comes from `pgpass.conf` or `PGPASSWORD`.
 - **No caller PII.** Leads are synthetic, built from each firm's real intake
   labels and contact types.
 - **Honest delivery stages.** A 2xx is "accepted by receiver", never "in the CRM".
-
-## First import (2026-11-18)
-
-| | |
-|---|---|
-| Firms | 5,541. api-2 5,505, chatbot 208, airi 2 |
-| Matched across systems | 174 chatbot firms are the same firm as an api-2 client |
-| CRM rows (api-2) | 444. MyCase 219, Clio Grow 177, Lead Docket 16, Lawmatics 26 (three integrations), Smokeball 4, PracticePanther 2 |
-| Enabled in api-2 | 8 of 444. api-2 sends only to `enabled` rows, so this local copy delivers to 8 CRMs. Check against production |
-| Shared keys | 18 chatbot firms share 4 Answering Legal keys: their leads land in one account |
-| OAuth without token | 18 rows: the firm must authorize again |
-| Not on disk | chatbot HubSpot configs; airi production destinations |
