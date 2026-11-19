@@ -1,0 +1,61 @@
+{
+  "about": "Firms with an api-2 CRM connection. Counts are call types and firms, not leads: the import holds no lead volume. Production feed needed to weigh by leads.",
+  "generatedFrom": "imported firms' contact types (api-2) and CRM connections",
+  "defaultRule": "CRMs take new matters, every practice area; review categories are the firm's choice",
+  "enabledCrm": {
+    "activeFirms": 2,
+    "byVerdict": {
+      "inexpressible": 2
+    },
+    "callTypesByOutcome": {
+      "same": 30,
+      "firm-choice": 21,
+      "stops": 2
+    },
+    "stopsByCategory": {
+      "existing-client": 1,
+      "system": 1
+    },
+    "startsByPracticeArea": {},
+    "firmsChoosingReviewCategory": {
+      "general": 1
+    },
+    "firmsWithSplitCategory": {
+      "general": 1,
+      "system": 1
+    }
+  },
+  "anyCrm": {
+    "activeFirms": 122,
+    "byVerdict": {
+      "default": 117,
+      "inexpressible": 4,
+      "practice-areas": 1
+    },
+    "callTypesByOutcome": {
+      "same": 1133,
+      "firm-choice": 312,
+      "starts": 6,
+      "stops": 2
+    },
+    "stopsByCategory": {
+      "existing-client": 1,
+      "system": 1
+    },
+    "startsByPracticeArea": {
+      "unspecified": 2,
+      "family": 1,
+      "employment": 1,
+      "criminal": 1,
+      "workers-comp": 1
+    },
+    "firmsChoosingReviewCategory": {
+      "general": 1
+    },
+    "firmsWithSplitCategory": {
+      "new-matter": 2,
+      "general": 1,
+      "system": 1
+    }
+  }
+}
