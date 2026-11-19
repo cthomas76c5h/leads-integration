@@ -1,0 +1,142 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "cross-firm-read",
+  "story": "A user of Firm B asks for Firm A's lead at every public boundary: read it, find it in a list, export it, resend it. Every request is refused and audited, and the resend creates nothing. Firm A's own user reads it.",
+  "slice": 0,
+  "model": "proposed",
+  "proves": [
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#9-security-gates-from-the-first-slice (firm isolation, enforced and proved at every public boundary)"
+  ],
+  "today": "The lab's API has no firm sign-in and no access control: any caller can read, list, export or resend any firm's lead. It is an operator console, and its firm portal page chooses a firm by id.",
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      },
+      {
+        "id": "firm-b",
+        "name": "Example Firm B"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "email-a",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter"
+      }
+    },
+    {
+      "at": "+5m",
+      "access": {
+        "firm": "firm-b",
+        "lead": "lead-1",
+        "boundary": "read"
+      }
+    },
+    {
+      "at": "+5m",
+      "access": {
+        "firm": "firm-b",
+        "lead": "lead-1",
+        "boundary": "list"
+      }
+    },
+    {
+      "at": "+5m",
+      "access": {
+        "firm": "firm-b",
+        "lead": "lead-1",
+        "boundary": "export"
+      }
+    },
+    {
+      "at": "+5m",
+      "access": {
+        "firm": "firm-b",
+        "lead": "lead-1",
+        "boundary": "resend"
+      }
+    },
+    {
+      "at": "+6m",
+      "access": {
+        "firm": "firm-a",
+        "lead": "lead-1",
+        "boundary": "read"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+7m",
+      "access": {
+        "firm": "firm-b",
+        "lead": "lead-1",
+        "boundary": "read",
+        "is": "refused",
+        "audited": true
+      }
+    },
+    {
+      "at": "+7m",
+      "access": {
+        "firm": "firm-b",
+        "lead": "lead-1",
+        "boundary": "list",
+        "is": "refused",
+        "audited": true
+      }
+    },
+    {
+      "at": "+7m",
+      "access": {
+        "firm": "firm-b",
+        "lead": "lead-1",
+        "boundary": "export",
+        "is": "refused",
+        "audited": true
+      }
+    },
+    {
+      "at": "+7m",
+      "access": {
+        "firm": "firm-b",
+        "lead": "lead-1",
+        "boundary": "resend",
+        "is": "refused",
+        "audited": true
+      }
+    },
+    {
+      "at": "+7m",
+      "access": {
+        "firm": "firm-a",
+        "lead": "lead-1",
+        "boundary": "read",
+        "is": "allowed"
+      }
+    },
+    {
+      "at": "+10m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email-a",
+        "state": "accepted",
+        "count": 1
+      }
+    }
+  ]
+}

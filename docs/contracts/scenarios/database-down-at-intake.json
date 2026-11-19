@@ -1,0 +1,103 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "database-down-at-intake",
+  "story": "Our database stops answering just before a call completes. Intake tells the channel the lead was not recorded, so the channel keeps its copy; nothing is claimed and nothing is sent. When the database is back, the channel sends the event again, and the lead is recorded once and reaches the firm within its window.",
+  "slice": 1,
+  "model": "proposed",
+  "proves": [
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#41-the-boundaries (intake never reports a capture it did not commit)"
+  ],
+  "today": "Untested in the lab: intake is the API's publish endpoint writing to SQLite, and a failed write returns an error to the caller, but no channel is asked to keep and resend its copy, and no scenario stops the database.",
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "fault": {
+        "kind": "database-unavailable"
+      }
+    },
+    {
+      "at": "+1m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "conversation": "call-9001"
+      }
+    },
+    {
+      "at": "+5m",
+      "fault": {
+        "kind": "database-available"
+      }
+    },
+    {
+      "at": "+6m",
+      "fault": {
+        "kind": "intake-event-repeated",
+        "lead": "lead-1"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+2m",
+      "capture": {
+        "lead": "lead-1",
+        "is": "not-recorded",
+        "count": 0,
+        "channelTold": "not-recorded"
+      }
+    },
+    {
+      "at": "+2m",
+      "noDelivery": {
+        "lead": "lead-1",
+        "destination": "email"
+      }
+    },
+    {
+      "at": "+10m",
+      "capture": {
+        "lead": "lead-1",
+        "is": "recorded",
+        "count": 1,
+        "channelTold": "recorded"
+      }
+    },
+    {
+      "at": "+10m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "accepted",
+        "count": 1
+      }
+    },
+    {
+      "at": "+10m",
+      "handOff": {
+        "lead": "lead-1",
+        "state": "reached",
+        "by": "email",
+        "evidence": "accepted"
+      }
+    }
+  ]
+}

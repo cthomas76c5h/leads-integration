@@ -1,0 +1,83 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "duplicate-intake",
+  "story": "The voice channel sends a call's completion event twice. Intake keys on the channel's conversation id, so there is one conversation, one lead and one delivery. A different call from the same firm is a different conversation and its own lead.",
+  "slice": 1,
+  "model": "proposed",
+  "proves": [
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#41-the-boundaries (channel to conversation, and conversation to lead, are idempotent)"
+  ],
+  "today": "The lab has no conversation record: every publish makes a new lead id (Dispatch.publish), so a repeated event would be a second lead with its own deliveries. In production, api-2 answers 208 Already Reported for an answer_id it already has (docs/lead-delivery/production-today.md).",
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "conversation": "call-7001"
+      }
+    },
+    {
+      "at": "+30s",
+      "fault": {
+        "kind": "intake-event-repeated",
+        "lead": "lead-1"
+      }
+    },
+    {
+      "at": "+2m",
+      "lead": {
+        "id": "lead-2",
+        "firm": "firm-a",
+        "category": "general",
+        "conversation": "call-7002"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+5m",
+      "capture": {
+        "lead": "lead-1",
+        "is": "recorded",
+        "count": 1,
+        "channelTold": "recorded"
+      }
+    },
+    {
+      "at": "+5m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "accepted",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "capture": {
+        "lead": "lead-2",
+        "is": "recorded",
+        "count": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,221 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "routing-change-during-outage",
+  "story": "Two firms' CRMs are down, with deliveries waiting, when each firm approves a new routing rule. Firm A widens its rule and keeps waiting deliveries on the old revision; its next lead uses the new one. Firm B narrows its rule and chooses to apply it to waiting deliveries, so its waiting existing-client delivery is cancelled with a reason. When the CRMs return, each delivery is sent under the revision it holds.",
+  "slice": 5,
+  "model": "proposed",
+  "proves": [
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#52-which-revision-a-delivery-uses (routing decided once; waiting deliveries keep their revision unless told otherwise)"
+  ],
+  "today": "Revisions live on the onboarding setup (Onboarding.fs). A delivery keeps the body template fixed when it was planned, but records no revision, and there is no choice to apply a new revision to waiting deliveries. Routing in the lab is by the firm's active call types, not a per-destination category rule.",
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      },
+      {
+        "id": "firm-b",
+        "name": "Example Firm B"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm-a",
+        "firm": "firm-a",
+        "kind": "lead-docket",
+        "role": "usual",
+        "routing": {
+          "categories": [
+            "new-matter"
+          ]
+        }
+      },
+      {
+        "id": "crm-b",
+        "firm": "firm-b",
+        "kind": "mycase",
+        "role": "usual",
+        "routing": {
+          "categories": [
+            "new-matter",
+            "existing-client"
+          ]
+        }
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "crm-a",
+        "answers": {
+          "mode": "down"
+        }
+      }
+    },
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "crm-b",
+        "answers": {
+          "mode": "down"
+        }
+      }
+    },
+    {
+      "at": "+5m",
+      "lead": {
+        "id": "lead-a1",
+        "firm": "firm-a",
+        "category": "new-matter"
+      }
+    },
+    {
+      "at": "+5m",
+      "lead": {
+        "id": "lead-b1",
+        "firm": "firm-b",
+        "category": "existing-client"
+      }
+    },
+    {
+      "at": "+10m",
+      "action": {
+        "by": "operator",
+        "do": "change-routing",
+        "destination": "crm-a",
+        "routing": {
+          "categories": [
+            "new-matter",
+            "existing-client"
+          ]
+        }
+      }
+    },
+    {
+      "at": "+10m",
+      "action": {
+        "by": "operator",
+        "do": "change-routing",
+        "destination": "crm-b",
+        "routing": {
+          "categories": [
+            "new-matter"
+          ]
+        }
+      }
+    },
+    {
+      "at": "+12m",
+      "action": {
+        "by": "firm-contact",
+        "do": "approve",
+        "destination": "crm-a",
+        "applyToWaiting": false
+      }
+    },
+    {
+      "at": "+12m",
+      "action": {
+        "by": "firm-contact",
+        "do": "approve",
+        "destination": "crm-b",
+        "applyToWaiting": true
+      }
+    },
+    {
+      "at": "+15m",
+      "lead": {
+        "id": "lead-a2",
+        "firm": "firm-a",
+        "category": "existing-client"
+      }
+    },
+    {
+      "at": "+15m",
+      "lead": {
+        "id": "lead-b2",
+        "firm": "firm-b",
+        "category": "existing-client"
+      }
+    },
+    {
+      "at": "+1h",
+      "receiver": {
+        "destination": "crm-a",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    },
+    {
+      "at": "+1h",
+      "receiver": {
+        "destination": "crm-b",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+20m",
+      "delivery": {
+        "lead": "lead-a1",
+        "destination": "crm-a",
+        "state": "retrying",
+        "revision": 1
+      }
+    },
+    {
+      "at": "+20m",
+      "delivery": {
+        "lead": "lead-a2",
+        "destination": "crm-a",
+        "state": "retrying",
+        "revision": 2
+      }
+    },
+    {
+      "at": "+20m",
+      "delivery": {
+        "lead": "lead-b1",
+        "destination": "crm-b",
+        "state": "cancelled",
+        "revision": 2,
+        "reason": "revision 2"
+      }
+    },
+    {
+      "at": "+20m",
+      "delivery": {
+        "lead": "lead-b2",
+        "destination": "crm-b",
+        "state": "not-sent",
+        "revision": 2
+      }
+    },
+    {
+      "at": "+2h",
+      "delivery": {
+        "lead": "lead-a1",
+        "destination": "crm-a",
+        "state": "accepted",
+        "revision": 1
+      }
+    },
+    {
+      "at": "+2h",
+      "delivery": {
+        "lead": "lead-a2",
+        "destination": "crm-a",
+        "state": "accepted",
+        "revision": 2
+      }
+    }
+  ]
+}

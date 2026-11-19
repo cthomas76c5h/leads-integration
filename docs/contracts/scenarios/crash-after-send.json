@@ -1,0 +1,133 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "crash-after-send",
+  "story": "The worker sends a new matter to three destinations and crashes before recording any answer, although each destination received the request. What follows depends on each kind's duplicate handling: the CRM, which cannot tell a duplicate, waits for an operator instead of being sent the lead again; the webhook, which deduplicates on the lead id, is retried safely; email, where a second copy is harmless, is retried.",
+  "slice": 3,
+  "model": "proposed",
+  "proves": [
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#42-an-unknown-outcome (a send with no recorded answer is unknown)",
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#43-duplicate-handling-per-destination-kind (what follows an unknown outcome, per kind)"
+  ],
+  "today": "On restart, Store.requeueInterrupted moves every in-flight delivery back to pending and sends it again, whatever the destination, and a timeout is retried as transient. The lab has no unknown outcome and no per-kind duplicate handling, so the CRM would get the lead twice.",
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "mycase",
+        "role": "usual",
+        "routing": {
+          "categories": [
+            "new-matter"
+          ]
+        }
+      },
+      {
+        "id": "hook",
+        "firm": "firm-a",
+        "kind": "webhook",
+        "role": "usual"
+      },
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "personal-injury"
+      }
+    },
+    {
+      "at": "+0m",
+      "fault": {
+        "kind": "worker-crash-after-send",
+        "lead": "lead-1",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+0m",
+      "fault": {
+        "kind": "worker-crash-after-send",
+        "lead": "lead-1",
+        "destination": "hook"
+      }
+    },
+    {
+      "at": "+0m",
+      "fault": {
+        "kind": "worker-crash-after-send",
+        "lead": "lead-1",
+        "destination": "email"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+30m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "unknown",
+        "attempts": 1,
+        "outcomes": [
+          "unknown"
+        ],
+        "count": 1
+      }
+    },
+    {
+      "at": "+30m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "hook",
+        "state": "accepted",
+        "attempts": 2,
+        "outcomes": [
+          "unknown",
+          "answered"
+        ],
+        "count": 1
+      }
+    },
+    {
+      "at": "+30m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "accepted",
+        "attempts": 2,
+        "outcomes": [
+          "unknown",
+          "answered"
+        ],
+        "count": 1
+      }
+    },
+    {
+      "at": "+30m",
+      "handOff": {
+        "lead": "lead-1",
+        "state": "reached",
+        "by": "email",
+        "evidence": "accepted"
+      }
+    }
+  ]
+}

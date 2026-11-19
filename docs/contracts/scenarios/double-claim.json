@@ -1,0 +1,97 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "double-claim",
+  "story": "A worker claims a delivery and stalls just before sending. A second worker tries to claim it and gets nothing, because the first holds the lease. When the lease runs out, the delivery is recovered; the stalled attempt counts as unknown, and because the webhook deduplicates on the lead id, it is sent again. When the stalled worker wakes, it has lost its lease and sends nothing.",
+  "slice": 3,
+  "model": "proposed",
+  "proves": [
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#53-claims-and-revalidation (a lease, not a flag; only the holder records)",
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#42-an-unknown-outcome (an expired lease's attempt counts as unknown)"
+  ],
+  "today": "Store.claimDue flips pending to delivering with no owner and no expiry. The lab runs one worker per API process, so a second claim is never exercised, and a stalled claim is recovered only by Store.requeueInterrupted on restart.",
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "hook",
+        "firm": "firm-a",
+        "kind": "webhook",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter"
+      }
+    },
+    {
+      "at": "+0m",
+      "fault": {
+        "kind": "worker-stalls-before-send",
+        "lead": "lead-1",
+        "destination": "hook"
+      }
+    },
+    {
+      "at": "+10s",
+      "fault": {
+        "kind": "second-worker-claims",
+        "lead": "lead-1",
+        "destination": "hook"
+      }
+    },
+    {
+      "at": "+1m",
+      "fault": {
+        "kind": "lease-expires",
+        "lead": "lead-1",
+        "destination": "hook"
+      }
+    },
+    {
+      "at": "+2m",
+      "fault": {
+        "kind": "worker-continues",
+        "lead": "lead-1",
+        "destination": "hook"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+30s",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "hook",
+        "state": "sending",
+        "attempts": 0,
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "hook",
+        "state": "accepted",
+        "attempts": 2,
+        "outcomes": [
+          "unknown",
+          "answered"
+        ],
+        "count": 1
+      }
+    }
+  ]
+}

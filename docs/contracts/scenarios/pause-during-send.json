@@ -1,0 +1,166 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "pause-during-send",
+  "story": "A worker has claimed a delivery to the firm's CRM and is about to send when an operator pauses the destination. Nothing is sent after the pause: the delivery is held, and the hand-off goes to the SMS fallback at once. After a resume, the held lead is sent. Later, an operator pauses while an attempt is already on the wire; that attempt is recorded as it ends.",
+  "slice": 3,
+  "model": "proposed",
+  "proves": [
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#53-claims-and-revalidation (revalidate before sending; a pause applies to attempts not yet started)",
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#51-two-owners-one-rule (desired state paused makes the destination ineligible)"
+  ],
+  "today": "The worker checks only whether a destination is switched off, once, when the attempt starts (Dispatch.attempt). A pause (enabled off) does not stop a delivery already queued, and later leads to a paused destination get no delivery at all (missed leads), not held.",
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "clio-grow",
+        "role": "usual",
+        "routing": {
+          "categories": [
+            "new-matter"
+          ]
+        }
+      },
+      {
+        "id": "sms",
+        "firm": "firm-a",
+        "kind": "sms",
+        "role": "fallback"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "family"
+      }
+    },
+    {
+      "at": "+0m",
+      "fault": {
+        "kind": "worker-stalls-before-send",
+        "lead": "lead-1",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+1m",
+      "action": {
+        "by": "operator",
+        "do": "pause",
+        "destination": "crm",
+        "why": "CRM reported an incident"
+      }
+    },
+    {
+      "at": "+2m",
+      "fault": {
+        "kind": "worker-continues",
+        "lead": "lead-1",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+5m",
+      "action": {
+        "by": "operator",
+        "do": "resume",
+        "destination": "crm",
+        "why": "incident over"
+      }
+    },
+    {
+      "at": "+10m",
+      "receiver": {
+        "destination": "crm",
+        "answers": {
+          "mode": "slow"
+        }
+      }
+    },
+    {
+      "at": "+10m",
+      "lead": {
+        "id": "lead-2",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "criminal"
+      }
+    },
+    {
+      "at": "+10m5s",
+      "action": {
+        "by": "operator",
+        "do": "pause",
+        "destination": "crm",
+        "why": "maintenance"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+3m",
+      "destination": {
+        "id": "crm",
+        "state": "paused"
+      }
+    },
+    {
+      "at": "+3m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "held",
+        "attempts": 0
+      }
+    },
+    {
+      "at": "+3m",
+      "handOff": {
+        "lead": "lead-1",
+        "state": "reached-by-fallback",
+        "by": "sms"
+      }
+    },
+    {
+      "at": "+7m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "accepted",
+        "attempts": 1
+      }
+    },
+    {
+      "at": "+11m",
+      "delivery": {
+        "lead": "lead-2",
+        "destination": "crm",
+        "state": "accepted",
+        "attempts": 1,
+        "outcomes": [
+          "answered"
+        ]
+      }
+    },
+    {
+      "at": "+11m",
+      "destination": {
+        "id": "crm",
+        "state": "paused"
+      }
+    }
+  ]
+}
