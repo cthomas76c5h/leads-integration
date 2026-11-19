@@ -18,7 +18,7 @@ time.** Today we cannot show that we do it.
 2. **Measure first.** Real numbers from today's systems on lost and late leads, before we build.
 3. **Build new, to one standard.** A lead platform built to one model, in steps a firm can use, each proven in our lab first; firms move across one at a time.
 4. **Never lose a lead silently.** Automatic retries, a backup route each firm agrees in advance (usually a text to its intake team), and leads that missed a stopped connection sent on once it is back.
-5. **Standardise.** A dozen standard kinds of call for every firm (firms keep their own wording), one way to describe a lead from phone and chat, and six supported CRMs with everything else through Zapier.
+5. **Standardise.** A dozen standard kinds of call for every firm (firms keep their own wording), one way to describe a lead from phone and chat, and a few supported CRMs, added one at a time as firms need them and each tested first, with everything else through Zapier.
 6. **Bill on value.** Three packages (Answer, Deliver, Insight), priced per real conversation; sales calls, wrong numbers and instant hang-ups are free; one record behind every invoice; each firm's new bill checked against its old one for two months before anyone pays differently.
 7. **Fix the terms of service.** One version for everyone; people are asked to accept again only when a change concerns them, with notice first; every acceptance recorded.
 
@@ -29,7 +29,7 @@ time.** Today we cannot show that we do it.
 | From the start | Real numbers on lost and late leads, from today's systems |
 | About two months | No lead lost without a trace; alerts on stopped connections; the daily operations screens |
 | Three to four months | Every new client reaches a person in time, by a backup route if needed; firms approve every change |
-| Then | Firms see their week; six CRMs tested; one standard lead from phone and chat; the new bill beside the old; terms without lock-outs |
+| Then | Firms see their week; the CRMs firms use, each tested; one standard lead from phone and chat; the new bill beside the old; terms without lock-outs |
 | After | Packages launched; firms set themselves up; other software can receive our leads; a package for trades businesses |
 
 ## Why it matters for the business

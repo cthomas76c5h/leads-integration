@@ -72,7 +72,7 @@ at a time. The engineering detail is the build order in
 | **From the start** | Real numbers from today's systems: what is lost, what is late, which CRMs are used, the mix of calls | Real numbers instead of the lab's |
 | **About two months** | Reliable delivery: every lead recorded before it is sent, retried, and accounted for; the daily operations screens; an alert whenever a firm's connection stops | No lead lost without a trace; problems found by us, not reported by firms |
 | **Three to four months** | Delivery in time: calls sorted by kind; the backup route; held leads sent on when a connection returns; nothing a firm receives changes without its approval | Every new client reaching a person at the firm in time |
-| **Then** | The six CRMs tested against their own test accounts; firms seeing their week and proof of delivery; calls sorted as they come in; the new bill beside the old for two months; terms without lock-outs | Firms seeing what they get; every firm's new bill checked against its old one |
+| **Then** | The CRMs firms use, added one at a time, each tested against its own test account; firms seeing their week and proof of delivery; calls sorted as they come in; the new bill beside the old for two months; terms without lock-outs | Firms seeing what they get; every firm's new bill checked against its old one |
 | **After that** | The three packages, launched in groups; firms setting up their own connections; a published way for other software to receive leads; a package for trades businesses | A product suite with predictable revenue, and firms onboarding themselves |
 
 ## Questions we expect, and our answers

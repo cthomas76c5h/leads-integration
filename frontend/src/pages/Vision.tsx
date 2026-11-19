@@ -110,7 +110,7 @@ export function Vision() {
         <ol className="vision-steps roadmap">
           <li><strong>1. Reliable delivery</strong><span>about two months · every lead recorded, retried and accounted for; real numbers from today's systems alongside</span></li>
           <li><strong>2. In time, with approval</strong><span>about a month more · sorted by kind of call, a backup route, nothing changes without the firm's approval</span></li>
-          <li><strong>3. Proof and CRMs</strong><span>firms see their week; six CRMs; calls sorted as they come in</span></li>
+          <li><strong>3. Proof and CRMs</strong><span>firms see their week; the CRMs firms use, one at a time; calls sorted as they come in</span></li>
           <li><strong>4. Billing and terms</strong><span>priced per real conversation; terms without lock-outs</span></li>
           <li><strong>5. Self-serve</strong><span>firms connect and approve themselves; other software receives our leads</span></li>
         </ol>
@@ -126,7 +126,7 @@ export function Vision() {
               <tr><td>How fast must a lead reach the firm?</td><td>Emergencies and people in custody: 15 minutes. New clients: 1 hour. Existing clients, courts and insurers: the same business day. Everything else: the next business day</td></tr>
               <tr><td>What if the usual route fails?</td><td>A backup the firm agreed (a text to its intake team, or email) takes over at once if the usual route is stopped, otherwise once a third of that time has passed. The firm always sees it; the CRM copy follows later, marked late</td></tr>
               <tr><td>Hang-ups?</td><td>Not sent to CRMs, which refuse them; the firm still sees them by email and in its portal; free if under 20 seconds</td></tr>
-              <tr><td>Which CRMs do we support directly?</td><td>Six: Clio Grow, Lawmatics, MyCase, Lead Docket, PracticePanther and Smokeball. Two little-used ones retire. Everything else connects through Zapier</td></tr>
+              <tr><td>Which CRMs do we support directly?</td><td>One at a time, each tested before firms rely on it: first one, then others from Clio Grow, Lawmatics, MyCase, Lead Docket, PracticePanther and Smokeball as firms need them. Two little-used ones retire. Everything else connects through Zapier</td></tr>
               <tr><td>Where does each call go?</td><td>By kind of call: new clients to the CRM, everything to email and the portal, emergencies also by text message</td></tr>
               <tr><td>Billing?</td><td>Three packages, priced per real conversation, from one record of every call. Buy the invoicing software; build the call record and the free-call rules. Run the new bill beside the old for two months, then switch in groups</td></tr>
               <tr><td>Changing plan mid-month? Past months?</td><td>An upgrade starts at once, charged by the day; a downgrade starts next month. A closed month is never changed</td></tr>

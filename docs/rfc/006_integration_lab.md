@@ -114,7 +114,7 @@ real patterns (outage lengths, failure mixes, call timing).
 | Check | On |
 |---|---|
 | Unit and rule tests (including F# and Python category rules agreeing) | Every change |
-| Contract tests against the six CRM sandboxes (RFC-005) | Every change to payloads; nightly |
+| Contract tests against the sandbox of every certified CRM (RFC-005) | Every change to payloads; nightly |
 | Simulated week reaches every scenario | Every change |
 | Screenshot capture and visual review of the leadership deck | Every change to a screen in it |
 | Plain-language check of screen text against the glossary | Every change to screen text |
@@ -137,7 +137,7 @@ area is next touched, so code, screens and documents agree.
 |---|---|---|
 | **1. Hygiene** | Alongside slice 0 | One command; reset; screenshot runs without side effects; checks on every change |
 | **2. Real data** | Alongside slice 0 (the roadmap's Measure milestone) | The anonymised production feed; figures in the deck from it |
-| **3. Real CRMs** | Slice 7, with RFC-005 | Contract tests against the six sandboxes |
+| **3. Real CRMs** | Slice 3 for the first CRM, slice 7 for the rest, with RFC-005 | Contract tests against the sandbox of each CRM as it is certified |
 | **4. Scale** | With slices 1–3 | Queries and indexes sized for production volume; the scenario library complete |
 
 ### Out of scope

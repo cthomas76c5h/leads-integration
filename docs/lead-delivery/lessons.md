@@ -46,7 +46,7 @@ configuration. Free text is what a firm *sees*, never what a system *decides* on
 
 **Needs:**
 
-- a sandbox account with each of the six supported CRMs, and automatic tests against them;
+- a sandbox account with each CRM we certify, and automatic tests against them;
 - test leads sent through every live connection on a schedule, so a stopped connection is caught by us within minutes, not by the firm;
 - where a CRM allows it, checking that the record actually arrived (**verified in CRM**).
 
@@ -139,6 +139,6 @@ What stands between this and a 10/10 is not features. It is four things:
 | | What | First step |
 |---|---|---|
 | 1 | **Real data** flowing in | The production feed (RFC-006) and delivery records from slice 1 |
-| 2 | **Real CRMs** to test against | Sandboxes for the six supported CRMs; scheduled test leads |
+| 2 | **Real CRMs** to test against | A sandbox for each CRM we certify, starting with one; scheduled test leads |
 | 3 | **One shared language**, in the data and in the words | Call categories at intake; one lead format; the glossary in code |
 | 4 | **Someone using it every day** | Name the lead delivery owner; a weekly feedback review |

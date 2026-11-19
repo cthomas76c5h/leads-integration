@@ -28,7 +28,7 @@ workflow in which the firm approves every change to what it receives.**
 Approve:
 
 1. **One standard lead**, versioned, produced the same way by phone and chat, with its call category set at intake.
-2. **Six native integrations** (Clio Grow, Lawmatics, MyCase, Lead Docket, PracticePanther, Smokeball); Lawruler and the legacy Lawmatics forms retired; everything else through Zapier and webhooks.
+2. **Native integrations certified one at a time** ([answers](../lead-delivery/answers.md#routing-and-integrations)): first one representative CRM end to end, then others from Clio Grow, Lawmatics, MyCase, Lead Docket, PracticePanther and Smokeball as demand and sandbox evidence justify them; Lawruler and the legacy Lawmatics forms retired; everything else through Zapier and webhooks.
 3. **A published, versioned contract**: the lead schema and signed webhooks with retries and resend.
 4. **Setup and change by revision and approval**: operators prepare, firms approve, nothing live changes until then.
 5. **Integrations verified continuously**: CRM sandboxes, scheduled test leads, and confirming the record arrived where a CRM allows it.
@@ -203,9 +203,9 @@ orders. For this RFC that means:
 
 | Phase | RFC-007 slices | Deliver |
 |---|---|---|
-| **1. Contract** | 0 | The lead schema v1; the integration list confirmed from the production feed; sandbox accounts for the six CRMs |
+| **1. Contract** | 0 | The lead schema v1; the integration list confirmed from the production feed; a sandbox account for the first CRM to certify |
 | **2. Setup and change** | 5 | Setup states, revisions and approvals; the firm's review screen; recipes for email, text and webhook |
-| **3. Native CRMs** | 7 | The six CRMs, each with its receiver contract and sandbox test |
+| **3. Native CRMs** | 3, then 7 | The first CRM certified end to end in slice 3; the others firms use, chosen by demand and sandbox evidence, in slice 7; each with its receiver contract and sandbox test |
 | **4. One lead** | 9, with the conversation engine | Phone and chat produce the standard lead with its category; chat keys per firm; the conversation record billing reads (RFC-003) |
 | **5. Self-serve** | 12 | Firms connect and change destinations themselves, with the same approval; the published Zapier app |
 | **6. Distribution** | Later | Listings in CRM marketplaces; a trades pack |
@@ -235,7 +235,7 @@ orders. For this RFC that means:
 
 ## 10. Key Risks and Mitigations
 
-**Scope grows into a general integration platform.** *Mitigation:* the contract, six native kinds, and Zapier for the rest.
+**Scope grows into a general integration platform.** *Mitigation:* the contract, a few native kinds certified on evidence, and Zapier for the rest.
 
 **Approval slows support.** *Mitigation:* risk-based approval: repairs and resends are logged, not approved.
 
@@ -280,8 +280,8 @@ The reasoning, and what would change each: [answers.md](../lead-delivery/answers
 ## 12. Next Steps
 
 1. Publish the lead schema v1 for review.
-2. Open sandbox accounts with the six CRMs.
-3. Write recipes for the six CRMs, email, text and webhook.
+2. Choose the first CRM to certify from the production feed, and open its sandbox account.
+3. Write recipes for that CRM, email, text and webhook; add each further CRM's as it is chosen.
 4. Validate the firm's review screen with five onboarding cases.
 
 ---
