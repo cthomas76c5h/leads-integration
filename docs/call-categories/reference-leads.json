@@ -601,6 +601,30 @@
       }
     },
     {
+      "id": "system-screening-note",
+      "why": "A note to the receptionist about calls the firm does not take, not a kind of call. 'WC' is not a workers' compensation matter here. Never a lead.",
+      "expect": { "category": "system", "practiceArea": null, "modifiers": [], "crm": "never" },
+      "lead": {
+        "firstName": "", "lastName": "", "phone": "+15555550143", "email": "",
+        "callType": "*NOT IN NYC, WC, MASS",
+        "message": "",
+        "source": "Answering AI", "webchat": false,
+        "custom": []
+      }
+    },
+    {
+      "id": "general-verify-employment",
+      "why": "A lender or employer checking that someone works at the firm: an HR call, like employment inquiries. Not a new employment-law matter, and 'Verify' is not a person's name.",
+      "expect": { "category": "general", "practiceArea": null, "modifiers": [], "crm": "review" },
+      "lead": {
+        "firstName": "Colin", "lastName": "Marsh", "phone": "+15555550144", "email": "",
+        "callType": "*Verify Employment",
+        "message": "Calling from a mortgage lender to verify employment for a staff member.",
+        "source": "Answering AI", "webchat": false,
+        "custom": []
+      }
+    },
+    {
       "id": "line-handling",
       "why": "How to handle calls, not what kind: never a lead.",
       "expect": { "category": "line-handling", "practiceArea": null, "modifiers": ["after-hours", "no-patch"], "crm": "never" },

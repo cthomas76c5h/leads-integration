@@ -28,14 +28,13 @@
   "anyCrm": {
     "activeFirms": 122,
     "byVerdict": {
-      "default": 117,
-      "inexpressible": 4,
-      "practice-areas": 1
+      "default": 118,
+      "inexpressible": 4
     },
     "callTypesByOutcome": {
-      "same": 1133,
-      "firm-choice": 313,
-      "starts": 5,
+      "same": 1134,
+      "firm-choice": 314,
+      "starts": 3,
       "stops": 2
     },
     "stopsByCategory": {
@@ -44,9 +43,7 @@
     },
     "startsByPracticeArea": {
       "unspecified": 2,
-      "employment": 1,
-      "criminal": 1,
-      "workers-comp": 1
+      "criminal": 1
     },
     "firmsChoosingReviewCategory": {
       "general": 1

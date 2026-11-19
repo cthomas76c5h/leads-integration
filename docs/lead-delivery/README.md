@@ -220,7 +220,7 @@ record afterwards: the most serious outcome, shown first.
 
 - *Production:* if the lead's call type is not one of the firm's active call types (or the firm has none), the lead goes to none of its CRMs. It compares after trimming `" ,.;:-*"` from the ends and lowercasing, so "Personal-Injury" and "Personal Injury" differ.
 - *Lab:* the routing rule is per destination and by **call category**: the categories it takes, optionally narrowed to practice areas for new matters ([RFC-009](../rfc/009_routing_by_category.md)). Each destination decides on its own; no order, no first match. A destination with no rule takes every lead, except a CRM, which keeps the legacy rule (the firm's active call types, ignoring all punctuation) until it has one.
-- *Lab:* an imported CRM's rule is **seeded** from its firm's active call types, so nothing it receives changes: 117 of 122 active CRM firms get "new matters". A firm whose active call types split a category keeps the legacy rule and is listed in the import notes for review. A rule already on a destination is never overwritten by an import.
+- *Lab:* an imported CRM's rule is **seeded** from its firm's active call types, so nothing it receives changes: 118 of 122 active CRM firms get "new matters". A firm whose active call types split a category keeps the legacy rule and is listed in the import notes for review. A rule already on a destination is never overwritten by an import.
 - *Production and Lab:* a destination can refuse chat leads.
 - *Proposed:* the rule lives in the destination's revision and changes only by approval (RFC-001); uncertain classifications route wide ([RFC-008 §6.1](../rfc/008_delivery_guarantees_and_evidence.md#61-each-action-decides-on-its-own-terms)).
 

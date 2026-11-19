@@ -105,7 +105,7 @@ let main args =
             printfn "  scenarios:"
             for sc in r.Scenarios do
                 printfn "    %-16s %s" sc.Name sc.Where
-            printfn "  switched off:"
+            printfn "  stopped (switched off, or needs reconnection after a 401, 403 or 410):"
             for name, reason in r.Disabled do
                 printfn "    %s: %s" name reason
             printfn "Deliveries still retrying are sent by the API's worker (dotnet run --project src/Api)."

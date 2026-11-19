@@ -19,12 +19,13 @@ that routing should go by call category, per destination, with a default that
 reproduces today. This RFC checks that claim against every imported firm, and
 specifies the routing decision so it can be built in slice 4.
 
-**The check:** for **117 of the 122** active firms with a CRM connection, the
+**The check:** for **118 of the 122** active firms with a CRM connection, the
 default rule ("CRMs take new matters") sends exactly what their active call
-types send today. The other five need no richer rule language: three are
-classification errors, one firm wants existing clients in its CRM, one has
-"general" labels that disagree, and three call types are line-handling or
-named-person variants of a new-client call.
+types send today. The other four need no richer rule language: one firm wants
+existing clients in its CRM, one has "general" labels that disagree, and two
+have line-handling or named-person variants of a new-client call. The first run
+found 117; three classification errors behind the difference are now fixed in
+the taxonomy.
 
 **We propose** a small, closed routing rule per destination; a **routing
 decision** recorded for every lead and destination, separate from the delivery
@@ -66,16 +67,15 @@ lead volume):
 
 | Verdict for the firm's CRMs | Active firms |
 |---|---|
-| **Default**: exactly new matters, every practice area | **117** |
+| **Default**: exactly new matters, every practice area | **118** |
 | A category or practice area split between active and inactive call types | 4 |
-| New matters limited to some practice areas | 1 |
 | Nothing reaches the CRM today (no active types) | 0 |
 
-Reading the five by hand:
+Reading the differences by hand (first run: 117 default, five others):
 
 | Cause | Call types | Fix |
 |---|---|---|
-| **Misclassified**: "*In Custody Calls" read as family law (custody), *fixed: "in custody" is now a jail call, reference lead `jail-in-custody-phrase`*; "*Verify Employment" and "*NOT IN NYC, WC, MASS" read as new matters | 3 | The taxonomy (a rule change, reference lead first) and the firm's mapping, not the routing rule |
+| **Misclassified**, *all fixed in the taxonomy, reference lead first*: "*In Custody Calls" read as family law (now a jail call, `jail-in-custody-phrase`); "*Verify Employment" read as a new employment matter (now general, `general-verify-employment`); "*NOT IN NYC, WC, MASS", a screening note, read as a workers' compensation matter (now a system entry, `system-screening-note`) | 3 | The taxonomy and the firm's mapping, not the routing rule |
 | **Line handling** on a new-client call ("Away patch new clients", a weekday patch schedule) | 2 | Line settings (RFC-002 §5.3); open question 6.1 |
 | **Named person** on a new-client call | 1 | Staff assignment (section 3.3) |
 | **Existing clients** sent to the CRM, with an internal entry (`system`) also active, at one firm | 2 | A rule that adds `existing-client`; the `system` entry moves to account settings (RFC-002 §5.3) |
@@ -86,8 +86,8 @@ last two rows above. That supports [strategy 2.4](../lead-delivery/strategy.md#2
 and must be measured on the production feed before effort is sized.
 
 **The lab differs from production on one rule.** Production sends nothing to a
-firm's CRMs when it has no active call types; the lab's `Dispatch.routingExclusion`
-sends everything. No active CRM firm is affected today; the lab rule is
+firm's CRMs when it has no active call types; the lab's legacy rule
+(`Routing.decide`, for a CRM with no rule yet) sends everything. No active CRM firm is affected today; the lab rule is
 corrected with a scenario, or retired by this RFC.
 
 ---
@@ -233,7 +233,7 @@ states each answer, why, and what would change it.
 |---|---|---|
 | Q1 | Does line handling (after hours, away, patch) change routing? | 2 call types at 2 firms |
 | Q2 | How does a call for a named person reach that person? | 1 new-client call type at CRM firms; 9.8% of all call-type names are people |
-| Q3 | How is each firm's rule set at switch-over? | The default matches 117 of 122 configurations |
+| Q3 | How is each firm's rule set at switch-over? | The default matches 118 of 122 configurations |
 
 ---
 

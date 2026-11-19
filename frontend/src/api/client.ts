@@ -66,7 +66,7 @@ export const api = {
   classify: (name: string) => request<CallMapping>('GET', `/api/call-categories/classify${qs({ name })}`),
   referenceLeads: () => request<ReferenceLead[]>('GET', '/api/reference-leads'),
 
-  connections: (q: { kind?: string; status?: 'active' | 'disabled' } = {}) => request<Connection[]>('GET', `/api/connections${qs(q)}`),
+  connections: (q: { kind?: string; status?: 'active' | 'needs-reconnection' | 'disabled' | 'stopped' } = {}) => request<Connection[]>('GET', `/api/connections${qs(q)}`),
   createConnection: (firmId: string, body: { kind: string; name?: string; deliveryUrl?: string }) =>
     request<Connection>('POST', `/api/firms/${enc(firmId)}/connections`, body),
   patchConnection: (id: string, body: { enabled?: boolean; deliveryUrl?: string; reactivate?: true }) =>

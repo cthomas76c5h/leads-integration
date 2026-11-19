@@ -102,7 +102,9 @@ let leadProblem (c: Store.ConnectionRow) (lead: Lead) : string list =
         | Error _ -> None
         | Ok b -> Some(FakeCrm.checkWith (FakeCrm.requiredByUrl conn.DeliveryUrl) conn.Kind b.ContentType b.Body |> Set.ofList)
     match missing lead, missing (complete lead) with
-    | Some actual, Some whenComplete -> Set.difference actual whenComplete |> Set.toList
+    | Some actual, Some whenComplete ->
+        // The receiver check says "missing first_name": keep the field's name only.
+        Set.difference actual whenComplete |> Set.toList |> List.map (fun p -> if p.StartsWith "missing " then p.Substring 8 else p)
     | _ -> []
 
 /// The decision for one production lead and one destination. Test leads are not

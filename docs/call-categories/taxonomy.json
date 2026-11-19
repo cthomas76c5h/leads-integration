@@ -56,8 +56,8 @@
       "label": "System entry",
       "isCallCategory": false,
       "crm": "never",
-      "description": "Platform bookkeeping, not a kind of call: admin, no-charge, screen pop-up, test entries, phone-number and recording entries.",
-      "pattern": "^\\s*(admin\\s*\\d*|no charge.*|pop ?up|test.*|.*\\btest\\b.*|.*\\bdid\\b.*|x ?did\\s*\\d*|recording.*|incoming.*|.*\\bsip\\b.*|null|dev .*|.*\\bmonster\\b.*)\\s*$"
+      "description": "Platform bookkeeping, not a kind of call: admin, no-charge, screen pop-up, test entries, phone-number and recording entries, and screening notes about calls the firm does not take ('NOT IN NYC, WC, MASS').",
+      "pattern": "^\\s*(admin\\s*\\d*|no charge.*|pop ?up|test.*|.*\\btest\\b.*|.*\\bdid\\b.*|x ?did\\s*\\d*|recording.*|incoming.*|.*\\bsip\\b.*|null|dev .*|.*\\bmonster\\b.*|not (in|accepting|taking)\\b.*)\\s*$"
     },
     {
       "id": "new-matter",
@@ -130,7 +130,7 @@
       "isCallCategory": true,
       "crm": "review",
       "description": "Catch-all: general calls, all calls, messages, returning a call. Firms whose only entry is this one send everything.",
-      "pattern": "\\b(general|all calls?|all spanish|messages?|returning a call|call ?backs?|other calls?|voicemail|calls to voicemail|main line|front desk|google|ads|referrals?|appointments?|scheduling|returning|tech support|human resources|hr|vip|do not call|banks?|family members?|employment inquir\\w*|employment calls?|jobs?|applicants?|resumes?)\\b"
+      "pattern": "\\b(general|all calls?|all spanish|messages?|returning a call|call ?backs?|other calls?|voicemail|calls to voicemail|main line|front desk|google|ads|referrals?|appointments?|scheduling|returning|tech support|human resources|hr|vip|do not call|banks?|family members?|employment inquir\\w*|employee inquir\\w*|employment calls?|verif(y|ication)\\w*|jobs?|applicants?|resumes?)\\b"
     },
     {
       "id": "line-handling",

@@ -249,7 +249,7 @@ acquirer's diligence.
 | **Production today** | The gaps, read from the api-2 source: one attempt; routing leaves no record; every exception is "500"; one global alert | How many leads they lose, and whether the possible double-post path is live: the production feed |
 | **Integrations** | Which kinds have working builders | That CRM delivery is rare (2.4): enabled destinations and accepted deliveries per CRM in the production feed |
 | **Speed** | Lateness loses clients in law | The starting windows to act: ask firms; measure call-to-first-contact where firms record it |
-| **Routing** | The default rule reproduces today's CRM routing at 117 of 122 active CRM firms; the other five are misclassified labels or single decisions ([RFC-009 §2.2](../rfc/009_routing_by_category.md#22-what-the-equivalence-check-found)) | The same check weighted by leads, on the production feed. That firms want "new matters to the CRM, the rest by email": ask five firms |
+| **Routing** | The default rule reproduces today's CRM routing at 118 of 122 active CRM firms; each of the other four is a single firm decision ([RFC-009 §2.2](../rfc/009_routing_by_category.md#22-what-the-equivalence-check-found)) | The same check weighted by leads, on the production feed. That firms want "new matters to the CRM, the rest by email": ask five firms |
 | **Other verticals** | They are already customers | That they are worth serving: revenue and pipeline from non-legal firms in production data |
 | **Billing** | The legacy formula and its data problems | Talk time, the free-call thresholds and the prices: real call data and the two months of side-by-side bills |
 

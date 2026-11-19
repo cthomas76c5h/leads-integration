@@ -167,7 +167,7 @@ emergencies and custody also by text) reproduces today's behaviour, explicitly.
 
 ## 6. Technical Approach
 
-- **One source of truth:** `taxonomy.json`, versioned, embedded in the backend and read by the analysis script. A test holds both to the same 42 synthetic reference leads.
+- **One source of truth:** `taxonomy.json`, versioned, embedded in the backend and read by the analysis script. A test holds both to the same 44 synthetic reference leads.
 - **Every lead carries** category, practice area, modifiers, the firm's label, the source (label mapping or intake classification), the confidence and the taxonomy version.
 - **Label mapping stays as the fallback** for unmapped names and channels that cannot classify yet.
 - **Corrections are records,** not edits: who corrected, from what, to what, when.

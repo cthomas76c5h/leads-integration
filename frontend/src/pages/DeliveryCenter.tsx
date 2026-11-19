@@ -54,7 +54,7 @@ export function DeliveryCenter({ query }: { query: URLSearchParams }) {
     () => api.deliveries({ test, firmId: firm === 'all' ? undefined : firm, status: serverStatus, limit: PAGE, offset }),
     tab === 'received' ? null : `deliveries:${test}:${firm}:${serverStatus ?? ''}:${offset}`,
   );
-  const disabled = usePoll(() => api.connections({ status: 'disabled' }), 'connections:disabled');
+  const disabled = usePoll(() => api.connections({ status: 'stopped' }), 'connections:stopped');
   const received = usePoll(() => api.received(50), tab === 'received' ? 'received' : null);
   const detail = usePoll(() => api.delivery(selected ?? ''), selected ? `delivery:${selected}` : null);
   // The setup behind a destination, when it has one (its mapping is then ours to edit).
@@ -130,7 +130,10 @@ export function DeliveryCenter({ query }: { query: URLSearchParams }) {
                 <span className={`badge ${connectionTone(c).tone}`}>{connectionTone(c).label}</span>
                 <span className="grow"><a href={`#/firms/${encodeURIComponent(c.firmId)}`}><strong>{c.firmName}</strong></a> · {c.name}
                   {c.disabledReason && <span className="small muted"> · {c.disabledReason}</span>}</span>
-                <button type="button" className="btn" onClick={() => void act(() => api.patchConnection(c.id, { reactivate: true }), 'Connection reactivated').then(reload)}>Reactivate</button>
+                {c.status === 'needs-reconnection'
+                  // The lab has no sign-in flow: this stands in for the firm reconnecting. Held leads are sent at once.
+                  ? <button type="button" className="btn" onClick={() => void act(() => api.patchConnection(c.id, { reactivate: true }), 'Reconnected: held leads are being sent').then(reload)}>Mark reconnected</button>
+                  : <button type="button" className="btn" onClick={() => void act(() => api.patchConnection(c.id, { reactivate: true }), 'Connection reactivated').then(reload)}>Reactivate</button>}
               </div>
             ))}
           </div>

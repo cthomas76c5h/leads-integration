@@ -6,19 +6,19 @@
   "namesUsedByOneFirm": 3987,
   "byCategory": {
     "system": {
-      "occurrences": 7218,
+      "occurrences": 7219,
       "share": 0.3096,
-      "distinctNames": 119
+      "distinctNames": 120
     },
     "new-matter": {
-      "occurrences": 6456,
-      "share": 0.2769,
-      "distinctNames": 926
+      "occurrences": 6453,
+      "share": 0.2768,
+      "distinctNames": 923
     },
     "general": {
-      "occurrences": 3059,
-      "share": 0.1312,
-      "distinctNames": 249
+      "occurrences": 3063,
+      "share": 0.1314,
+      "distinctNames": 253
     },
     "legal-professional": {
       "occurrences": 2353,
@@ -26,9 +26,9 @@
       "distinctNames": 334
     },
     "staff-routing": {
-      "occurrences": 2297,
-      "share": 0.0985,
-      "distinctNames": 2172
+      "occurrences": 2295,
+      "share": 0.0984,
+      "distinctNames": 2170
     },
     "line-handling": {
       "occurrences": 1008,
@@ -83,9 +83,9 @@
     "immigration": 132,
     "business": 103,
     "bankruptcy": 93,
-    "employment": 92,
+    "employment": 90,
     "medical-malpractice": 89,
-    "workers-comp": 75,
+    "workers-comp": 74,
     "disability": 68,
     "civil-litigation": 45,
     "consumer": 11,
@@ -93,7 +93,7 @@
     "tax": 8
   },
   "byModifier": {
-    "named-person": 844,
+    "named-person": 845,
     "patch": 612,
     "no-patch": 587,
     "away": 354,
@@ -109,7 +109,7 @@
     "about": "Active firms only. 'active' = api-2 counts this contact type as a lead.",
     "activeTypes": 2678,
     "activeTypesClassifiedNewMatter": 2672,
-    "newMatterTypes": 2713,
+    "newMatterTypes": 2710,
     "newMatterTypesActive": 2672,
     "otherTypesActive": 6
   },
@@ -118,8 +118,8 @@
     "firmsWithCategory": {
       "new-matter": 122,
       "general": 2,
-      "existing-client": 1,
-      "system": 1
+      "system": 1,
+      "existing-client": 1
     },
     "firmsWithGeneralButNoNewMatter": 0
   },

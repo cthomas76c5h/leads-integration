@@ -150,7 +150,10 @@ let listConnections (c: Ctx) : EndpointHandler =
         let status = query ctx "status"
         Db.read c.Db Store.allConnections
         |> Array.map _.Connection
-        |> Array.filter (fun x -> (isNull kind || x.Kind = kind) && (isNull status || x.Status = status))
+        // `stopped`: anything not active (switched off, or needs reconnection).
+        |> Array.filter (fun x ->
+            (isNull kind || x.Kind = kind)
+            && (isNull status || x.Status = status || (status = "stopped" && x.Status <> "active")))
         |> fun xs -> ok xs ctx
 
 let private connection (c: Ctx) id = Db.read c.Db (fun s -> (Store.connectionOrFail s id).Connection)

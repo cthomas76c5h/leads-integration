@@ -464,7 +464,7 @@ non-alphanumerics turned into `_` and trimmed ("Date of accident?" →
 | GET | `/api/call-categories` | | `Taxonomy` |
 | GET | `/api/call-categories/classify?name=` | | `CallMapping` |
 | GET | `/api/reference-leads` | | `ReferenceLead[]` |
-| GET | `/api/connections?kind=&status=` | | `Connection[]` |
+| GET | `/api/connections?kind=&status=` | | `Connection[]`. `status` is a `Connection.status`, or `stopped` for any that is not active |
 | POST | `/api/firms/{id}/connections` | `{ kind, name?, deliveryUrl? }` | `Connection` (source `manual`; URL checked: https, or localhost in dev) |
 | GET | `/api/destinations?q=&health=&kind=&firmActive=all&limit=50&offset=0` | | `{ total: number, counts: Record<DestinationHealth, number>, missed: number, items: DestinationRow[] }` most urgent first. `counts` and `missed` (destinations with missed leads) cover the filter without `health`; `health=missed` lists those with missed leads. Only active firms unless `firmActive=all` |
 | POST | `/api/connections/{id}/send-missed` | | `{ queued: number, notSent: number }`: a delivery for each missed lead, routing applied. 409 unless the destination is live |

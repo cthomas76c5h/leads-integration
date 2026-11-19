@@ -13,7 +13,7 @@ export const STATUS: Record<DeliveryStatus, { label: string; tone: Tone }> = {
 
 export const STAGE: Record<DeliveryStage, string> = {
   queued: 'Queued',
-  held: 'Held: destination paused',
+  held: 'Held',
   accepted: 'Accepted by receiver',
   refused: 'Refused by receiver',
   'not-sent': 'Not sent',
