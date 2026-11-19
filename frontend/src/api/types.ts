@@ -40,7 +40,7 @@ export interface Connection {
   credentials: CredentialField[];
   settings: Record<string, string>;
   enabled: boolean;
-  status: 'active' | 'disabled';
+  status: 'active' | 'needs-reconnection' | 'disabled';
   disabledReason: string | null;
   consecutiveFailures: number;
   deliveryUrl: string;

@@ -55,7 +55,10 @@ interface Connection {
                                      // routePracticeAreas: 'personal-injury,…' (narrows new matters; absent = all). No routeCategories:
                                      // a CRM takes the firm's active call types (legacy), anything else every lead. Imports seed CRMs'.
   enabled: boolean;        // as configured (import: the source's enabled flag)
-  status: 'active' | 'disabled';     // delivery health: disabled after 410 or repeated failures
+  status: 'active' | 'needs-reconnection' | 'disabled';
+                           // delivery health. needs-reconnection: a 401, 403 or 410 (only the firm can fix it); its
+                           // production leads are held, not refused, and the failure streak is untouched.
+                           // disabled: switched off after 5 failures in a row; leads meanwhile are missed
   disabledReason: string | null;
   consecutiveFailures: number;
   deliveryUrl: string;     // imported CRMs point at the local fake receiver /receiver/crm/{kind}
@@ -465,7 +468,7 @@ non-alphanumerics turned into `_` and trimmed ("Date of accident?" →
 | POST | `/api/firms/{id}/connections` | `{ kind, name?, deliveryUrl? }` | `Connection` (source `manual`; URL checked: https, or localhost in dev) |
 | GET | `/api/destinations?q=&health=&kind=&firmActive=all&limit=50&offset=0` | | `{ total: number, counts: Record<DestinationHealth, number>, missed: number, items: DestinationRow[] }` most urgent first. `counts` and `missed` (destinations with missed leads) cover the filter without `health`; `health=missed` lists those with missed leads. Only active firms unless `firmActive=all` |
 | POST | `/api/connections/{id}/send-missed` | | `{ queued: number, notSent: number }`: a delivery for each missed lead, routing applied. 409 unless the destination is live |
-| PATCH | `/api/connections/{id}` | `{ enabled?, deliveryUrl?, reactivate?: true }` | `Connection`. `enabled: false` pauses it and records `settings.pausedAt`: new leads still get a routing decision, and a planned delivery is held (`status: 'pending'`, `stage: 'held'`, no `nextAttemptAt`, `reason: 'held: destination paused'`), as are deliveries already waiting. A lead whose every delivery that could reach the firm is held goes to the firm's fallback at once. `enabled: true` resumes it, clears `pausedAt` and makes every held delivery due at once. A destination imported off in its source system (`enabled: false`, no `pausedAt`) holds nothing and gets no deliveries |
+| PATCH | `/api/connections/{id}` | `{ enabled?, deliveryUrl?, reactivate?: true }` | `Connection`. `reactivate` sets `status: 'active'` after a switch-off or a reconnection (the lab's stand-in for the firm reconnecting) and makes every held delivery due at once. `enabled: false` pauses it and records `settings.pausedAt`: new leads still get a routing decision, and a planned delivery is held (`status: 'pending'`, `stage: 'held'`, no `nextAttemptAt`, `reason: 'held: destination paused'`), as are deliveries already waiting. A lead whose every delivery that could reach the firm is held goes to the firm's fallback at once. `enabled: true` resumes it, clears `pausedAt` and makes every held delivery due at once. A destination imported off in its source system (`enabled: false`, no `pausedAt`) holds nothing and gets no deliveries |
 | GET | `/api/connections/{id}/preview?variant=full` | | `{ url, headers: Record<string,string>, body: string, errors: string[] }` |
 | POST | `/api/connections/{id}/test` | | `Delivery` (test lead to this connection only) |
 | GET | `/api/leads?q=&firmId=&category=&outcome=&test=&limit=50&offset=0` | | `{ total: number, items: LeadSummary[] }` newest first. `q` matches caller, phone, call type or firm name; `category` is a call-category id |

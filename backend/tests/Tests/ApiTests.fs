@@ -150,7 +150,7 @@ let tests =
                   let d = json (post client $"/api/connections/{c.Id}/test" "")
                   drain t.Db client
                   let after = (Db.read t.Db (fun s -> Store.connectionOrFail s c.Id)).Connection
-                  Expect.equal after.Status "disabled" "410 disables"
+                  Expect.equal after.Status "needs-reconnection" "410: only the firm can reconnect"
                   let replay = post client $"""/api/deliveries/{d.GetProperty("id").GetString()}/replay""" ""
                   Expect.equal (int replay.StatusCode) 409 "replay refused while disabled"
                   Expect.stringContains ((json replay).GetProperty("error").GetString()) "reactivate" "says what to do"

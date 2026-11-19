@@ -120,7 +120,7 @@ A destination an operator has stopped on purpose. Its leads are held for the rec
 _Avoid_: disabled
 
 **Needs reconnection**:
-A destination whose connection stopped working (expired sign-in, revoked key, removed hook). Only the firm can fix it.
+A destination whose connection stopped working (expired sign-in, revoked key, removed hook): the first 401, 403 or 410. Only the firm can fix it. Its leads are held, and their hand-offs go to the fallback at once; it is not counted as the destination failing. *Lab.*
 _Avoid_: disabled, broken
 
 **Switched off**:

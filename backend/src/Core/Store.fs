@@ -630,6 +630,17 @@ let cancelPendingFor (s: Session) (connectionId: string) (reason: string) =
 /// the model's Held state (docs/lead-delivery/README.md §4): pending, with no next attempt.
 let heldReason = "held: destination paused"
 
+/// Why a waiting delivery is held because its destination needs reconnection (401, 403, 410).
+let reconnectReason = Diagnose.reconnectPrefix
+
+/// The destination needs reconnection: its other waiting production deliveries are held, not
+/// cancelled, until the firm reconnects (releaseHeld). Test deliveries are left to be cancelled.
+let holdPendingFor (s: Session) (connectionId: string) =
+    s.Execute
+        "UPDATE deliveries SET next_attempt_at=NULL, reason=$2 WHERE connection_id=$1 AND status='pending' AND test=0"
+        [ connectionId; reconnectReason ]
+    |> ignore
+
 /// A paused destination resumed: its held deliveries (pending, no next attempt) fall due now.
 let releaseHeld (s: Session) (connectionId: string) (nowMs: int64) : int =
     s.Execute

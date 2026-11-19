@@ -9,7 +9,7 @@ type Outcome =
     | Delivered
     | Retry of reason: string * retryAfterMs: int64 option
     | Failed of reason: string // this delivery stops; the connection stays on
-    | Disable of reason: string // the receiver is gone; stop sending to it at all
+    | NeedsReconnection of reason: string // the connection stopped working (401, 403, 410): only the firm can fix it
 
 let parseRetryAfter (value: string) (nowMs: int64) : int64 option =
     if String.IsNullOrWhiteSpace value then None
@@ -26,9 +26,11 @@ let classify (status: int option) (error: string) (retryAfter: string) (nowMs: i
     match status with
     | None -> Retry((if String.IsNullOrEmpty error then "no answer" else error), None)
     | Some s when s >= 200 && s < 300 -> Delivered
-    // 410 Gone is the REST-hook convention for "unsubscribe me" (Zapier sends it
-    // when a Zap is deleted). Retrying it only makes noise.
-    | Some 410 -> Disable "HTTP 410 Gone: the receiver removed this hook"
+    // The connection itself stopped working: an expired or revoked sign-in (401, 403), or a
+    // removed hook (410 Gone, the REST-hook convention Zapier sends when a Zap is deleted).
+    // Retrying cannot help and it is not the destination failing: only the firm can reconnect.
+    | Some 410 -> NeedsReconnection "HTTP 410 Gone: the receiver removed this hook"
+    | Some(401 | 403 as s) -> NeedsReconnection $"HTTP {s}: the receiver refused our authorization"
     | Some s when s = 408 || s = 425 || s = 429 || s >= 500 -> Retry($"HTTP {s}", parseRetryAfter retryAfter nowMs)
     // Redirects are not followed: one could point the lead somewhere never vetted.
     | Some s when s >= 300 && s < 400 -> Failed $"HTTP {s}: redirects are not followed"

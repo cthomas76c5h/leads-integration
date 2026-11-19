@@ -221,7 +221,8 @@ class LabAdapter:
             if not ds:
                 raise RuntimeError(f"resend: no delivery of {a['lead']} to {dest}")
             self.api.ok("POST", f"/api/deliveries/{ds[0]['id']}/replay")
-        elif do == "reactivate":
+        elif do in ("reactivate", "reconnect"):
+            # The lab has no sign-in flow: the firm reconnecting is a reactivation once its receiver answers again.
             self.api.ok("PATCH", f"/api/connections/{cid}", {"reactivate": True})
         elif do == "pause":
             self.api.ok("PATCH", f"/api/connections/{cid}", {"enabled": False})
@@ -305,7 +306,9 @@ class LabAdapter:
             return (not ds), f"{len(ds)} deliveries exist"
         if kind == "destination":
             c = self._connection(x["id"])
-            if not c["enabled"]:
+            if c["status"] == "needs-reconnection":
+                state = "needs-reconnection"
+            elif not c["enabled"]:
                 state = "paused"
             elif c["status"] == "disabled":
                 state = "switched-off"

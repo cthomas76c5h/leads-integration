@@ -5,6 +5,7 @@ import { SOURCE_LABEL, ago, pretty } from '../lib/format';
 import { useToast } from '../lib/toast';
 
 export function connectionTone(c: Connection): { label: string; tone: 'ok' | 'warn' | 'bad' | 'muted' } {
+  if (c.status === 'needs-reconnection') return { label: 'Needs reconnection', tone: 'bad' };
   if (c.status === 'disabled') return { label: 'Disabled', tone: 'bad' };
   if (!c.enabled) return { label: 'Turned off', tone: 'muted' };
   if (c.consecutiveFailures > 0) return { label: `${c.consecutiveFailures} failed in a row`, tone: 'warn' };
@@ -56,7 +57,7 @@ export function ConnectionCard({ c, kind, onChanged, headingLevel = 3 }: {
   };
 
   return (
-    <article className={`card conn-card ${c.status === 'disabled' ? 'off' : !c.enabled ? 'paused' : ''}`} aria-label={c.name}>
+    <article className={`card conn-card ${c.status !== 'active' ? 'off' : !c.enabled ? 'paused' : ''}`} aria-label={c.name}>
       <div className="card-head">
         <div className="grow">
           <H style={{ margin: 0, fontSize: '1rem' }}>{c.name}</H>
@@ -102,6 +103,12 @@ export function ConnectionCard({ c, kind, onChanged, headingLevel = 3 }: {
         {c.status === 'disabled' && (
           <button type="button" className="btn primary" onClick={() => void act(() => api.patchConnection(c.id, { reactivate: true }), 'Connection reactivated').then(done)}>
             Reactivate
+          </button>
+        )}
+        {c.status === 'needs-reconnection' && (
+          // The lab has no sign-in flow: this stands in for the firm reconnecting. Held leads are sent at once.
+          <button type="button" className="btn primary" onClick={() => void act(() => api.patchConnection(c.id, { reactivate: true }), 'Reconnected: held leads are being sent').then(done)}>
+            Mark reconnected
           </button>
         )}
       </div>

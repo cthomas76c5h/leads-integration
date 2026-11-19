@@ -392,7 +392,7 @@ let run (db: Db.Database) (opts: Options) : Summary =
               match showcaseConn "clio-grow" with
               | Some id ->
                   { Name = "auth-expired"
-                    Story = "The Clio Grow access token expired 3 business days ago: every lead got 401 (not retried) until 5 in a row switched the connection off."
+                    Story = "The Clio Grow access token expired 3 business days ago: the first 401 moved it to needs reconnection, and every lead since is held for it until the firm reconnects."
                     ConnectionIds = [| id |]
                     Answer = window (at 3 0 0) Int64.MaxValue (fun _ -> Http(401, "unauthorized: access token expired", null))
                     Mode = "reject" }
@@ -400,7 +400,7 @@ let run (db: Db.Database) (opts: Options) : Summary =
               match showcaseConn "lead-docket" with
               | Some id ->
                   { Name = "hook-gone"
-                    Story = "The Lead Docket intake URL was revoked 2 business days ago: the first lead after got 410 Gone, which switches the connection off at once."
+                    Story = "The Lead Docket intake URL was revoked 2 business days ago: the first lead after got 410 Gone, so it needs reconnection, and later leads are held for it."
                     ConnectionIds = [| id |]
                     Answer = window (at 2 11 0) Int64.MaxValue (fun _ -> Http(410, "gone: hook removed", null))
                     Mode = "gone" }
@@ -531,12 +531,14 @@ let run (db: Db.Database) (opts: Options) : Summary =
                   Template = template }
             sims.Add sim
             // Held (its destination is paused): waits, unscheduled, as Dispatch plans it.
-            if status = "pending" && reason <> Store.heldReason then schedule sim (t + latency ())
+            if status = "pending" && (isNull reason || not (reason.StartsWith Diagnose.heldPrefix)) then schedule sim (t + latency ())
 
         let send (sim: Sim) (t: int64) =
             let c = conns[sim.D.ConnectionId]
             let stop status reason = sim.D <- { sim.D with Status = status; Reason = reason; NextAttemptAt = Nullable() }
-            if c.Status <> "active" then stop "cancelled" $"connection disabled: {c.DisabledReason}"
+            // As Dispatch.attempt: held while its destination needs reconnection.
+            if Dispatch.needsReconnection c && not sim.D.Test then stop "pending" Store.reconnectReason
+            elif c.Status <> "active" then stop "cancelled" $"connection disabled: {c.DisabledReason}"
             // As Dispatch.attempt: paused since it was planned, so it is held, unsent.
             elif not c.Enabled && not sim.D.Test then stop "pending" Store.heldReason
             else
@@ -584,11 +586,11 @@ let run (db: Db.Database) (opts: Options) : Summary =
                     sim.D <- { sim.D with Status = tr.Status; Reason = tr.Reason; NextAttemptAt = Nullable() }
                     tr.NextInMs |> Option.iter (fun delay -> schedule sim (t + waited + delay))
                     tr.Connection |> Option.iter (fun x -> conns[x.Id] <- x)
-                    tr.CancelPending
-                    |> Option.iter (fun reason ->
+                    // As Dispatch.attempt: the connection needs reconnection, so its other waiting leads are held.
+                    if tr.HoldPending then
                         for o in sims do
-                            if o.D.ConnectionId = c.Id && o.D.Status = "pending" && o.D.Id <> sim.D.Id then
-                                o.D <- { o.D with Status = "cancelled"; Reason = reason; NextAttemptAt = Nullable() })
+                            if o.D.ConnectionId = c.Id && o.D.Status = "pending" && o.D.Id <> sim.D.Id && not o.D.Test then
+                                o.D <- { o.D with Reason = Store.reconnectReason; NextAttemptAt = Nullable() }
 
         let mutable replays = 0
         let mutable stop = false
@@ -608,7 +610,9 @@ let run (db: Db.Database) (opts: Options) : Summary =
                         let take =
                             match only with
                             | Some only -> c.Id = only && c.Status = "active"
-                            | None -> (c.Enabled || Dispatch.isPaused c) && c.Status = "active" && setting c "stage" <> "setup" && not (Dispatch.isFallback c)
+                            | None ->
+                                (c.Enabled || Dispatch.isPaused c) && (c.Status = "active" || Dispatch.needsReconnection c)
+                                && setting c "stage" <> "setup" && not (Dispatch.isFallback c)
                         // A destination added in the app gets only leads from after it existed.
                         let existed = not (c.Source = Source.manual && c.CreatedAt > e.CreatedAt)
                         if take && existed then
@@ -616,18 +620,28 @@ let run (db: Db.Database) (opts: Options) : Summary =
                             else
                                 let decision = Routing.decide f { rows[id] with Connection = c } e.Lead
                                 if decision.Outcome <> "planned" then newSim e c "skipped" decision.Reason decision e.CreatedAt null None
-                                elif Dispatch.isPaused c then newSim e c "pending" Store.heldReason decision e.CreatedAt null None
-                                else newSim e c "pending" null decision e.CreatedAt null None
+                                else
+                                    match Dispatch.holdReason c with
+                                    | Some reason -> newSim e c "pending" reason decision e.CreatedAt null None
+                                    | None -> newSim e c "pending" null decision e.CreatedAt null None
                     // As Dispatch.runFallbacks: every delivery that could reach the firm is held, so the fallback goes at once.
                     if only.IsNone && fallbackOf.ContainsKey e.FirmId then
                         let mine = sims |> Seq.filter (fun x -> x.D.EventId = e.Id && x.D.Status <> "skipped") |> Array.ofSeq
-                        if mine.Length > 0 && mine |> Array.forall (fun x -> x.D.Reason = Store.heldReason) then enqueue t (HandOffCheck e)
-                | Send sim -> if sim.D.Status = "pending" then send sim t
+                        let held (x: Sim) = x.D.Status = "pending" && not x.D.NextAttemptAt.HasValue
+                        if mine.Length > 0 && mine |> Array.forall held then enqueue t (HandOffCheck e)
+                // Only the send it was scheduled for: a held delivery's earlier send no longer applies.
+                | Send sim -> if sim.D.Status = "pending" && sim.D.NextAttemptAt = Nullable t then send sim t
                 | Pause id ->
                     let settings = Dictionary<string, string>(conns[id].Settings)
                     settings[Dispatch.pausedAtKey] <- string t
                     conns[id] <- { conns[id] with Enabled = false; Settings = settings }
-                | Reactivate id -> conns[id] <- { conns[id] with Status = "active"; DisabledReason = null; ConsecutiveFailures = 0 }
+                | Reactivate id ->
+                    conns[id] <- { conns[id] with Status = "active"; DisabledReason = null; ConsecutiveFailures = 0 }
+                    // As Store.releaseHeld: what waited for the firm to reconnect is sent now.
+                    for o in sims do
+                        if o.D.ConnectionId = id && o.D.Status = "pending" && not o.D.NextAttemptAt.HasValue then
+                            o.D <- { o.D with Reason = null }
+                            schedule o (t + latency ())
                 | HandOffCheck e ->
                     // As Dispatch.runFallbacks: nothing accepted yet, so the agreed fallback takes the hand-off.
                     let handedOff =

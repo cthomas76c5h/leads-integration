@@ -35,7 +35,7 @@ function stats(deliveries: Delivery[], id: string): Stats {
 }
 
 function edgeLook(last: Delivery | null, c: Connection): { color: string; label: string; animated: boolean } {
-  if (c.status !== 'active') return { color: 'var(--bad)', label: 'disabled', animated: false };
+  if (c.status !== 'active') return { color: 'var(--bad)', label: c.status === 'needs-reconnection' ? 'needs reconnection' : 'disabled', animated: false };
   if (!c.enabled) return { color: 'var(--line-strong)', label: 'off', animated: false };
   if (!last) return { color: 'var(--line-strong)', label: 'waiting for a lead', animated: false };
   const a = last.attempts.at(-1);
@@ -134,7 +134,7 @@ function ConnectionNode({ id, data, selected }: NodeProps<ConnNodeT>) {
   return (
     <>
       <Handle type="target" position={Position.Left} />
-      <NodeShell kind="connection" chip={c.status !== 'active' ? 'Disabled' : c.enabled ? kindLabel : `${kindLabel} · off`} title={c.name}
+      <NodeShell kind="connection" chip={c.status === 'needs-reconnection' ? 'Needs reconnection' : c.status !== 'active' ? 'Disabled' : c.enabled ? kindLabel : `${kindLabel} · off`} title={c.name}
         selected={selected} warn={c.status !== 'active'} paused={c.status === 'active' && !c.enabled}>
         <div className="chips">
           <span className={`chip ${tone.tone === 'ok' ? '' : 'warn'}`}>{tone.label}</span>

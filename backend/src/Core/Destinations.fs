@@ -93,18 +93,19 @@ let all (s: Session) (nowMs: int64) : Row[] =
             $"SELECT d.connection_id, MIN(d.created_at) FROM deliveries d WHERE d.test = 0 AND {Store.sendingOrRetrying} GROUP BY d.connection_id"
             []
             (fun r -> Read.int64 r 1)
-    // The newest finished production delivery, and the newest refused one.
-    let newest (statuses: string) =
+    // The newest finished production delivery, and the newest refused one (or held after a
+    // refusal that needs reconnection: its reason carries the receiver's answer).
+    let newest (where: string) =
         byConnection
             s
             $"""SELECT connection_id, id, status, created_at FROM (
                   SELECT d.connection_id, d.id, d.status, d.created_at,
                          ROW_NUMBER() OVER (PARTITION BY d.connection_id ORDER BY d.created_at DESC, d.id DESC) AS rn
-                  FROM deliveries d WHERE d.test = 0 AND d.status IN ({statuses})) WHERE rn = 1"""
+                  FROM deliveries d WHERE d.test = 0 AND {where}) WHERE rn = 1"""
             []
             (fun r -> Read.str r 1, Read.str r 2, Read.int64 r 3)
-    let finished = newest "'delivered', 'failed'"
-    let refused = newest "'failed'"
+    let finished = newest "d.status IN ('delivered', 'failed')"
+    let refused = newest $"(d.status = 'failed' OR (d.status = 'pending' AND d.reason LIKE '{Store.reconnectReason} (%%'))"
     let missed =
         byConnection
             s
@@ -139,6 +140,7 @@ let all (s: Session) (nowMs: int64) : Row[] =
         let problemClass = lastProblem |> Option.map (fun p -> p.Diagnosis.Class)
         let state =
             if setting "stage" = "setup" then "setting-up"
+            elif c.Status = "needs-reconnection" then "needs-reconnection"
             elif c.Status <> "active" then
                 let reason = if isNull c.DisabledReason then "" else c.DisabledReason
                 if reason.Contains "410" || problemClass = Some "connection" then "needs-reconnection" else "switched-off"

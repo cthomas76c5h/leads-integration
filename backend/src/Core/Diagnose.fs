@@ -15,6 +15,12 @@ let leadProblemPrefix = "lead problem: "
 
 let isLeadProblem (reason: string) = not (isNull reason) && reason.StartsWith leadProblemPrefix
 
+/// How a held delivery's reason starts (Store.heldReason, Store.reconnectReason).
+let heldPrefix = "held:"
+
+/// A delivery held because its destination needs reconnection (401, 403, 410).
+let reconnectPrefix = "held: needs reconnection"
+
 /// The receiver's own words, when its answer was JSON that said something.
 let receiverWords (snippet: string) : string option =
     if blank snippet then None
@@ -53,6 +59,11 @@ let diagnose (kind: string) (status: string) (reason: string) (attempts: Attempt
     | "delivered" -> null
     | "skipped" when isLeadProblem reason -> make "lead" (stripPrefix leadProblemPrefix reason) false
     | "skipped" -> make "routing" reason false
+    // Held because the connection stopped working: only the firm can fix it; the record waits.
+    | "pending" when not (isNull reason) && reason.StartsWith reconnectPrefix ->
+        make "connection" (if attempts.Length = 0 then "Held until the firm reconnects this destination" else said) false
+    // Held by a pause: nothing is wrong; the operator resumes it.
+    | "pending" when not (isNull reason) && reason.StartsWith heldPrefix -> null
     | "pending"
     | "delivering" -> if attempts.Length = 0 then null else make "transient" said true
     | "cancelled" -> make "stopped" (stripPrefix "connection disabled:" reason) false

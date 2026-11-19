@@ -65,7 +65,9 @@ def main():
     not_sent = get("/api/deliveries?status=skipped&test=false&limit=500")
     hook = next(d for d in attention if d["kind"] == "webhook")
     smokeball = next(d for d in attention if d["kind"] == "smokeball")
-    docket = next(d for d in attention if d["kind"] == "lead-docket" and d["diagnosis"]["class"] == "connection")
+    # A removed hook needs reconnection: its deliveries are held, not refused (only the firm can fix it).
+    waiting = get("/api/deliveries?status=pending&test=false&limit=500")
+    docket = next(d for d in waiting if d["kind"] == "lead-docket" and d["diagnosis"] and d["diagnosis"]["class"] == "connection")
     # A hang-up a CRM cannot take: not sent, as a lead problem (RFC-009), never refused.
     hang_up = next(d for d in not_sent if d["diagnosis"] and d["diagnosis"]["class"] == "lead")
 

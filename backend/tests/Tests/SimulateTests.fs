@@ -40,9 +40,10 @@ let tests =
                   Expect.isTrue (by.ContainsKey s) $"some delivery is {s}"
               let conns = Db.read t.Db (fun s -> Store.allConnections s) |> Array.map _.Connection
               let byKind k = conns |> Array.find (fun c -> c.Kind = k)
-              Expect.equal (byKind "lead-docket").Status "disabled" "410 Gone switches the hook off"
+              Expect.equal (byKind "lead-docket").Status "needs-reconnection" "410 Gone: the firm must reconnect the hook"
               Expect.stringContains (byKind "lead-docket").DisabledReason "410" "and says why"
-              Expect.equal (byKind "clio-grow").Status "disabled" "repeated 401s switch it off"
+              Expect.equal (byKind "clio-grow").Status "needs-reconnection" "the first 401: the firm must sign in again"
+              Expect.equal (byKind "clio-grow").ConsecutiveFailures 0 "not counted as the destination failing"
               Expect.equal (byKind "mycase").Status "active" "the redirect was fixed and the connection reactivated"
               Expect.stringEnds (byKind "practicepanther").DeliveryUrl "?mode=flaky" "the live incident recovers when the worker sends"
               Expect.isGreaterThan r.Replays 0 "an operator replayed"

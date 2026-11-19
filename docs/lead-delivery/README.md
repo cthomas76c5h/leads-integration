@@ -122,7 +122,7 @@ sequenceDiagram
 2. **Classified.** The call type maps to a call category (and practice area for
    new matters). *Lab.*
 3. **Planned.** Each destination decides, in order:
-   1. Destination **Paused** or **Needs reconnection** → **Held** for the record, and the hand-off goes to the firm's **fallback** at once. *Lab for Paused: a pause is recorded (`pausedAt`), a lead recorded while paused gets its routing decision and a held delivery (`pending`, no next attempt, reason "held: destination paused"), a delivery already waiting is held at send time, and both are sent on resume. When every delivery of a lead that could reach the firm is held, the fallback takes the hand-off at once. Needs reconnection is Proposed. Production records nothing at all.*
+   1. Destination **Paused** or **Needs reconnection** → **Held** for the record, and the hand-off goes to the firm's **fallback** at once. *Lab: a pause is recorded (`pausedAt`); a lead recorded while a destination is paused or needs reconnection gets its routing decision and a held delivery (`pending`, no next attempt, reason "held: destination paused" or "held: needs reconnection"); a delivery already waiting is held at send time; all are sent on resume or reconnection. When every delivery of a lead that could reach the firm is held, the fallback takes the hand-off at once. Production records nothing at all.*
    2. Destination still Setting up → no production delivery (test leads only). *Lab.*
    3. **Routing rule** excludes it (category, practice area, or chat lead not wanted) → **Not sent**, with the reason. *Lab: by category where the destination has a rule; a CRM with no rule yet keeps the active call-type rule. Production routes by call-type text.*
    4. Lead lacks a field this destination requires (a hang-up to a CRM that needs a name) → **Not sent**, lead problem. *Lab. Production sends it and the destination refuses it.*
@@ -152,7 +152,7 @@ stateDiagram-v2
   Retrying --> Sending: when due
   Retrying --> GaveUp: out of attempts
   Sending --> Refused: other 4xx, any 3xx
-  Sending --> Held: 401, 403, 410 (Proposed)
+  Sending --> Held: 401, 403, 410
   Queued --> Cancelled: destination removed
   Retrying --> Cancelled: destination removed
   Accepted --> [*]
@@ -194,7 +194,7 @@ stateDiagram-v2
 | Setting up | Setup not live; test leads only | Not modelled: a CRM row is enabled or not |
 | Live | `status=active`, `enabled` | `enabled=true` |
 | Paused | `enabled=false` with `pausedAt`: new leads and deliveries already waiting are held and sent on resume. `enabled=false` without it is *off in source*: no deliveries | `enabled=false` (leads get no record) |
-| Needs reconnection | 410 → `disabled`; 401 counts toward the streak | Not modelled; token-refresh jobs run separately |
+| Needs reconnection | `status=needs-reconnection` at the first 401, 403 or 410: leads held, streak untouched; the firm reconnects (lab: reactivate) and held leads are sent | Not modelled; token-refresh jobs run separately |
 | Switched off | `disabled` after 5 failures in a row | Not modelled; one global alert |
 
 ### Lead outcome
@@ -234,8 +234,8 @@ record afterwards: the most serious outcome, shown first.
 | No answer (timeout, DNS, refused connection) | Transient | Retry |
 | 408, 425, 429, 5xx | Transient | Retry, never sooner than `Retry-After` |
 | 3xx | Configuration | Refused: redirects are not followed |
-| 410 | Connection | Destination stops (Proposed: needs reconnection, held) |
-| 401, 403 | Connection | Lab: refused, counts toward the streak. Proposed: needs reconnection, held |
+| 410 | Connection | Needs reconnection; the delivery and later leads held. *Lab* |
+| 401, 403 | Connection | Needs reconnection; the delivery and later leads held; not counted toward the streak. *Lab* |
 | Other 4xx | Configuration or lead | Refused |
 | Body cannot be built | Our fault | Refused, without an attempt |
 
@@ -249,7 +249,8 @@ to act. Set by Answering AI in [delivery-timing.json](delivery-timing.json).
 
 - *Lab:* 5 production deliveries in a row that end refused or gave up switch the destination off. An accepted delivery resets the streak. Test leads never count.
 - *Lab:* a **lead problem** (a hang-up a CRM cannot take) is not sent, so it never reaches the destination or its streak.
-- *Proposed:* only **configuration problems** and **gave up** count; a **connection problem** moves it to needs reconnection at once instead of after 5 lost leads.
+- *Lab:* a **connection problem** (401, 403, 410) moves it to **needs reconnection** at once, holds its leads and leaves the streak untouched.
+- *Proposed:* only **configuration problems** and **gave up** count.
 
 ### Window to act and fallback
 
@@ -278,16 +279,16 @@ delivery against its window), the **Expired** outcome (shown as *reached late* o
 *not reached in time*), and fallback: a destination marked `role: fallback` gets
 no leads directly, and `Dispatch.runFallbacks` (every few seconds in the worker)
 sends it any lead with no accepted delivery once its fallback delay has passed.
-Held deliveries and the at-once fallback are built for paused destinations. Not
-built: holding for a destination that needs reconnection (it is still switched
-off and its leads become missed leads), so its fallback waits its delay.
+Held deliveries and the at-once fallback are built for paused destinations and
+for those that need reconnection. A destination switched off by a failure streak
+still misses leads, and its fallback waits its delay.
 
 ## 6. Invariants
 
 These must hold whatever the implementation.
 
 1. **A lead is recorded before it is sent.** Nothing is lost between the call and the first attempt. *Lab.*
-2. **Every destination gets a decision.** For each lead, each destination the firm had at that moment has a delivery, with a reason when it was not sent or is held. A lead never disappears silently from a destination's view. *Lab, held for paused destinations; a switched-off one still misses leads. Production records nothing for routing or chat decisions.*
+2. **Every destination gets a decision.** For each lead, each destination the firm had at that moment has a delivery, with a reason when it was not sent or is held. A lead never disappears silently from a destination's view. *Lab, held for paused destinations and those that need reconnection; a switched-off one still misses leads. Production records nothing for routing or chat decisions.*
 3. **A lead never changes.** Resends send the same lead under the same identity. *Lab.*
 4. **Destinations are independent.** One destination's failure or slowness never delays or changes another's delivery. *Lab.*
 5. **Tests are separate.** Test leads go only to the destination under test, never count toward health, streaks or totals, and are shown apart. *Lab.*

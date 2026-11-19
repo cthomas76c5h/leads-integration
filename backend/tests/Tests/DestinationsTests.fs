@@ -37,7 +37,7 @@ let tests =
               let docket = byKind t "lead-docket"
               Expect.equal (docket.State, docket.Health) ("needs-reconnection", "stopped") "410: only the firm can reconnect"
               let clio = byKind t "clio-grow"
-              Expect.equal clio.State "needs-reconnection" "switched off by 401s: a connection problem, not a setup one"
+              Expect.equal clio.State "needs-reconnection" "a 401: a connection problem, not a setup one"
               Expect.equal clio.LastProblem.Diagnosis.Class "connection" "and says so"
               let pp = byKind t "practicepanther"
               Expect.equal pp.Health "late" "retrying for hours"
@@ -61,15 +61,23 @@ let tests =
 
           test "missed leads are found, sent only when live, and then no longer missed" {
               use t = week ()
-              let docket = byKind t "lead-docket"
-              Expect.isGreaterThan docket.MissedLeads 0 "leads since the hook was removed have no delivery to it"
-              Expect.throws (fun () -> Dispatch.sendMissed t.Db docket.ConnectionId |> ignore) "not live: refused"
-              Db.write t.Db (fun s ->
-                  let c = (Store.connectionOrFail s docket.ConnectionId).Connection
-                  Store.updateConnection s { c with Status = "active"; DisabledReason = null; ConsecutiveFailures = 0 })
-              let sent = Dispatch.sendMissed t.Db docket.ConnectionId
-              Expect.equal (sent.queued + sent.notSent) docket.MissedLeads "every missed lead got a decision"
-              Expect.equal (byKind t "lead-docket").MissedLeads 0 "none missed now"
+              Expect.equal (byKind t "lead-docket").MissedLeads 0 "needs reconnection holds its leads: none missed"
+              // Switched off (a failure streak): leads recorded meanwhile get no delivery to it.
+              let pp = byKind t "practicepanther"
+              let switchOff (status: string) =
+                  Db.write t.Db (fun s ->
+                      let c = (Store.connectionOrFail s pp.ConnectionId).Connection
+                      Store.updateConnection s { c with Status = status; DisabledReason = (if status = "active" then null else "5 leads in a row failed"); ConsecutiveFailures = 0 })
+              switchOff "disabled"
+              for _ in 1..2 do
+                  Dispatch.publish t.Db pp.FirmId { Support.sampleLead () with CallType = "*New Client Calls" } false None None |> ignore
+              let missed = (byKind t "practicepanther").MissedLeads
+              Expect.isGreaterThanOrEqual missed 2 "leads since it was switched off have no delivery to it"
+              Expect.throws (fun () -> Dispatch.sendMissed t.Db pp.ConnectionId |> ignore) "not live: refused"
+              switchOff "active"
+              let sent = Dispatch.sendMissed t.Db pp.ConnectionId
+              Expect.equal (sent.queued + sent.notSent) missed "every missed lead got a decision"
+              Expect.equal (byKind t "practicepanther").MissedLeads 0 "none missed now"
           }
 
           test "the Delivery Center totals cover every delivery, not a page" {

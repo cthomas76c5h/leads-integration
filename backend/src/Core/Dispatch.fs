@@ -29,6 +29,15 @@ let pausedAtKey = "pausedAt"
 /// Paused by an operator: its planned deliveries are held for the record, and the hand-off goes to the fallback at once.
 let isPaused (c: Connection) = not c.Enabled && setting c pausedAtKey <> ""
 
+/// The connection stopped working (401, 403, 410): held like a pause until the firm reconnects.
+let needsReconnection (c: Connection) = c.Status = "needs-reconnection"
+
+/// Why a planned delivery to this destination waits instead of being sent, if it does.
+let holdReason (c: Connection) =
+    if isPaused c then Some Store.heldReason
+    elif needsReconnection c then Some Store.reconnectReason
+    else None
+
 let private newDelivery (event: LeadEvent) (c: Connection) status reason (decision: RoutingDecision) (nowMs: int64) : Delivery =
     { Id = Secrets.newId "dlv"
       EventId = event.Id
@@ -52,8 +61,10 @@ let private newDelivery (event: LeadEvent) (c: Connection) status reason (decisi
 /// destination, it is held: pending with no next attempt, until the destination resumes.
 let private decided (event: LeadEvent) (c: Connection) (decision: RoutingDecision) (nowMs: int64) =
     if decision.Outcome <> "planned" then newDelivery event c "skipped" decision.Reason decision nowMs
-    elif isPaused c then { newDelivery event c "pending" Store.heldReason decision nowMs with NextAttemptAt = Nullable() }
-    else newDelivery event c "pending" null decision nowMs
+    else
+        match holdReason c with
+        | Some reason -> { newDelivery event c "pending" reason decision nowMs with NextAttemptAt = Nullable() }
+        | None -> newDelivery event c "pending" null decision nowMs
 
 /// Record the lead, then one delivery per destination: production leads get a
 /// routing decision at every live or paused connection (Routing.decide: planned,
@@ -77,7 +88,9 @@ let publish (db: Database) (firmId: string) (lead: Lead) (test: bool) (onlyConne
                 match onlyConnection with
                 | Some id -> c.Id = id
                 // A fallback takes only hand-offs that are running late (runFallbacks), never every lead.
-                | None -> (c.Enabled || isPaused c) && c.Status = "active" && setting c "stage" <> "setup" && setting c "role" <> "fallback")
+                | None ->
+                    (c.Enabled || isPaused c) && (c.Status = "active" || needsReconnection c)
+                    && setting c "stage" <> "setup" && setting c "role" <> "fallback")
         let deliveries =
             targets
             |> Array.map (fun row ->
@@ -204,8 +217,8 @@ type Transition =
       Reason: string
       /// Some when the connection changes.
       Connection: Connection option
-      /// Some reason: cancel the connection's other pending deliveries.
-      CancelPending: string option }
+      /// True: the connection needs reconnection; hold its other waiting deliveries.
+      HoldPending: bool }
 
 /// `delayFor retryAfter`: the wait before the next attempt, or None when out of attempts.
 let transition (current: Connection) (test: bool) (n: int) (outcome: Policy.Outcome) (delayFor: int64 option -> int64 option) : Transition =
@@ -221,7 +234,7 @@ let transition (current: Connection) (test: bool) (n: int) (outcome: Policy.Outc
                             Status = "disabled"
                             DisabledReason = $"{failures} leads in a row failed" }
                 else Some { current with ConsecutiveFailures = failures }
-        { Outcome = $"failed: {reason}"; NextInMs = None; Status = "failed"; Reason = reason; Connection = connection; CancelPending = None }
+        { Outcome = $"failed: {reason}"; NextInMs = None; Status = "failed"; Reason = reason; Connection = connection; HoldPending = false }
     match outcome with
     | Policy.Delivered ->
         { Outcome = "delivered"
@@ -229,17 +242,19 @@ let transition (current: Connection) (test: bool) (n: int) (outcome: Policy.Outc
           Status = "delivered"
           Reason = null
           Connection = (if current.ConsecutiveFailures <> 0 then Some { current with ConsecutiveFailures = 0 } else None)
-          CancelPending = None }
-    | Policy.Disable reason ->
-        { Outcome = "connection disabled"
+          HoldPending = false }
+    | Policy.NeedsReconnection reason ->
+        // Not the destination failing: its streak is untouched. A production lead is held for the
+        // record until the firm reconnects; a test lead is an operator's check, and shows the refusal.
+        { Outcome = $"needs reconnection: {reason}"
           NextInMs = None
-          Status = "failed"
-          Reason = reason
-          Connection = Some { current with Status = "disabled"; DisabledReason = reason }
-          CancelPending = Some $"connection disabled: {reason}" }
+          Status = (if test then "failed" else "pending")
+          Reason = (if test then reason else $"{Store.reconnectReason} ({reason})")
+          Connection = Some { current with Status = "needs-reconnection"; DisabledReason = reason }
+          HoldPending = true }
     | Policy.Retry(reason, retryAfterMs) ->
         match delayFor retryAfterMs with
-        | Some delay -> { Outcome = $"retry: {reason}"; NextInMs = Some delay; Status = "pending"; Reason = reason; Connection = None; CancelPending = None }
+        | Some delay -> { Outcome = $"retry: {reason}"; NextInMs = Some delay; Status = "pending"; Reason = reason; Connection = None; HoldPending = false }
         | None -> failed $"gave up after {n} attempts: {reason}"
     | Policy.Failed reason -> failed reason
 
@@ -256,6 +271,8 @@ let attempt (db: Database) (http: HttpClient) (opts: Options) (random: unit -> f
         match conn, event with
         | None, _ -> finish "cancelled" "connection removed"
         | _, None -> finish "cancelled" "event missing"
+        // Needs reconnection since this was planned: held, unsent, until the firm reconnects.
+        | Some c, _ when needsReconnection c.Connection && not d.Test -> finish "pending" Store.reconnectReason
         | Some c, _ when c.Connection.Status <> "active" -> finish "cancelled" $"connection disabled: {c.Connection.DisabledReason}"
         // Paused since this delivery was planned: hold it, unsent, until the destination resumes
         // (Store.releaseHeld). Checked here, at send time, not only when the lead was recorded.
@@ -315,9 +332,10 @@ let attempt (db: Database) (http: HttpClient) (opts: Options) (random: unit -> f
                     let t = transition current d.Test n outcome (fun ra -> Policy.nextDelayMs n opts.TimeScale ra random)
                     let toNullable = function Some (v: int64) -> Nullable v | None -> Nullable()
                     Store.insertAttempt s d.Id (record t.Outcome (toNullable t.NextInMs))
+                    // Before this delivery's own state, so its reason (with the receiver's answer) is kept.
+                    if t.HoldPending then Store.holdPendingFor s current.Id
                     Store.setDeliveryState s d.Id t.Status t.Reason (t.NextInMs |> Option.map (fun delay -> now () + delay) |> toNullable)
-                    t.Connection |> Option.iter (Store.updateConnection s)
-                    t.CancelPending |> Option.iter (Store.cancelPendingFor s current.Id))
+                    t.Connection |> Option.iter (Store.updateConnection s))
     }
 
 /// Claim and send everything due. Returns how many were sent.

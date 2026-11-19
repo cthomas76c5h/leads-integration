@@ -47,8 +47,8 @@ is also a reading order: each file uses only those above it.
 
 1. `Handlers.sendLead` → `Dispatch.publish`. Everything below is one transaction (`Db.write`), so a lead is never recorded without its deliveries.
 2. `Store.insertEvent` records the lead.
-3. `Store.connectionsOf` lists the firm's destinations; live ones (enabled, active, not in setup) and paused ones (`Dispatch.isPaused`: `enabled=false` with the `pausedAt` setting) are taken (a test lead goes only to the destination under test).
-4. `Routing.decide` ([Routing.fs](../../backend/src/Core/Routing.fs)) decides each production lead, one destination at a time: a chat lead to a destination that refuses chats, or a call outside the destination's rule (`routeCategories`, `routePracticeAreas` settings; the legacy active-call-type rule for a CRM without one), is **not sent** for routing. A lead whose body would lack a field the kind requires, but only because the lead is missing it (`Routing.leadProblem`), is **not sent** as a lead problem (reason `lead problem: …`). Otherwise `pending`; for a paused destination, held (`pending` with no next attempt, `Store.heldReason`). Test leads are not routed and never held.
+3. `Store.connectionsOf` lists the firm's destinations; live ones (enabled, active, not in setup) paused ones (`Dispatch.isPaused`: `enabled=false` with the `pausedAt` setting) and ones that need reconnection (`status=needs-reconnection`) are taken (a test lead goes only to the destination under test).
+4. `Routing.decide` ([Routing.fs](../../backend/src/Core/Routing.fs)) decides each production lead, one destination at a time: a chat lead to a destination that refuses chats, or a call outside the destination's rule (`routeCategories`, `routePracticeAreas` settings; the legacy active-call-type rule for a CRM without one), is **not sent** for routing. A lead whose body would lack a field the kind requires, but only because the lead is missing it (`Routing.leadProblem`), is **not sent** as a lead problem (reason `lead problem: …`). Otherwise `pending`; for a paused destination or one that needs reconnection, held (`pending` with no next attempt; `Dispatch.holdReason`). Test leads are not routed and never held.
 5. `Store.insertDelivery` writes each delivery (built by `Dispatch.newDelivery`) with its `RoutingDecision` (`decision` column). Only a routing exclusion counts as "the firm's routing sends it nowhere" (`Store.readLead`, `Dispatch.runFallbacks`); a lead problem is still owed a hand-off.
 6. On import, `Import.apply` seeds a CRM's rule with `Routing.seed` from the firm's active call types, unless the destination already has one.
 
@@ -73,7 +73,7 @@ is also a reading order: each file uses only those above it.
 Every delivery read from the database passes through `Store.withAttempts`, which adds:
 
 - **Stage** (`Store.stageOf`): queued, accepted, refused or not sent: what we can claim.
-- **Diagnosis** (`Diagnose.diagnose`): the failure class and the cause in the receiver's words (`Diagnose.receiverWords`). The class is checked in this order: `lead` (not sent, `lead problem:`), `routing` (not sent), `transient` while retrying, `stopped` (cancelled), `ours` (`body:`), `configuration` (address refused, 3xx), `connection` (401, 403, 410), `lead` (a 4xx about a name or phone the lead does not have), `configuration` (any other 4xx), `transient` (gave up).
+- **Diagnosis** (`Diagnose.diagnose`): the failure class and the cause in the receiver's words (`Diagnose.receiverWords`). The class is checked in this order: `lead` (not sent, `lead problem:`), `routing` (not sent), `connection` (held: needs reconnection), none (held: paused), `transient` while retrying, `stopped` (cancelled), `ours` (`body:`), `configuration` (address refused, 3xx), `connection` (401, 403, 410), `lead` (a 4xx about a name or phone the lead does not have), `configuration` (any other 4xx), `transient` (gave up).
 
 The frontend only renders it:
 

@@ -3,12 +3,11 @@
   "name": "hook-gone",
   "story": "A firm deletes its Zap, so the hook answers 410 Gone. That is a connection problem: the destination needs reconnection at once, and its leads are held for the record until the firm connects a new hook.",
   "slice": 6,
-  "model": "proposed",
+  "model": "lab",
   "proves": [
     "docs/lead-delivery/README.md#retry (410 is a connection problem; proposed: needs reconnection, held)",
     "docs/lead-delivery/README.md#3-a-leads-journey (planning step 1: needs reconnection is held)"
   ],
-  "today": "The lab switches the destination off at the first 410 and cancels its other pending deliveries; later leads get no delivery (missed leads), and an operator reactivates it and sends the missed leads.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [

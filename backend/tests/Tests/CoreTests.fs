@@ -20,7 +20,8 @@ let tests =
           test "response classification" {
               let c s = Policy.classify s null null 0L
               Expect.equal (c (Some 201)) Policy.Delivered "2xx"
-              Expect.isTrue (match c (Some 410) with Policy.Disable _ -> true | _ -> false) "410 disables"
+              for code in [ 401; 403; 410 ] do
+                  Expect.isTrue (match c (Some code) with Policy.NeedsReconnection _ -> true | _ -> false) $"{code}: needs reconnection"
               Expect.isTrue (match c (Some 503) with Policy.Retry _ -> true | _ -> false) "5xx retries"
               Expect.isTrue (match c (Some 429) with Policy.Retry _ -> true | _ -> false) "429 retries"
               Expect.isTrue (match c (Some 302) with Policy.Failed _ -> true | _ -> false) "redirects are not followed"
