@@ -11,9 +11,9 @@
       "distinctNames": 119
     },
     "new-matter": {
-      "occurrences": 6459,
-      "share": 0.277,
-      "distinctNames": 929
+      "occurrences": 6456,
+      "share": 0.2769,
+      "distinctNames": 926
     },
     "general": {
       "occurrences": 3059,
@@ -51,9 +51,9 @@
       "distinctNames": 30
     },
     "jail-custody": {
-      "occurrences": 37,
-      "share": 0.0016,
-      "distinctNames": 11
+      "occurrences": 40,
+      "share": 0.0017,
+      "distinctNames": 14
     },
     "unmapped": {
       "occurrences": 30,
@@ -75,7 +75,7 @@
     "unspecified": 2279,
     "personal-injury": 852,
     "criminal": 765,
-    "family": 628,
+    "family": 625,
     "other": 583,
     "estate-planning": 234,
     "traffic": 211,
@@ -99,7 +99,7 @@
     "away": 354,
     "after-hours": 281,
     "spanish": 128,
-    "in-custody": 45,
+    "in-custody": 48,
     "business-hours": 28,
     "other-language": 11,
     "webchat": 5
@@ -109,7 +109,7 @@
     "about": "Active firms only. 'active' = api-2 counts this contact type as a lead.",
     "activeTypes": 2678,
     "activeTypesClassifiedNewMatter": 2672,
-    "newMatterTypes": 2716,
+    "newMatterTypes": 2713,
     "newMatterTypesActive": 2672,
     "otherTypesActive": 6
   },

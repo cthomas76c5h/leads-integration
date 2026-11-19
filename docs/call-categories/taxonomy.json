@@ -17,7 +17,7 @@
     {
       "id": "in-custody",
       "label": "Caller or client in custody",
-      "pattern": "\\b(jail|inmate|prison|incarcerat\\w*|correctional)\\b"
+      "pattern": "\\b(jail|inmate|prison|incarcerat\\w*|correctional|in custody)\\b"
     },
     {
       "id": "webchat",
@@ -82,7 +82,7 @@
       "isCallCategory": true,
       "crm": "review",
       "description": "A call from or about someone in custody, with no new matter named. Often a new criminal matter; firms decide whether it goes to their CRM. 'New Criminal Case (Jail)' is a new matter with the in-custody modifier instead.",
-      "pattern": "\\b(jail|inmate|prison|incarcerat\\w*|correctional|bail|bond)\\b"
+      "pattern": "\\b(jail|inmate|prison|incarcerat\\w*|correctional|bail|bond|in custody)\\b"
     },
     {
       "id": "legal-professional",
@@ -188,7 +188,7 @@
     {
       "id": "family",
       "label": "Family law",
-      "pattern": "\\b(family|divorce|custody|child support|alimony|adoption|dfcs|cps|paternity|prenup\\w*|domestic|separation|restraining\\w*|protective order)\\b"
+      "pattern": "\\b(family|divorce|(?<!\\bin )custody|child support|alimony|adoption|dfcs|cps|paternity|prenup\\w*|domestic|separation|restraining\\w*|protective order)\\b"
     },
     {
       "id": "real-estate",

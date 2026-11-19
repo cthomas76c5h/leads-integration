@@ -481,6 +481,18 @@
       }
     },
     {
+      "id": "jail-in-custody-phrase",
+      "why": "'In custody' is someone detained, not child custody: a jail call, never a family new matter. 'Custody' alone stays family law.",
+      "expect": { "category": "jail-custody", "practiceArea": null, "modifiers": ["in-custody"], "crm": "review" },
+      "lead": {
+        "firstName": "Marisol", "lastName": "Ortega", "phone": "+15555550141", "email": "",
+        "callType": "*In Custody Calls",
+        "message": "Calling about her brother, picked up last night and held at the county detention center. Wants an attorney to call back about bail.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [ { "label": "Facility", "data": "County detention center" } ]
+      }
+    },
+    {
       "id": "emergency",
       "why": "Urgent escalation, not a lead.",
       "expect": { "category": "emergency", "practiceArea": null, "modifiers": [], "crm": "skip" },

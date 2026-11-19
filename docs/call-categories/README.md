@@ -9,7 +9,7 @@ folder defines that set and the rules that map any name onto it.
 |---|---|
 | [why-it-matters.md](why-it-matters.md) | Why categories may be the missing layer of value: one field doing four jobs today, and what a shared language of calls unlocks. Start here for the business case. |
 | [taxonomy.json](taxonomy.json) | Categories, practice areas, modifiers and the matching rules. The source of truth. |
-| [reference-leads.json](reference-leads.json) | 40 synthetic leads (realistic intake, invented people), each with the mapping it must get. Use them to test a mapping or a CRM payload. |
+| [reference-leads.json](reference-leads.json) | 42 synthetic leads (realistic intake, invented people), each with the mapping it must get. Use them to test a mapping or a CRM payload. |
 | [coverage.json](coverage.json) | Generated. Aggregate counts, plus example names used by 5+ firms. |
 | `backend/data/contact-type-mapping.tsv` | Generated, git-ignored. Every raw name and its mapping, for review. The long tail contains staff names. |
 
@@ -22,7 +22,7 @@ the same algorithm in F#). It serves them at `/api/call-categories` and
 `/api/reference-leads`, and maps each firm's contact types. The app's **Call
 categories** page shows all of it and sends any reference lead to a firm. The
 Expecto test "every reference lead maps as it says" holds the F# rules to the
-same 40 cases as the script.
+same 42 cases as the script.
 
 ## The model
 

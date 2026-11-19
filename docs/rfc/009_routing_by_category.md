@@ -75,7 +75,7 @@ Reading the five by hand:
 
 | Cause | Call types | Fix |
 |---|---|---|
-| **Misclassified**: "*In Custody Calls" read as family law (custody); "*Verify Employment" and "*NOT IN NYC, WC, MASS" read as new matters | 3 | The taxonomy (a rule change, reference lead first) and the firm's mapping, not the routing rule |
+| **Misclassified**: "*In Custody Calls" read as family law (custody), *fixed: "in custody" is now a jail call, reference lead `jail-in-custody-phrase`*; "*Verify Employment" and "*NOT IN NYC, WC, MASS" read as new matters | 3 | The taxonomy (a rule change, reference lead first) and the firm's mapping, not the routing rule |
 | **Line handling** on a new-client call ("Away patch new clients", a weekday patch schedule) | 2 | Line settings (RFC-002 §5.3); open question 6.1 |
 | **Named person** on a new-client call | 1 | Staff assignment (section 3.3) |
 | **Existing clients** sent to the CRM, with an internal entry (`system`) also active, at one firm | 2 | A rule that adds `existing-client`; the `system` entry moves to account settings (RFC-002 §5.3) |

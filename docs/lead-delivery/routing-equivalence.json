@@ -34,8 +34,8 @@
     },
     "callTypesByOutcome": {
       "same": 1133,
-      "firm-choice": 312,
-      "starts": 6,
+      "firm-choice": 313,
+      "starts": 5,
       "stops": 2
     },
     "stopsByCategory": {
@@ -44,7 +44,6 @@
     },
     "startsByPracticeArea": {
       "unspecified": 2,
-      "family": 1,
       "employment": 1,
       "criminal": 1,
       "workers-comp": 1
