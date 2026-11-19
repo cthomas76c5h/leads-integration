@@ -38,7 +38,7 @@ Approve:
 
 1. **The context map** (section 4): nine contexts, the language between them, and what each owns.
 2. **The aggregates and invariants** (section 5), including three corrections to today's model: the **hand-off** as its own aggregate, **classification recorded at intake**, and **billing read from conversations, not leads**.
-3. **The build order** (section 8): thirteen slices, each with the scenario that proves it.
+3. **The build order** (section 8): thirteen slices, each with the scenario that proves it and its estimated effort (about 60–90 person-weeks in all; 24–35 to a product a firm can rely on).
 4. **The method** (section 9) as the definition of done for every feature.
 5. **The guarantees every implementation must keep** (section 6), whatever its language or infrastructure, and **scenarios and receiver contracts as language-neutral data files** that any implementation can be checked against.
 6. **Refactoring the lab towards this model** (section 10), slice by slice, as the reference implementation.
@@ -367,6 +367,63 @@ flowchart LR
 - **4 before 6 and 9.** The window to act and classification at intake both need the taxonomy.
 - **9 before 10.** Billing reads conversations, and the free-call rules read the category set at intake.
 - **10 and 11 are otherwise independent.** They can move earlier if the business needs them, at the cost of re-rating once conversations replace leads.
+
+### Tasks and effort
+
+What each slice takes to build from scratch, in **person-weeks**, each ±30%.
+**About 60–90 in total**, plus the conversation engine (12–24 or more). A product a
+firm can rely on (slices 0–6) is **24–35**: about three months for three engineers.
+
+The estimates assume:
+
+- experienced engineers, one codebase, one language;
+- the specification this repository holds (glossary, domain model, decisions, operator screens) and the lab as a working reference, so most design questions are already answered;
+- bought sign-in, email and SMS sending, invoicing, and telephony and speech ([section 3](#3-subdomains-build-what-is-ours-buy-the-rest)).
+
+Each slice includes its scenarios, read models, contract and screens, as the
+[method](#9-the-method-how-every-slice-is-built) requires.
+
+| # | Slice | Tasks | RFC | Effort |
+|---|---|---|---|---|
+| **0** | Foundation | Repository, CI, deploy, migrations; event and outbox store; firm and test flag on every record; audit log; injectable clock; sign-in (bought); Lead contract v1; scenario runner and test control interface; the [contract formats](../contracts/README.md) fixed | 006, 007 | 4–6 |
+| **1** | A lead reaches the firm by email | Minimal intake (web form and API); Lead; Delivery and Attempt; the email kind; a basic Leads view | 001 | 2–3 |
+| **2** | Every destination gets a decision | Destination with state; routing rule (all leads, or no chat leads); not sent with a reason; independent deliveries; lead outcome; the webhook kind, signed | 001, 005 | 2–3 |
+| **3** | Failures say what happened | Failure classes; retry policy; failure streak; switched off; needs reconnection; resend under the same lead identity; operator roles; Delivery Center, Destinations, the problem drawer; an alert per destination; the outage scenarios | 001 | 5–7 |
+| **4** | One language for calls | Taxonomy versions; the firm mapping and the firm's confirmation; routing by category; the reference-lead checks; existing call types imported | 002 | 3–4 |
+| **5** | Change only with approval | Revisions on the destination; setup (connect, approve, test, confirm, go live); change requests; the mapping editor; the catalog as data; the firm contact's approval page | 001, 005 | 5–7 |
+| **6** | In time | Window to act; the hand-off aggregate and its timers; the fallback role; held deliveries and their release; expired first in every view; the SMS kind | 001 | 3–5 |
+| **7** | Native CRMs | Per kind: adapter, receiver contract, sandbox test; OAuth where a kind needs it; scheduled test leads; verified in CRM. Six kinds at 1–2 each | 005, 006 | 6–12 |
+| **8** | The firm sees proof | The firm portal and its sign-in; proof of delivery; the weekly "week in calls" | 001, 002 | 3–5 |
+| **9** | Intake classifies the call | Classification with confidence; the review queue; firm corrections update the mapping | 002 | 4–6 |
+| **10** | Billing on value | Conversations; the usage ledger; versioned non-billable rules; the price book; plan changes with proration; locked statements; shadow comparison; controls; bought invoicing connected | 003 | 7–10 |
+| **11** | Terms | Versions with a change kind; scoped acceptance; the sign-in gate and notices; Word import; coverage | 004 | 2–3 |
+| **12** | Self-serve and platform | Self-serve connect and approve; the public versioned contract and its documentation; Zapier; benchmarks (aggregate only, with opt-out); the trades pack | 002, 005 | 10–14 |
+| | Production readiness | Observability; backups restored on a schedule; security review; data retention; preparation for a security certification | — | 4–6 |
+| | **Total** | | | **60–91** |
+
+**The conversation engine** (12–24 or more) is a track of its own: the AI that
+takes calls and chats, one engine for both channels, producing the standard lead.
+It is the largest unknown. Slices 1 to 8 do not wait for it; they run on slice 1's
+minimal intake, and slice 9 is where the two meet.
+
+**Working in parallel.** Slices 0 to 3 are one sequence (13–19), about 6–8 weeks
+for two or three engineers. After slice 3 the work splits into three streams:
+categories and intake (4 → 9), configuration and CRMs (5 → 7), and in time and
+proof (6 → 8). Billing and terms (10, 11) can start from slice 1's conversation
+record and re-rate once slice 9 lands.
+
+| Milestone | After slices | Effort | About |
+|---|---|---|---|
+| Reliable delivery operators can run | 0–3 | 13–19 | 2 months, three engineers |
+| A product a firm can rely on: delivery in time, changes approved | 0–6 | 24–35 | 3 months, three engineers |
+| The full product except self-serve | 0–11 | 47–71 | 5–7 months, four engineers |
+| The platform | 0–12, with production readiness | 60–91 | |
+
+**What would move these numbers most:**
+
+- **How many CRMs are needed** (slice 7). If CRM delivery is as rare as the data suggests ([strategy 2.4](../lead-delivery/strategy.md#24-the-integration-strategy-rests-on-an-untested-assumption)), two or three kinds may be enough: 3–6 fewer.
+- **Classification and conversation quality** (slice 9 and the engine). Accurate first time keeps them low; heavy human review pushes them up.
+- **The billing rules** (slice 10). The free-call thresholds are still to be confirmed with real call data.
 
 ---
 
