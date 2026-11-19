@@ -145,8 +145,12 @@ One lead going to one destination, from planning to its final outcome.
 _Avoid_: post, send, CRM lead
 
 **Attempt**:
-One request to the destination within a delivery, with what it answered.
+One request to the destination within a delivery, with what it answered. It **starts** when its record is committed, after eligibility and the lease are checked; the request is sent only then. *Proposed.*
 _Avoid_: try (in writing), post
+
+**Lease**:
+A worker's time-limited claim on one delivery, with a version that every claim increases. Only the holder of the current version may start or finish an attempt. An expired lease is recovered by another worker; it is never by itself permission to resend. *Proposed.*
+_Avoid_: lock, flag
 
 **Unknown outcome**:
 An attempt that was sent but never answered: a timeout while waiting, a reset connection, a worker lost mid-send. The destination may or may not have the lead; what follows depends on how that destination kind handles duplicates.

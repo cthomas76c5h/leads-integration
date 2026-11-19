@@ -1,7 +1,7 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "double-claim",
-  "story": "A worker claims a delivery and stalls just before sending. A second worker tries to claim it and gets nothing, because the first holds the lease. When the lease runs out, the delivery is recovered; the stalled attempt counts as unknown, and because the webhook deduplicates on the lead id, it is sent again. When the stalled worker wakes, it has lost its lease and sends nothing.",
+  "story": "A worker claims a delivery and stalls just before its attempt starts. A second worker tries to claim it and gets nothing, because the first holds the lease. When the lease runs out, the delivery is recovered: no attempt had started, so nothing can have been sent, and it is simply claimed again and sent once. When the stalled worker wakes, its lease version is stale: it cannot start an attempt and sends nothing.",
   "slice": 3,
   "model": "proposed",
   "proves": [
@@ -86,9 +86,8 @@
         "lead": "lead-1",
         "destination": "hook",
         "state": "accepted",
-        "attempts": 2,
+        "attempts": 1,
         "outcomes": [
-          "unknown",
           "answered"
         ],
         "count": 1
@@ -109,7 +108,7 @@
         "name": "AttemptMade",
         "lead": "lead-1",
         "destination": "hook",
-        "count": 2
+        "count": 1
       }
     },
     {

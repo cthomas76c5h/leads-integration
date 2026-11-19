@@ -182,7 +182,7 @@ durable state, emitted events and prohibited effects.
 | RFC-008 §10 scenario | File | Slice | Events asserted | Prohibited effects |
 |---|---|---|---|---|
 | crash-after-send | [crash-after-send.json](scenarios/crash-after-send.json) | 3 | `DeliveryUnknown`, `DeliveryAccepted` | No attempt to the CRM after the crash; the CRM never accepted twice |
-| double-claim | [double-claim.json](scenarios/double-claim.json) | 3 | `LeaseRecovered`, exactly two `AttemptMade`, `DeliveryAccepted` | No attempt after the stalled worker wakes |
+| double-claim | [double-claim.json](scenarios/double-claim.json) | 3 | `LeaseRecovered`, exactly one `AttemptMade`, `DeliveryAccepted` | No attempt after the stalled worker wakes |
 | pause-during-send | [pause-during-send.json](scenarios/pause-during-send.json) | 3 | `DesiredStateChanged` (three), `Held`, `FallbackUsed` | Race before send: no attempt while paused. On the wire: the attempt finishes accepted, is not held, and no further attempt follows |
 | routing-change-during-outage | [routing-change-during-outage.json](scenarios/routing-change-during-outage.json) | 5 | `RevisionWentLive`, `DeliveryCancelled`, `NotSent` | No attempt for a cancelled or not-sent delivery |
 | accepted-never-verified | [accepted-never-verified.json](scenarios/accepted-never-verified.json) | 3 | `DeliveryVerified`, `VerificationOverdue` | Never verified without a found record |

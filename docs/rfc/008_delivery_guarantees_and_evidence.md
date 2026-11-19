@@ -167,6 +167,11 @@ Each destination kind declares how it handles a lead it may have seen, in its
 | **Duplicates harmless** | A second copy costs nothing (SMS, email, Slack, the portal) | Retry: a duplicate notice is better than a missed one |
 | **Unknown** | Not yet verified in the destination's sandbox | As external reference, until verified |
 
+**A lookup counts only when it is authoritative.** Some destinations index a
+new record late, so "not found" may not mean "never created". A kind declares
+**lookup** only when its sandbox shows a record can be found as soon as it is
+accepted; otherwise it is treated as **external reference**.
+
 Every destination kind is **unknown** until its sandbox shows otherwise; a
 contract never claims a capability without evidence. Today only SMS, email and
 Slack are declared (harmless); every CRM, the answering-legal web-leads API,
@@ -209,10 +214,18 @@ destination; consumers ignore anything older than what they hold.
 
 ### 5.3 Claims and revalidation
 
-- **A lease, not a flag.** A worker claims a delivery with its identity and an expiry (`claimed_by`, `claimed_until`). Only the holder may record its attempt. An expired lease is recovered by any worker, and the attempt it covered counts as **unknown** (section 4.2).
-- **Revalidate before sending.** In the transaction that claims the delivery, and again immediately before the request is sent, the worker checks eligibility (section 5.1) and stamps the attempt with the **revision** and **authorization version** it uses. If either check fails, nothing is sent.
-- **A pause takes effect for attempts not yet started.** An attempt already on the wire when an operator pauses is recorded as it ends. The audit shows both, in order.
+- **A lease, not a flag.** A worker claims a delivery with its identity, an expiry and a **lease version** that every claim increases (`claimed_by`, `claimed_until`, `lease_version`). Only the holder of the current version may start or finish an attempt: each such write applies only if the version still matches, and a write that changes nothing tells the worker it lost the lease. A lease is a guarantee about our records, not about the destination: it cannot stop a request that already left.
+- **When an attempt starts.** An attempt **starts** when its record is committed, in one transaction that checks eligibility (section 5.1), checks the lease version, and stamps the attempt with the **revision** and **authorization version** it uses. That transaction is serialised with changes to the same destination's desired state. The request is sent only after it commits. If any check fails, no attempt starts and nothing is sent.
+- **A pause takes effect for attempts not yet started.** A pause committed before an attempt starts means that attempt never starts: the delivery is held. A pause committed after it lets that one attempt finish, and it is recorded as it ends; no further attempt starts while paused. The audit shows both, in order. Cancelling up to the first byte on the wire is **not** promised: it would need coordination with the request itself for no gain the firm can see.
+- **An expired lease is not permission to resend.** It is recovered by any worker. If no attempt had started, nothing can have been sent, and the delivery is simply claimed again. If an attempt had started and has no recorded answer, that attempt is **unknown** (section 4.2) and section 4.3 decides what follows.
+- **A late answer is evidence, not state.** A worker that lost its lease mid-send still records the answer when it arrives, on its own attempt, for the audit. It never changes the delivery, which a newer lease now owns; the newer holder takes that evidence into account (an accepted late answer settles the unknown attempt).
 - **Recording is truthful.** An attempt's outcome is recorded against the revision and authorization version it used, never the ones current when the answer arrives.
+- **Urgent first.** When there is more due than workers can take, deliveries are claimed in order of their hand-off's deadline, so emergency and custody leads are not queued behind routine records.
+
+None of these needs a particular framework. At Answering AI's volume (about
+0.35 deliveries a second on average) one process claiming from the database is
+enough; the guarantees live in a few conditional writes, and more workers or
+processes change throughput, not correctness.
 
 ### 5.4 Events these rules add
 
@@ -227,7 +240,7 @@ scenario may assert, with where each comes from, is
 | `DeliveryVerified` | Delivery | A lookup found the record at the destination |
 | `VerificationOverdue` | Delivery | An accepted delivery was not verified within the set time |
 | `DeliveryCancelled` | Delivery | A waiting delivery stopped: destination removed, or routing no longer matches under a carried-forward revision |
-| `LeaseRecovered` | Delivery | A worker took over an expired lease; the covered attempt became unknown |
+| `LeaseRecovered` | Delivery | A worker took over an expired lease; if its attempt had started, that attempt became unknown |
 | `HandOffAcknowledged` | Delivery | Someone at the firm confirmed receipt |
 | `HandOffEscalated` | Delivery | No acknowledgement within the fallback delay: the fallback, then an operator |
 | `UsageRated` | Usage | A conversation was rated for its cycle |
@@ -348,8 +361,8 @@ what the review describes:
 | Scenario | Required result |
 |---|---|
 | **crash-after-send:** the worker crashes after the CRM created the record, before recording it | The attempt is **unknown**; what follows depends on the kind's duplicate handling (§4.3); never a silent second send to a kind without it |
-| **double-claim:** two workers claim the same delivery | One lease holder; the other sends nothing; an expired lease is recovered safely |
-| **pause-during-send:** an operator pauses as a worker is about to send | Nothing sent after the pause; an attempt already on the wire is recorded as it ends |
+| **double-claim:** two workers claim the same delivery | One lease holder; the other sends nothing; an expired lease whose attempt never started is claimed again and sent once; the stale worker cannot start an attempt |
+| **pause-during-send:** an operator pauses as a worker is about to send | A pause before the attempt starts: nothing sent, the delivery held. A pause after it: that attempt is recorded as it ends, and nothing more is sent while paused |
 | **routing-change-during-outage:** the firm activates a new revision while deliveries wait | Waiting deliveries keep their revision unless "apply to waiting deliveries" was chosen; new leads use the new one |
 | **accepted-never-verified:** the CRM accepts but the lookup never finds the record | The delivery stays **accepted**, never **verified**; it is flagged after a set time |
 | **duplicate-intake:** the voice channel sends the completion event twice | One conversation, one lead |

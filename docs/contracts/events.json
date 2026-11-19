@@ -55,7 +55,7 @@
     },
     "LeaseRecovered": {
       "source": "contracts",
-      "meaning": "An expired claim was recovered by another worker (RFC-008 §5.3)"
+      "meaning": "An expired lease was recovered by another worker; if its attempt had started, that attempt became unknown (RFC-008 §5.3)"
     },
     "LeadResent": {
       "source": "README §7",
