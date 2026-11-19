@@ -16,7 +16,7 @@ TypeScript frontend (`frontend/`). Design: RFC-001 in
 - Backend style follows `../chatbot/backend-fsharp`: Oxpecker, plain SQL,
   Expecto tests, `TreatWarningsAsErrors`. F# compiles in file order.
 - Backend: `cd backend && dotnet run --project src/Api` (port 5080) ·
-  tests: `dotnet run --project tests/Tests` · import: `dotnet run --project src/Import -- all`
+  tests: `dotnet run --project tests/Tests --artifacts-path ../.testbuild` (the running API locks `bin/`) · import: `dotnet run --project src/Import -- all`
 - Frontend: `cd frontend && npm run dev` (proxies to 5080) · `npm run build`
 - **Credentials are never stored or shown.** Importers reduce every secret to
   present + fingerprint the moment they read it. Imported connections deliver

@@ -18,9 +18,14 @@ airi (SQLite)   ──┘   (shape only)                          └─► … 
 cd backend
 dotnet run --project src/Import -- all      # api-2 (read-only), chatbot dump, airi dev db
 dotnet run --project src/Api                 # http://localhost:5080
+dotnet run --project tests/Tests --artifacts-path ../.testbuild   # tests; safe while the API runs
 dotnet run --project src/Import -- seed --leads 200   # synthetic traffic; the API's worker delivers it
 cd ../frontend && npm install && npm run dev # http://localhost:5173, proxies to 5080
 ```
+
+The tests build into `.testbuild/` because a running API locks its own `bin/`
+(MSB3026 "file is locked by LeadIntegrations.Api"); with the API stopped,
+`dotnet run --project tests/Tests` works too.
 
 `npm run build` in `frontend/` lets the backend serve the UI itself at :5080.
 Importer options: `--pg`, `--dump`, `--sqlite`, `--db` (see `src/Import/Program.fs`).
