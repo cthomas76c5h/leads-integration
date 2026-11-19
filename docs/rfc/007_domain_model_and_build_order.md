@@ -38,9 +38,10 @@ Approve:
 
 1. **The context map** (section 4): nine contexts, the language between them, and what each owns.
 2. **The aggregates and invariants** (section 5), including three corrections to today's model: the **hand-off** as its own aggregate, **classification recorded at intake**, and **billing read from conversations, not leads**.
-3. **The build order** (section 7): thirteen slices, each with the scenario that proves it.
-4. **The method** (section 8) as the definition of done for every feature.
-5. **Refactoring the lab towards this model** (section 9), slice by slice, as the reference implementation.
+3. **The build order** (section 8): thirteen slices, each with the scenario that proves it.
+4. **The method** (section 9) as the definition of done for every feature.
+5. **The guarantees every implementation must keep** (section 6), whatever its language or infrastructure, and **scenarios and receiver contracts as language-neutral data files** that any implementation can be checked against.
+6. **Refactoring the lab towards this model** (section 10), slice by slice, as the reference implementation.
 
 ---
 
@@ -231,7 +232,102 @@ Only these cross a boundary. Everything else stays inside its context.
 
 ---
 
-## 6. What a Rebuild Keeps
+## 6. What Any Implementation Must Guarantee
+
+The model does not depend on a language, a framework or an infrastructure. It
+can be built in any language, with job queues, worker pools, a message broker or
+separate services added whenever volume calls for them. What it does depend on
+is a small set of **properties**. The invariants assume them from the first
+slice, and none can be added afterwards without rebuilding what came before.
+
+### 6.1 The guarantees
+
+| Guarantee | From slice | What it means | Why it cannot wait | Simplest thing that satisfies it (not prescribed) |
+|---|---|---|---|---|
+| **Recorded with its plan, in one transaction** | 1 | A lead and one planned delivery per destination are saved together, before anything is sent | "Recorded before sent" ([README invariant 1](../lead-delivery/README.md#6-invariants)). Without it a lead can be lost between the call and the first attempt: production's gap today ([production-today](../lead-delivery/production-today.md)) | A deliveries table with `next_attempt_at`, written in the same transaction as the lead. No queue product needed |
+| **A stable lead identity, safe to receive twice** | 1 | Every attempt and every resend carries the same lead identity; receiving the same lead twice has no further effect, on our side or the destination's | Retries and resends mean a destination will see a lead more than once. Identity added later cannot be given to deliveries already made | The lead id sent as an idempotency key in a header and the body; a uniqueness rule on whatever we receive |
+| **Destinations independent** | 2 | One slow or failing destination never delays or changes another's delivery | [README invariant 4](../lead-delivery/README.md#6-invariants). A design that sends a lead's destinations one after another inside one request has to be taken apart to fix this | Each delivery attempted on its own, with a timeout. A loop over due deliveries is enough; parallelism is an optimisation |
+| **Exactly one sender** | 2, or as soon as there is a second worker or system | Each delivery is attempted by one worker at a time, and each firm's leads are sent by one system at a time | Two senders deliver everything twice; none delivers nothing. Cheap to design in, costly to find in production | Claim a delivery before attempting it (for example a row lock, or a claimed-until time released if the worker dies); one flag per firm saying which system sends |
+| **Time from a clock the tests control** | 0 | Every rule that reads time (retry schedule, window to act, fallback trigger, billing cycle, terms effective date) reads it from one injected clock | Windows to act and retries cannot be tested otherwise; the lab's two clock speeds are what happens without it ([lessons §5](../lead-delivery/lessons.md#5-the-demo-data-became-a-product-of-its-own)) | A clock passed to every decision function; the scenario runner advances it |
+| **Firm and test flag on every record** | 0 | Every lead, delivery, conversation, usage entry and action carries its firm, and whether it is a test | Firm isolation and keeping tests out of totals ([README invariant 5](../lead-delivery/README.md#6-invariants)) cannot be reliably added to existing data | Two required columns, and every query filtered by firm |
+
+These are in addition to the invariants in [README §6](../lead-delivery/README.md#6-invariants)
+and section 5, which hold whatever the implementation.
+
+### 6.2 Left to the implementation
+
+Each of these can be chosen, changed or added later without changing the model,
+as long as section 6.1 still holds:
+
+- the programming language and framework;
+- a job queue or message broker in place of a table of due deliveries;
+- how many workers, and how they share the work;
+- splitting a context into its own service;
+- the database product, given transactions;
+- caching, read replicas, partitioning;
+- how and where it is deployed.
+
+### 6.3 Proving it: scenarios and receiver contracts as data
+
+An implementation in any language proves it follows the model by passing the
+same checks. Today those checks are F# code (`Simulate.fs`, `FakeCrm.fs` and the
+tests), so only the lab can run them. They become **language-neutral data files**,
+the way [taxonomy.json](../call-categories/taxonomy.json) and its reference leads
+already are: one file, checked by both the F# and the Python rules.
+
+**A scenario** is a story stated as data:
+
+| Part | Holds |
+|---|---|
+| **Story** | One or two sentences, in the glossary's words; the slice and rules it proves |
+| **Given** | Firms (fictional), their destinations with kind, role, state and live revision, the taxonomy version, the clock's start |
+| **When** | A timeline: leads arriving, how each destination's receiver answers and from when to when, operator and firm actions |
+| **Then** | Expected states at named times: each delivery's state and failure class, each lead's outcome and hand-off, each destination's state, counts on the operator views, audit entries |
+
+For example, the lab's `auth-expired` scenario would read:
+
+```json
+{
+  "name": "auth-expired",
+  "story": "A CRM's sign-in expires. The destination needs reconnection at once; its leads are held for the record and the hand-off goes to the fallback.",
+  "slice": 6,
+  "given": {
+    "firms": [{ "id": "firm-a", "name": "Example Firm A" }],
+    "destinations": [
+      { "id": "crm", "firm": "firm-a", "kind": "clio-grow", "role": "usual", "routing": "new-matter" },
+      { "id": "sms", "firm": "firm-a", "kind": "sms", "role": "fallback" }
+    ],
+    "clock": "2026-11-16T09:00:00-05:00"
+  },
+  "when": [
+    { "at": "+0m", "receiver": "crm", "answers": { "status": 401, "body": "access token expired" } },
+    { "at": "+5m", "lead": { "id": "lead-1", "firm": "firm-a", "category": "new-matter" } }
+  ],
+  "then": [
+    { "at": "+5m", "destination": "crm", "state": "needs-reconnection" },
+    { "at": "+5m", "delivery": { "lead": "lead-1", "destination": "crm" }, "state": "held" },
+    { "at": "+25m", "handOff": "lead-1", "state": "reached-by-fallback", "by": "sms" }
+  ]
+}
+```
+
+The exact format is fixed in lab refactor phase 6 (section 10.1).
+
+**A receiver contract** states what one destination kind requires and how it
+answers, as data: the fields it requires and their rules, the content type, how
+it signals acceptance, and its failure modes (accepts, refuses, flaky, gone, slow,
+down) with the answers each gives. The fake receivers are generated from these
+files, and the same files drive the contract tests against each CRM's sandbox
+([RFC-006](006_integration_lab.md)).
+
+**The runner** uses only an implementation's public contract ([api.md](../api.md))
+plus a **test control interface**, available in test mode only, to set the clock
+and receiver behaviour. Any implementation that offers both can be checked
+against every scenario, whatever it is written in.
+
+---
+
+## 7. What a Rebuild Keeps
 
 If every codebase were lost, these are what make the rebuild fast and correct.
 They are kept, versioned and reviewed like code:
@@ -244,15 +340,15 @@ They are kept, versioned and reviewed like code:
 | What operators do, screen by screen | [operations.md](../lead-delivery/operations.md) |
 | The taxonomy and the reference leads it must classify | [call-categories/](../call-categories/README.md) |
 | The contract | [api.md](../api.md) |
-| The scenarios: each failure mode as a story | `Simulate.fs` today; a documented library under RFC-006 |
-| What each CRM requires | The fake receivers (`FakeCrm.fs`) and their contract tests |
+| The scenarios: each failure mode as a story | Scenario files (section 6.3); in `Simulate.fs` until lab refactor phase 6 |
+| What each CRM requires | Receiver contract files (section 6.3); in the fake receivers (`FakeCrm.fs`) until phase 6 |
 | What building it taught us | [lessons.md](../lead-delivery/lessons.md) |
 
 The code is the cheapest thing to replace. These assets are the expensive part.
 
 ---
 
-## 7. Build Order: Thirteen Vertical Slices
+## 8. Build Order: Thirteen Vertical Slices
 
 Each slice gives a firm or an operator something they can use, adds a named set
 of concepts, and is proven by a scenario. Intake and Delivery can be built in
@@ -273,7 +369,7 @@ flowchart LR
 
 | # | Slice: what someone can now do | Adds to the model | Proven by | Lab today |
 |---|---|---|---|---|
-| **0** | *Foundation:* nothing a firm sees yet | Glossary; Lead contract v1; event and outbox store; **Firm**; **test vs production** from the first line; operator action audit; one clock the scenarios control; scenario runner | "A test lead never appears in a total, a streak or a report" | Test separation built; one clock missing |
+| **0** | *Foundation:* nothing a firm sees yet | Glossary; Lead contract v1; event and outbox store; **Firm**; **test vs production** from the first line; operator action audit; one clock the scenarios control; the scenario runner and test control interface (section 6.3); the guarantees of section 6.1 | "A test lead never appears in a total, a streak or a report" | Test separation built; one clock and scenario files missing |
 | **1** | **A caller's details reach the firm by email** | Minimal intake (chat or web form) → **lead** → one **delivery** with **attempts** → **accepted** | "Recorded before sent"; "the lead never changes" | Delivery side built; leads enter through the API and the simulator, not a real intake |
 | **2** | **A firm has several destinations, and each gets a decision** | **Destination** with state; routing rule (everything, or no chat leads); **not sent** with a reason; deliveries independent; **lead outcome** | "One destination down never delays another"; "every destination of the firm has a delivery for every lead" | Built (routing by call-type text) |
 | **3** | **Failures say what happened, and operators fix them where they find them** | Failure classes; retry policy; **retrying**, **refused**, **gave up**; **failure streak**; **switched off**; **needs reconnection**; **resend** under the same lead identity; operator and senior operator; the Delivery Center and Destinations screens | platform-outage, relay-timeouts, dead-endpoint, auth-expired, hook-gone, redirect, incident-now, mapping gap fixed and resent | Built; needs reconnection and lead-problem handling Proposed |
@@ -297,13 +393,13 @@ flowchart LR
 
 ---
 
-## 8. The Method: How Every Slice Is Built
+## 9. The Method: How Every Slice Is Built
 
 The definition of done for any feature, in this order:
 
 1. **Words.** Add or change the terms in [GLOSSARY.md](../../GLOSSARY.md). If a word is not there, the feature is not understood yet.
 2. **Rule.** State the invariant or policy in the context's model, marked Lab, Production or Proposed, and the decision with its reason in [answers.md](../lead-delivery/answers.md).
-3. **Scenario.** A named, repeatable story with fictional names, run by the scenario runner on the controlled clock. It is the acceptance test and the demo. A feature with no scenario is invisible ([lessons §5](../lead-delivery/lessons.md#5-the-demo-data-became-a-product-of-its-own)).
+3. **Scenario.** A named, repeatable story with fictional names, written as a scenario file (section 6.3) and run by the scenario runner on the controlled clock. A new destination kind also gets its receiver contract file. It is the acceptance test and the demo. A feature with no scenario is invisible ([lessons §5](../lead-delivery/lessons.md#5-the-demo-data-became-a-product-of-its-own)).
 4. **Decision function.** Pure: `state → command → events`, no I/O, states as closed types so invalid states cannot be written. Most tests live here. `Policy.classify` and `Dispatch.transition` are the pattern to follow.
 5. **Persistence and read models.** The context's own tables; the views its screens need, built from its events.
 6. **Contract, then screen.** [api.md](../api.md) changes first; then the operator, firm or executive view, each in its own words ([operations principles](../lead-delivery/operations.md#principles)).
@@ -315,14 +411,14 @@ Done when the scenario passes, the invariants are tested, and the glossary,
 
 ---
 
-## 9. Scope and Rollout
+## 10. Scope and Rollout
 
 This RFC sets the target model and order. It does not choose which production
 system hosts each context; that is the question "Do we build a new delivery
 system?" in [answers.md](../lead-delivery/answers.md#routing-and-integrations).
 Whichever system it is follows the same slices, scenarios and invariants.
 
-### 9.1 The lab as reference implementation
+### 10.1 The lab as reference implementation
 
 Refactor the lab towards the model in slice order, so it remains the place each
 rule is proven (RFC-006). Each step keeps every existing test and scenario
@@ -335,8 +431,9 @@ passing.
 | **3** | The **hand-off** aggregate and its events; held deliveries | Hand-off inferred |
 | **4** | Classification stored on the lead with its taxonomy version | Category derived when read |
 | **5** | Conversations as their own record; billing rated from them | Billing built from leads |
-| **6** | The simulator drives the real commands on one controlled clock; scenarios become the documented library | The simulator re-implements the rules |
-| **7** | Tables owned per context; contexts read each other only through events and read models | One store for every context |
+| **6** | Scenarios and receiver contracts become language-neutral data files (section 6.3): fix the formats, write each existing scenario and each fake receiver as a file, generate the fake receivers from their contracts, and add the test control interface | Checks only the lab can run |
+| **7** | The simulator drives the real commands on one controlled clock, reading the scenario files; they become the documented library | The simulator re-implements the rules |
+| **8** | Tables owned per context; contexts read each other only through events and read models | One store for every context |
 
 ### Out of scope
 
@@ -346,7 +443,7 @@ passing.
 
 ---
 
-## 10. Success Criteria
+## 11. Success Criteria
 
 | Metric | Proposed target |
 |---|---|
@@ -354,11 +451,13 @@ passing.
 | Glossary words used unchanged in code, screens and docs | No entries left in [code map: names](../lead-delivery/code-map.md#names-the-code-still-uses) after phase 2 |
 | Rules with a scenario that shows them | Every invariant and policy in the model |
 | Invalid states the type system allows | None for delivery, destination and hand-off after phase 1 |
+| Scenarios and receiver contracts held as data files | All of them after phase 6 |
+| Implementations checked against the scenario files | Every system that delivers leads, whatever its language |
 | Time for a new engineer to name the context and aggregate a change belongs to | First day, from the documents alone |
 
 ---
 
-## 11. Key Risks and Mitigations
+## 12. Key Risks and Mitigations
 
 **Refactoring for its own sake.** *Mitigation:* each phase corrects a named cost from section 2.2, keeps every test and scenario passing, and stops if a slice from RFC-001 to RFC-005 needs the time.
 
@@ -366,11 +465,13 @@ passing.
 
 **The model drifts from production.** *Mitigation:* RFC-006's production feed and contract tests; the Lab / Production / Proposed marks on every rule.
 
+**The scenario format grows into a language of its own.** *Mitigation:* it states facts (given, when, then) in the glossary's words and nothing else; any logic it seems to need belongs in the model, not the file.
+
 **Classification at intake is wrong at first.** *Mitigation:* confidence, a review queue, firm corrections, and the taxonomy version on every record, so a better model never rewrites history.
 
 ---
 
-## 12. Decisions and Approval Request
+## 13. Decisions and Approval Request
 
 | # | Decision | Proposed resolution |
 |---|---|---|
@@ -379,9 +480,11 @@ passing.
 | D3 | Where classification lives | Recorded on the lead at intake, with confidence and taxonomy version |
 | D4 | What billing reads | Conversations from Intake, never leads |
 | D5 | Where revisions live | On the destination; setup and change request are processes over a draft |
-| D6 | The order features are built | The thirteen slices of section 7 |
-| D7 | The definition of done | The seven steps of section 8 |
-| D8 | The lab | Refactored to this model in the phases of section 9.1 |
+| D6 | The order features are built | The thirteen slices of section 8 |
+| D7 | The definition of done | The seven steps of section 9 |
+| D8 | The lab | Refactored to this model in the phases of section 10.1 |
+| D9 | What every implementation must guarantee | The six guarantees of section 6.1; everything else left to the implementation (section 6.2) |
+| D10 | How an implementation proves it follows the model | Scenarios and receiver contracts as language-neutral data files, run through the public contract and a test control interface (section 6.3) |
 
 Once approved, D2 to D5 are recorded in [answers.md](../lead-delivery/answers.md)
 with their reasons, and the model in section 5 moves into
@@ -391,15 +494,17 @@ with their reasons, and the model in section 5 moves into
 
 1. The context map and aggregates (D1 to D5).
 2. The build order and method (D6, D7).
-3. Phase 1 of the lab refactor now.
+3. The guarantees and the scenario and contract files (D9, D10).
+4. Phase 1 of the lab refactor now.
 
 ---
 
-## 13. Next Steps
+## 14. Next Steps
 
 1. Move section 5 into the domain model and the new terms into the glossary.
 2. Lab refactor phase 1: domain types separate from API shapes.
 3. Write the scenario library index: each scenario, its story, its slice and the rule it proves.
+4. Draft the scenario and receiver contract formats from two existing cases (`auth-expired` and one CRM kind), ahead of phase 6.
 
 ---
 

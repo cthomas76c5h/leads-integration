@@ -14,7 +14,7 @@ with why and what would change them, live in
 | [004](004_terms_of_service.md) | Terms of Service Versions and Acceptance | Legal / Product | Scoped acceptance with notice; one version; a permanent record |
 | [005](005_standard_lead_and_integrations.md) | One Standard Lead and the Integration Platform | Product / Engineering | One lead and contract; six native integrations; setup and change by approval |
 | [006](006_integration_lab.md) | The Integration Lab | Engineering | The lab as proving ground; an anonymised production feed; automatic checks |
-| [007](007_domain_model_and_build_order.md) | The Domain Model and the Order to Build It | Engineering / Product | Nine bounded contexts; the hand-off as an aggregate; classification at intake; billing from conversations; thirteen slices and one method per feature |
+| [007](007_domain_model_and_build_order.md) | The Domain Model and the Order to Build It | Engineering / Product | Nine bounded contexts; the hand-off as an aggregate; classification at intake; billing from conversations; thirteen slices and one method per feature; six guarantees any implementation keeps; scenarios and receiver contracts as language-neutral files |
 
 ## How they fit together
 
