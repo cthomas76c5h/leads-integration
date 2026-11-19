@@ -5,7 +5,12 @@ lives in the code, in the order it runs. Functions are named rather than given
 line numbers, so search for the name in the linked file. Paths are from the repo
 root. Words in **bold** are in [GLOSSARY.md](../../GLOSSARY.md).
 
-When you change a flow below, update this file in the same change.
+For a first look, open [code-explorer.html](code-explorer.html) in a browser: the data model,
+each flow from input to the rows it writes, and one example lead followed step by step through
+four stories. It is a snapshot; this file is the reference.
+
+When you change a flow below, update this file in the same change, and the explorer if the
+flow's steps changed.
 
 ## Names the code still uses
 

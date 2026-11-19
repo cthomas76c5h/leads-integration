@@ -30,7 +30,7 @@ at once); each says how the lab differs in its `today` field. They are not bugs.
 | 6 | [contracts/](docs/contracts/README.md) | The checks a feature must pass, as scenario and receiver files | 10 min |
 | 7 | [lead-delivery/answers.md](docs/lead-delivery/answers.md) | Every decision, why, and what would change it | 15 min |
 | 8 | [lead-delivery/operations.md](docs/lead-delivery/operations.md) | What operators do, screen by screen | 15 min |
-| 9 | [lead-delivery/code-map.md](docs/lead-delivery/code-map.md) | Where each flow lives in this lab's code (only if you work on the lab) | 10 min |
+| 9 | [lead-delivery/code-explorer.html](docs/lead-delivery/code-explorer.html) (open in a browser), then [code-map.md](docs/lead-delivery/code-map.md) | The lab's code functionally: the data model, every flow from input to rows written, an example lead followed step by step; then where each flow lives (only if you work on the lab) | 25 min |
 
 Later, by need: the direction and roadmap ([strategy.md](docs/lead-delivery/strategy.md)),
 what building the lab taught us ([lessons.md](docs/lead-delivery/lessons.md)), what

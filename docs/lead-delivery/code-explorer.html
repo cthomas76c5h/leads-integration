@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lead Lab Code Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<!--
+  The lab's code, explained functionally: the data model, each flow from input to rows written,
+  one example lead followed through four stories, the pure rules, and the code's older names.
+  One self-contained file: open it in a browser. It describes backend/src as of November 2026;
+  docs/lead-delivery/code-map.md is the reference kept current with the code. The example lead is
+  synthetic (a reference lead from docs/call-categories) and its steps follow the real rules:
+  Policy.fs (retries), Timing.fs (72 h window, 1 h fallback), Dispatch.fs (routing, fallback).
+-->
+<style>
+/* Layout: one reading column; model and detail side by side on wide screens, stacked on phones. */
+:root {
+  --bg: #f6f7fb; --surface: #ffffff; --ink: #1b1f2e; --muted: #5b6275; --line: #dfe3ee;
+  --accent: #4b45d6; --accent-soft: #ebeafd; --accent-ink: #2d28a8; --on-accent: #ffffff;
+  --ok: #1f7a4d; --ok-soft: #e3f4ea; --warn: #9a5b00; --warn-soft: #fbefd9; --bad: #b42335; --bad-soft: #fbe4e7;
+  --hl: #fff4cc; --hl-line: #e0b400;
+  --g-config: #4b45d6; --g-delivery: #0f7c8c; --g-approval: #7a4bb8; --g-billing: #9a5b00; --g-terms: #5b6275;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12141c; --surface: #1a1d28; --ink: #e8eaf3; --muted: #9aa1b5; --line: #2c3142;
+  --accent: #8f8bff; --accent-soft: #26264a; --accent-ink: #c4c2ff; --on-accent: #11121a;
+  --ok: #5fd39a; --ok-soft: #173326; --warn: #f0b252; --warn-soft: #3a2c12; --bad: #ff7a8a; --bad-soft: #3d1a20;
+  --hl: #3a3317; --hl-line: #c9a227;
+  --g-config: #8f8bff; --g-delivery: #4fc7d6; --g-approval: #b897f0; --g-billing: #f0b252; --g-terms: #9aa1b5; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12141c; --surface: #1a1d28; --ink: #e8eaf3; --muted: #9aa1b5; --line: #2c3142;
+  --accent: #8f8bff; --accent-soft: #26264a; --accent-ink: #c4c2ff; --on-accent: #11121a;
+  --ok: #5fd39a; --ok-soft: #173326; --warn: #f0b252; --warn-soft: #3a2c12; --bad: #ff7a8a; --bad-soft: #3d1a20;
+  --hl: #3a3317; --hl-line: #c9a227;
+  --g-config: #8f8bff; --g-delivery: #4fc7d6; --g-approval: #b897f0; --g-billing: #f0b252; --g-terms: #9aa1b5; color-scheme: dark }
+
+* { box-sizing: border-box }
+html, body { margin: 0 }
+body { background: var(--bg); color: var(--ink); font: 16px/1.55 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 64px }
+.wrap { max-width: 1160px; margin: 0 auto; display: grid; gap: 44px }
+h1, h2, h3 { text-wrap: balance; margin: 0; line-height: 1.2 }
+h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 700; letter-spacing: -0.01em }
+h2 { font-size: 1.45rem; font-weight: 650 }
+h3 { font-size: 1.05rem; font-weight: 650 }
+p { margin: 0; max-width: 70ch }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em }
+code { background: var(--accent-soft); color: var(--accent-ink); padding: 1px 5px; border-radius: 4px }
+.eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.74rem; font-weight: 600; color: var(--muted) }
+.lede { color: var(--muted); font-size: 1.06rem; max-width: 74ch }
+.note { font-size: 0.88rem; color: var(--muted) }
+section { display: grid; gap: 16px }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; min-width: 0 }
+.scroll { overflow-x: auto }
+button { font: inherit; color: inherit }
+button:focus-visible, .node:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.spine { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-family: var(--font-mono); font-size: 0.88rem }
+.spine .box { border: 1px solid var(--line); background: var(--surface); padding: 6px 10px; border-radius: 6px }
+.spine .arrow { color: var(--muted) }
+
+/* Model */
+.model { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 16px; align-items: start }
+@media (max-width: 900px) { .model { grid-template-columns: 1fr } }
+svg.er { width: 100%; min-width: 640px; height: auto; display: block }
+svg.er line, svg.er path { stroke: var(--line); stroke-width: 1.6; fill: none }
+svg.er .node rect.box { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; transition: fill .15s, stroke .15s }
+svg.er .node rect.stripe { stroke: none }
+svg.er .node text { fill: var(--ink); font-family: var(--font-mono); font-size: 13px; font-weight: 600 }
+svg.er .node text.sub { fill: var(--muted); font-family: var(--font-body); font-size: 11px; font-weight: 400 }
+svg.er .node { cursor: pointer }
+svg.er .node:hover rect.box { stroke: var(--accent) }
+svg.er .node.touched rect.box { fill: var(--hl); stroke: var(--hl-line); stroke-width: 2 }
+svg.er .node.on rect.box { stroke: var(--accent); stroke-width: 2.4 }
+svg.er .edge-label { fill: var(--muted); font-family: var(--font-body); font-size: 10.5px }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.82rem; color: var(--muted) }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px }
+.fields { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 0.92rem; margin: 0 }
+.fields dt { font-family: var(--font-mono); font-size: 0.84rem; color: var(--accent-ink) }
+.fields dd { margin: 0 }
+
+/* Pickers, steps */
+.picker { display: flex; flex-wrap: wrap; gap: 8px }
+.picker button { font-size: 0.92rem; border: 1px solid var(--line); background: var(--surface); padding: 7px 12px; border-radius: 999px; cursor: pointer }
+.picker button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent) }
+.io { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px }
+@media (max-width: 720px) { .io { grid-template-columns: 1fr } }
+.io > div { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 0.92rem; min-width: 0 }
+.io b { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 2px }
+ol.steps { list-style: none; margin: 0; padding: 0; counter-reset: step }
+ol.steps li { counter-increment: step; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-top: 1px solid var(--line) }
+ol.steps li::before { content: counter(step); font-family: var(--font-mono); font-weight: 600; font-size: 0.85rem; color: var(--accent-ink);
+  background: var(--accent-soft); width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center }
+.fn { font-family: var(--font-mono); font-size: 0.86rem; font-weight: 600; color: var(--accent-ink); overflow-wrap: anywhere }
+.file { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted) }
+.stack { display: grid; gap: 3px; min-width: 0 }
+.writes { font-size: 0.85rem; color: var(--muted) }
+.writes .w { font-family: var(--font-mono); color: var(--warn) }
+
+/* Example lead */
+.walk { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 16px; align-items: start }
+@media (max-width: 900px) { .walk { grid-template-columns: 1fr } }
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px }
+.timeline button { width: 100%; text-align: left; background: none; border: 1px solid transparent; border-radius: 8px; padding: 8px 10px; cursor: pointer; display: grid; gap: 1px }
+.timeline button:hover { border-color: var(--line) }
+.timeline button[aria-current="step"] { background: var(--accent-soft); border-color: var(--accent) }
+.timeline .when { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums }
+.timeline .what { font-size: 0.92rem; font-weight: 600 }
+.nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
+.nav button { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 12px; cursor: pointer }
+.nav button:disabled { opacity: .45; cursor: default }
+.lead-card { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 0.9rem }
+.lead-card dt { color: var(--muted) }
+.lead-card dd { margin: 0 }
+table.rows { width: 100%; border-collapse: collapse; font-size: 0.86rem; font-variant-numeric: tabular-nums }
+table.rows th, table.rows td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top }
+table.rows th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 600 }
+table.rows td.mono { white-space: nowrap }
+tr.new td { background: var(--hl) }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; white-space: nowrap }
+.pill.ok { background: var(--ok-soft); color: var(--ok) } .pill.warn { background: var(--warn-soft); color: var(--warn) }
+.pill.bad { background: var(--bad-soft); color: var(--bad) } .pill.muted { background: var(--accent-soft); color: var(--muted) }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px }
+.kv > div { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px }
+.kv b { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted) }
+.chips { display: flex; flex-wrap: wrap; gap: 6px }
+.chip { font-family: var(--font-mono); font-size: 0.8rem; background: var(--accent-soft); color: var(--accent-ink); padding: 2px 8px; border-radius: 6px }
+.empty { color: var(--muted); font-size: 0.88rem; padding: 6px 0 }
+
+table.grid { width: 100%; border-collapse: collapse; font-size: 0.92rem }
+table.grid th, table.grid td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top }
+table.grid th { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 600 }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px }
+@media (max-width: 900px) { .two { grid-template-columns: 1fr } }
+ul.plain { margin: 0; padding-left: 1.1em; display: grid; gap: 6px }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header style="display:grid;gap:12px">
+    <div class="eyebrow">lead-integrations · backend/src · F# + SQLite</div>
+    <h1>How the lab works, from a lead's point of view</h1>
+    <p class="lede">A lead comes in, gets one planned delivery per destination, and a worker sends each one until it ends in a recorded state. Everything else configures that, reads it back, or bills for it. Follow the example lead below, or pick any table or flow.</p>
+    <div class="spine" aria-label="The core path">
+      <span class="box">lead in</span><span class="arrow">→</span>
+      <span class="box">plan: one delivery per destination</span><span class="arrow">→</span>
+      <span class="box">attempts, retries, fallback</span><span class="arrow">→</span>
+      <span class="box">outcome + hand-off, read back</span>
+    </div>
+  </header>
+
+  <section aria-labelledby="walk-h">
+    <div><div class="eyebrow">Follow an example lead</div><h2 id="walk-h">One new client, four ways it can go</h2></div>
+    <p class="note">A synthetic lead (the <code>nm-personal-injury</code> reference lead) to a fictional firm with three destinations: Clio Grow (its CRM, which takes new personal-injury cases), email (takes everything) and an SMS fallback. Each step shows what ran, the rows as they stand, and what the lab computes from them. Times are Eastern; the window to act is 72 hours, the fallback delay 1 hour.</p>
+    <div class="picker" id="scenarioPicker" role="group" aria-label="Stories"></div>
+    <div class="walk">
+      <div class="panel" style="display:grid;gap:12px">
+        <div id="scenarioStory" class="note"></div>
+        <ol class="timeline" id="timeline"></ol>
+        <div class="nav"><button type="button" id="prev">← Previous</button><button type="button" id="next">Next →</button><span class="note" id="stepCount"></span></div>
+      </div>
+      <div class="panel" style="display:grid;gap:16px" id="stepView" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="model-h">
+    <div><div class="eyebrow">The data model</div><h2 id="model-h">17 tables in five groups</h2></div>
+    <div class="model">
+      <div class="panel" style="display:grid;gap:10px">
+        <div class="scroll"><svg class="er" id="er" viewBox="0 0 960 560" role="img" aria-label="Tables and how they relate"></svg></div>
+        <div class="legend" id="legend"></div>
+        <p class="note">Highlighted: the tables the current example step or flow writes. Every timestamp is UTC milliseconds; JSON columns hold records from <code>Domain.fs</code>.</p>
+      </div>
+      <div class="panel" style="display:grid;gap:10px" id="tableDetail" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="flows-h">
+    <div><div class="eyebrow">Inputs → functions → outputs</div><h2 id="flows-h">Every flow, in the order it runs</h2></div>
+    <div class="picker" id="flowPicker" role="group" aria-label="Flows"></div>
+    <div class="panel" style="display:grid;gap:14px" id="flow" aria-live="polite"></div>
+  </section>
+
+  <section aria-labelledby="rules-h">
+    <div><div class="eyebrow">Pure functions</div><h2 id="rules-h">The rules, each testable on its own</h2></div>
+    <div class="panel scroll">
+      <table class="grid">
+        <thead><tr><th>Question</th><th>Function</th><th>In → out</th><th>Tested in</th></tr></thead>
+        <tbody id="rules"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="two">
+    <div class="panel" style="display:grid;gap:12px">
+      <div><div class="eyebrow">Code says / glossary says</div><h2>Names to translate</h2></div>
+      <p class="note">The code predates the glossary in places. Screens and docs use the right-hand words.</p>
+      <div class="scroll"><table class="grid"><thead><tr><th>In the code</th><th>In the domain</th></tr></thead><tbody id="names"></tbody></table></div>
+    </div>
+    <div class="panel" style="display:grid;gap:12px">
+      <div><div class="eyebrow">Where it runs</div><h2>Entry points</h2></div>
+      <div class="scroll"><table class="grid"><thead><tr><th>Process</th><th>Start</th><th>Does</th></tr></thead><tbody id="entries"></tbody></table></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="learn-h">
+    <div><div class="eyebrow">Next</div><h2 id="learn-h">Learn it in this order</h2></div>
+    <div class="panel">
+      <ul class="plain">
+        <li><code>docs/lead-delivery/code-map.md</code>: each flow in the order it runs, with files and functions, kept current with the code.</li>
+        <li><code>backend/tests/Tests/*.fs</code>: each test names a behaviour; <code>HandOffTests.fs</code> and <code>CoreTests.fs</code> are the rules in miniature.</li>
+        <li><code>python tools/run_scenarios.py dead-endpoint</code>: one story end to end against a fresh lab; its file in <code>docs/contracts/scenarios/</code> says what should happen at each step.</li>
+        <li>The lab itself (<code>cd backend &amp;&amp; dotnet run --project src/Api</code>, port 5080): open a lead, then its deliveries and attempts; the Delivery Center drawer shows the exact request and answer.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ----- Tables ------------------------------------------------------------------
+const GROUPS = { config: "Configuration", delivery: "Delivery", approval: "Approval", billing: "Billing", terms: "Terms" };
+const TABLES = {
+  firms: { g: "config", x: 395, y: 250, means: "A firm (tenant)", fields: {
+    id: "firm_…", name: "fictional in demos (DemoNames)", contact_types: "JSON: the firm's call types; active ones route its CRMs",
+    custom_labels: "intake question labels, for synthetic leads", time_zone: "IANA name: office hours and the dates the firm reads",
+    key_hash: "salted hash of the platform key: matches one firm across source systems" } },
+  firm_sources: { g: "config", x: 40, y: 250, means: "Where a firm came from", fields: { system: "api2 | chatbot | airi | manual", source_id: "its id there", firm_id: "→ firms" } },
+  import_runs: { g: "config", x: 40, y: 330, means: "Each importer run", fields: { system: "which source", firms: "how many", connections: "how many", notes: "what was skipped and why" } },
+  connections: { g: "config", x: 40, y: 120, means: "A destination", fields: {
+    kind: "catalog kind (Catalog.fs): clio-grow, email, webhook…", delivery_url: "where requests go (in the lab: a fake receiver)",
+    enabled: "false = paused (the desired state)", status: "active | disabled: switched off by the worker (observed health)",
+    consecutive_failures: "the failure streak; 5 switches it off", settings: "JSON: role=fallback, sendWebchats, recipients, to…",
+    credentials: "presence + fingerprint only, never the secret", template: "the live mapping, for webhooks", signing_secret: "signs the body" } },
+  received: { g: "delivery", x: 40, y: 20, means: "What fake receivers saw", fields: { path: "the receiver URL", mode: "ok, reject, flaky, gone, slow, down, expired-auth", answered: "the status sent back", verdict: "why" } },
+  deliveries: { g: "delivery", x: 395, y: 120, means: "One lead → one destination", fields: {
+    status: "pending | delivering | delivered | failed | cancelled | skipped", reason: "why: a routing exclusion, the failure, 'held: destination paused'",
+    next_attempt_at: "when the worker may send it; null = held", replay_of: "the delivery this one resends", template: "a test's mapping, else the connection's" } },
+  attempts: { g: "delivery", x: 395, y: 20, means: "One request + its answer", fields: {
+    n: "attempt number", status: "HTTP status; null when nothing answered", error: "timeout, refused address…",
+    outcome: "delivered | retry: … | failed: … | connection disabled", request_body: "exactly what was sent",
+    response_snippet: "the receiver's own words", next_attempt_in_ms: "the wait chosen after it" } },
+  events: { g: "delivery", x: 750, y: 120, means: "A lead, recorded once", fields: {
+    lead: "JSON Lead: caller, phone, callType, message, intake answers, webchat", test: "a test lead never counts",
+    created_at: "when it was recorded: the window to act starts here" } },
+  setups: { g: "approval", x: 750, y: 250, means: "Onboarding a destination", fields: {
+    token: "the firm contact's approval link", version: "the current draft version", rows: "the mapping being proposed",
+    active: "the live revision", connection_id: "→ connections, once connected" } },
+  approvals: { g: "approval", x: 750, y: 330, means: "A firm's decision on a version", fields: { version: "which revision", decision: "approved | changes", by_name: "who decided" } },
+  setup_events: { g: "approval", x: 750, y: 410, means: "Setup history (audit)", fields: { who: "operator or firm contact", what: "what happened" } },
+  billing_accounts: { g: "billing", x: 220, y: 410, means: "A firm's billing setup", fields: { cycle_day: "the day a cycle starts, on the company calendar", legacy_plan_minutes: "for the side-by-side legacy bill" } },
+  subscriptions: { g: "billing", x: 395, y: 410, means: "A plan over a period", fields: { price_id: "→ price_book", starts_at: "from", ends_at: "until", discount_pct: "explicit, approved, time-limited" } },
+  price_book: { g: "billing", x: 395, y: 490, means: "Plans, by version", fields: { tier: "answer | deliver | insight", included: "conversations included", monthly_cents: "the fee", overage_cents: "per extra conversation", effective_from: "when this version starts" } },
+  invoices: { g: "billing", x: 570, y: 410, means: "A closed cycle, locked", fields: { statement: "JSON Statement exactly as rated", locked_at: "it never changes after this" } },
+  terms_versions: { g: "terms", x: 40, y: 490, means: "One published terms text", fields: { change_kind: "editorial | pricing | material", require: "nobody | admins | all", effective_at: "when acceptance is enforced" } },
+  terms_acceptances: { g: "terms", x: 40, y: 410, means: "Who accepted what", fields: { version: "→ terms_versions", firm_id: "→ firms", role: "admin | member", at: "append-only" } },
+};
+const EDGES = [
+  ["firms", "connections", "destinations"], ["firms", "events", "leads"], ["events", "deliveries", "one per destination"],
+  ["connections", "deliveries", "receives"], ["deliveries", "attempts", "request + answer"], ["firms", "firm_sources"],
+  ["firms", "setups", "onboarding"], ["setups", "approvals"], ["approvals", "setup_events"], ["firms", "billing_accounts"],
+  ["firms", "subscriptions"], ["subscriptions", "price_book"], ["firms", "invoices"], ["terms_acceptances", "terms_versions"],
+  ["terms_acceptances", "firms"], ["firm_sources", "import_runs"],
+];
+const W = 170, H = 46;
+
+function drawModel() {
+  const svg = $("er");
+  const c = (n) => [TABLES[n].x + W / 2, TABLES[n].y + H / 2];
+  let s = "";
+  for (const [a, b, label] of EDGES) {
+    const [x1, y1] = c(a), [x2, y2] = c(b);
+    s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+    if (label) s += `<text class="edge-label" x="${(x1 + x2) / 2 + 6}" y="${(y1 + y2) / 2 - 4}">${label}</text>`;
+  }
+  // deliveries.replay_of: a resend points at the delivery it resends.
+  const d = TABLES.deliveries;
+  s += `<path d="M ${d.x + W} ${d.y + 12} C ${d.x + W + 40} ${d.y + 4}, ${d.x + W + 40} ${d.y + 42}, ${d.x + W} ${d.y + 34}"/>`;
+  s += `<text class="edge-label" x="${d.x + W + 30}" y="${d.y + 58}">replay_of</text>`;
+  for (const [name, t] of Object.entries(TABLES)) {
+    s += `<g class="node" data-t="${name}" tabindex="0" role="button" aria-label="${name}: ${esc(t.means)}">
+      <rect class="box" x="${t.x}" y="${t.y}" width="${W}" height="${H}" rx="7"/>
+      <rect class="stripe" x="${t.x}" y="${t.y}" width="5" height="${H}" rx="2" fill="var(--g-${t.g})"/>
+      <text x="${t.x + 14}" y="${t.y + 20}">${name}</text>
+      <text class="sub" x="${t.x + 14}" y="${t.y + 36}">${esc(t.means)}</text></g>`;
+  }
+  svg.innerHTML = s;
+  $("legend").innerHTML = Object.entries(GROUPS).map(([k, v]) => `<span><i style="background:var(--g-${k})"></i>${v}</span>`).join("");
+}
+
+function showTable(name) {
+  const t = TABLES[name];
+  $("tableDetail").innerHTML = `<div><div class="eyebrow">${GROUPS[t.g]}</div><h3 class="mono">${name}</h3><p class="note">${esc(t.means)}</p></div>
+    <dl class="fields">${Object.entries(t.fields).map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
+  document.querySelectorAll("#er .node").forEach((n) => n.classList.toggle("on", n.dataset.t === name));
+}
+function touch(tables) {
+  document.querySelectorAll("#er .node").forEach((n) => n.classList.toggle("touched", tables.includes(n.dataset.t)));
+}
+
+// ----- The example lead ---------------------------------------------------------
+// Tue Nov 17 2026, Eastern. Retry waits after each failed attempt: 5 s, 1 min, 5 min, 30 min, 2 h, 6 h, 12 h, 24 h, 24 h.
+const LEAD = { id: "evt_a1", caller: "Dana Whitfield", phone: "+15555550101", callType: "*New Personal Injury Case",
+  category: "new-matter", practiceArea: "personal-injury",
+  message: "Rear-ended at a red light on Tuesday; neck and lower back pain, went to urgent care the next day." };
+const BILLING_LEAD = { id: "evt_b1", caller: "Harold Finch", phone: "+15555550140", callType: "*Billing/Payment Calls",
+  category: "billing", practiceArea: null, message: "Wants to set up a payment plan for the retainer balance." };
+const DUE = "Fri 9:00:00 AM";
+const routedOut = `call type "*Billing/Payment Calls" is not routed: it matches none of the firm's active contact types`;
+
+// A delivery row: [id, destination, status, reason, nextAttemptAt]; an attempt row: [delivery, n, at, status, outcome, nextWait].
+const d = (id, dest, status, reason, next) => ({ id, dest, status, reason, next });
+const a = (dlv, n, at, status, outcome, wait) => ({ dlv, n, at, status, outcome, wait });
+
+const SCENARIOS = [
+  { id: "works", name: "Everything works", lead: LEAD,
+    story: "Both usual destinations accept on the first attempt. The hand-off is reached a second after the call.",
+    steps: [
+      { t: "9:00:00 AM", title: "The lead is recorded", fns: ["Handlers.sendLead", "Dispatch.publish", "Dispatch.routingExclusion"], writes: ["events", "deliveries"],
+        why: "One transaction: the event, then one delivery per live destination. The SMS fallback gets none: a fallback only takes hand-offs running late. The CRM takes this call type, so both deliveries are pending and due now.",
+        deliveries: [d("dlv_crm", "Clio Grow", "pending", "", "9:00:00 AM"), d("dlv_email", "Email", "pending", "", "9:00:00 AM")], attempts: [],
+        handOff: ["pending", "—", "—"], outcome: ["in-progress", "In progress"] },
+      { t: "9:00:01 AM", title: "Email accepts", fns: ["Dispatch.runDue", "Store.claimDue", "Dispatch.attempt", "Payloads.build", "Policy.classify", "Dispatch.transition"], writes: ["deliveries", "attempts"],
+        why: "The worker claims both due deliveries and sends each independently. The email receiver answers 201: Policy.classify says Delivered.",
+        deliveries: [d("dlv_crm", "Clio Grow", "delivering", "", "—"), d("dlv_email", "Email", "delivered", "", "—")],
+        attempts: [a("dlv_email", 1, "9:00:01 AM", 201, "delivered", "—")],
+        handOff: ["reached", "9:00:01 AM", "Email"], outcome: ["in-progress", "In progress"], newRows: ["dlv_email#1"] },
+      { t: "9:00:01 AM", title: "Clio Grow accepts", fns: ["Dispatch.attempt", "Policy.classify", "Dispatch.transition"], writes: ["deliveries", "attempts"],
+        why: "The CRM answers 201 too. Every delivery has ended accepted, so the lead's outcome is accepted. The hand-off was the first accepted delivery: email, 1 second after the call, well inside 72 hours.",
+        deliveries: [d("dlv_crm", "Clio Grow", "delivered", "", "—"), d("dlv_email", "Email", "delivered", "", "—")],
+        attempts: [a("dlv_email", 1, "9:00:01 AM", 201, "delivered", "—"), a("dlv_crm", 1, "9:00:01 AM", 201, "delivered", "—")],
+        handOff: ["reached", "9:00:01 AM", "Email"], outcome: ["accepted", "Accepted"], newRows: ["dlv_crm#1"] },
+    ] },
+  { id: "crm-down", name: "CRM down, retries carry it", lead: LEAD,
+    story: "Clio Grow answers 503 for a few minutes. Email reaches the firm at once; the CRM record arrives on the fourth attempt.",
+    steps: [
+      { t: "9:00:00 AM", title: "The lead is recorded", fns: ["Dispatch.publish", "Dispatch.routingExclusion"], writes: ["events", "deliveries"],
+        why: "As before: two pending deliveries, due now.",
+        deliveries: [d("dlv_crm", "Clio Grow", "pending", "", "9:00:00 AM"), d("dlv_email", "Email", "pending", "", "9:00:00 AM")], attempts: [],
+        handOff: ["pending", "—", "—"], outcome: ["in-progress", "In progress"] },
+      { t: "9:00:01 AM", title: "Email accepts; Clio Grow answers 503", fns: ["Dispatch.attempt", "Policy.classify", "Policy.nextDelayMs", "Dispatch.transition"], writes: ["deliveries", "attempts"],
+        why: "503 is a transient failure: Retry. Policy.nextDelayMs picks the first wait in the schedule (5 seconds, from delivery-timing.json). Destinations are independent, so email is accepted regardless and the hand-off is reached.",
+        deliveries: [d("dlv_crm", "Clio Grow", "pending", "HTTP 503", "9:00:06 AM"), d("dlv_email", "Email", "delivered", "", "—")],
+        attempts: [a("dlv_email", 1, "9:00:01 AM", 201, "delivered", "—"), a("dlv_crm", 1, "9:00:01 AM", 503, "retry: HTTP 503", "5 s")],
+        handOff: ["reached", "9:00:01 AM", "Email"], outcome: ["in-progress", "In progress"], newRows: ["dlv_email#1", "dlv_crm#1"] },
+      { t: "9:00:06 AM", title: "Second attempt: 503 again", fns: ["Dispatch.runDue", "Dispatch.attempt", "Dispatch.transition"], writes: ["deliveries", "attempts"],
+        why: "Due again, sent again, 503 again. The next wait is 1 minute. Retrying is not a failure streak: only deliveries that end refused or gave up count toward switching a destination off.",
+        deliveries: [d("dlv_crm", "Clio Grow", "pending", "HTTP 503", "9:01:06 AM"), d("dlv_email", "Email", "delivered", "", "—")],
+        attempts: [a("dlv_email", 1, "9:00:01 AM", 201, "delivered", "—"), a("dlv_crm", 1, "9:00:01 AM", 503, "retry: HTTP 503", "5 s"), a("dlv_crm", 2, "9:00:06 AM", 503, "retry: HTTP 503", "1 min")],
+        handOff: ["reached", "9:00:01 AM", "Email"], outcome: ["in-progress", "In progress"], newRows: ["dlv_crm#2"] },
+      { t: "9:01:06 AM", title: "Third attempt: 503", fns: ["Dispatch.attempt", "Dispatch.transition"], writes: ["deliveries", "attempts"],
+        why: "Next wait: 5 minutes. The Delivery Center shows it under Retrying; it counts as late only after 15 minutes.",
+        deliveries: [d("dlv_crm", "Clio Grow", "pending", "HTTP 503", "9:06:06 AM"), d("dlv_email", "Email", "delivered", "", "—")],
+        attempts: [a("dlv_email", 1, "9:00:01 AM", 201, "delivered", "—"), a("dlv_crm", 1, "9:00:01 AM", 503, "retry: HTTP 503", "5 s"), a("dlv_crm", 2, "9:00:06 AM", 503, "retry: HTTP 503", "1 min"), a("dlv_crm", 3, "9:01:06 AM", 503, "retry: HTTP 503", "5 min")],
+        handOff: ["reached", "9:00:01 AM", "Email"], outcome: ["in-progress", "In progress"], newRows: ["dlv_crm#3"] },
+      { t: "9:06:06 AM", title: "Fourth attempt: accepted", fns: ["Dispatch.attempt", "Policy.classify", "Dispatch.transition"], writes: ["deliveries", "attempts"],
+        why: "Clio Grow has recovered and answers 201. The record has arrived; the lead's outcome becomes accepted. Nobody had to do anything.",
+        deliveries: [d("dlv_crm", "Clio Grow", "delivered", "", "—"), d("dlv_email", "Email", "delivered", "", "—")],
+        attempts: [a("dlv_email", 1, "9:00:01 AM", 201, "delivered", "—"), a("dlv_crm", 1, "9:00:01 AM", 503, "retry: HTTP 503", "5 s"), a("dlv_crm", 2, "9:00:06 AM", 503, "retry: HTTP 503", "1 min"), a("dlv_crm", 3, "9:01:06 AM", 503, "retry: HTTP 503", "5 min"), a("dlv_crm", 4, "9:06:06 AM", 201, "delivered", "—")],
+        handOff: ["reached", "9:00:01 AM", "Email"], outcome: ["accepted", "Accepted"], newRows: ["dlv_crm#4"] },
+    ] },
+  { id: "all-down", name: "Every route down: the fallback", lead: LEAD,
+    story: "Clio Grow and the email relay are both down until 11:00 AM. After an hour with nothing accepted, the agreed SMS fallback reaches the firm's intake team.",
+    steps: [
+      { t: "9:00:00 AM", title: "The lead is recorded", fns: ["Dispatch.publish"], writes: ["events", "deliveries"],
+        why: "Two pending deliveries; the fallback has none yet.",
+        deliveries: [d("dlv_crm", "Clio Grow", "pending", "", "9:00:00 AM"), d("dlv_email", "Email", "pending", "", "9:00:00 AM")], attempts: [],
+        handOff: ["pending", "—", "—"], outcome: ["in-progress", "In progress"] },
+      { t: "9:00:01 AM", title: "Both answer 503", fns: ["Dispatch.attempt", "Policy.classify", "Dispatch.transition"], writes: ["deliveries", "attempts"],
+        why: "Both retry on the schedule: 5 s, 1 min, 5 min, 30 min, 2 h… The hand-off is still pending: nobody at the firm has the lead.",
+        deliveries: [d("dlv_crm", "Clio Grow", "pending", "HTTP 503", "9:00:06 AM"), d("dlv_email", "Email", "pending", "HTTP 503", "9:00:06 AM")],
+        attempts: [a("dlv_crm", 1, "9:00:01 AM", 503, "retry: HTTP 503", "5 s"), a("dlv_email", 1, "9:00:01 AM", 503, "retry: HTTP 503", "5 s")],
+        handOff: ["pending", "—", "—"], outcome: ["in-progress", "In progress"], newRows: ["dlv_crm#1", "dlv_email#1"] },
+      { t: "9:36:06 AM", title: "Five attempts each, still down", fns: ["Dispatch.runDue", "Dispatch.attempt"], writes: ["deliveries", "attempts"],
+        why: "Attempts at 9:00:01, 9:00:06, 9:01:06, 9:06:06 and 9:36:06 all answered 503. The next wait is 2 hours: 11:36:06 AM.",
+        deliveries: [d("dlv_crm", "Clio Grow", "pending", "HTTP 503", "11:36:06 AM"), d("dlv_email", "Email", "pending", "HTTP 503", "11:36:06 AM")],
+        attempts: [a("dlv_crm", "1–5", "9:00:01–9:36:06", 503, "retry: HTTP 503", "… 2 h"), a("dlv_email", "1–5", "9:00:01–9:36:06", 503, "retry: HTTP 503", "… 2 h")],
+        handOff: ["pending", "—", "—"], outcome: ["in-progress", "In progress"] },
+      { t: "10:00:00 AM", title: "The fallback takes the hand-off", fns: ["Dispatch.runFallbacks", "Urgency.fallbackAfterMs", "Store.insertDelivery"], writes: ["deliveries"],
+        why: "One hour with nothing accepted: the fallback delay for a new matter (15 minutes for emergencies and custody). runFallbacks, every few seconds in the worker, adds one delivery to the firm's agreed SMS fallback. The usual deliveries keep retrying: the record still matters.",
+        deliveries: [d("dlv_crm", "Clio Grow", "pending", "HTTP 503", "11:36:06 AM"), d("dlv_email", "Email", "pending", "HTTP 503", "11:36:06 AM"), d("dlv_sms", "SMS fallback", "pending", "", "10:00:00 AM")],
+        attempts: [a("dlv_crm", "1–5", "9:00:01–9:36:06", 503, "retry: HTTP 503", "… 2 h"), a("dlv_email", "1–5", "9:00:01–9:36:06", 503, "retry: HTTP 503", "… 2 h")],
+        handOff: ["pending", "—", "—"], outcome: ["in-progress", "In progress"], newRows: ["dlv_sms"] },
+      { t: "10:00:01 AM", title: "The SMS reaches the intake team", fns: ["Dispatch.attempt", "Policy.classify"], writes: ["deliveries", "attempts"],
+        why: "The fallback accepts: the hand-off is reached by fallback, 1 hour after the call and inside its 72-hour window. The firm sees that the fallback was used.",
+        deliveries: [d("dlv_crm", "Clio Grow", "pending", "HTTP 503", "11:36:06 AM"), d("dlv_email", "Email", "pending", "HTTP 503", "11:36:06 AM"), d("dlv_sms", "SMS fallback", "delivered", "", "—")],
+        attempts: [a("dlv_crm", "1–5", "9:00:01–9:36:06", 503, "retry: HTTP 503", "… 2 h"), a("dlv_email", "1–5", "9:00:01–9:36:06", 503, "retry: HTTP 503", "… 2 h"), a("dlv_sms", 1, "10:00:01 AM", 201, "delivered", "—")],
+        handOff: ["reached-by-fallback", "10:00:01 AM", "SMS fallback"], outcome: ["in-progress", "In progress"], newRows: ["dlv_sms#1"] },
+      { t: "11:36:06 AM", title: "The outage is over: the records arrive", fns: ["Dispatch.runDue", "Dispatch.attempt"], writes: ["deliveries", "attempts"],
+        why: "Both recovered at 11:00. The sixth attempts are accepted. The hand-off stays reached by fallback; the CRM record arrives 2½ hours after the call, still inside the window.",
+        deliveries: [d("dlv_crm", "Clio Grow", "delivered", "", "—"), d("dlv_email", "Email", "delivered", "", "—"), d("dlv_sms", "SMS fallback", "delivered", "", "—")],
+        attempts: [a("dlv_crm", "1–5", "9:00:01–9:36:06", 503, "retry: HTTP 503", "… 2 h"), a("dlv_email", "1–5", "9:00:01–9:36:06", 503, "retry: HTTP 503", "… 2 h"), a("dlv_sms", 1, "10:00:01 AM", 201, "delivered", "—"), a("dlv_crm", 6, "11:36:06 AM", 201, "delivered", "—"), a("dlv_email", 6, "11:36:06 AM", 201, "delivered", "—")],
+        handOff: ["reached-by-fallback", "10:00:01 AM", "SMS fallback"], outcome: ["accepted", "Accepted"], newRows: ["dlv_crm#6", "dlv_email#6"] },
+    ] },
+  { id: "routing", name: "Routing excludes the CRM", lead: BILLING_LEAD,
+    story: "A billing question. The firm's CRM takes only new personal-injury cases, so its delivery is not sent, with the reason recorded. Email takes everything.",
+    steps: [
+      { t: "9:00:00 AM", title: "Recorded: CRM not sent, by routing", fns: ["Dispatch.publish", "Dispatch.routingExclusion"], writes: ["events", "deliveries"],
+        why: "The firm's active call types (firms.contact_types) list only \"*New Personal Injury Case\". The CRM delivery is recorded as skipped (shown as Not sent), so it is visible why it went nowhere; email is pending.",
+        deliveries: [d("dlv_crm", "Clio Grow", "skipped", routedOut, "—"), d("dlv_email", "Email", "pending", "", "9:00:00 AM")], attempts: [],
+        handOff: ["pending", "—", "—"], outcome: ["in-progress", "In progress"] },
+      { t: "9:00:01 AM", title: "Email accepts", fns: ["Dispatch.attempt", "Policy.classify"], writes: ["deliveries", "attempts"],
+        why: "The lead reaches the firm by email. Had every destination excluded it, the lead would owe no hand-off at all: never missed, not in the in-time numbers, never sent to the fallback.",
+        deliveries: [d("dlv_crm", "Clio Grow", "skipped", routedOut, "—"), d("dlv_email", "Email", "delivered", "", "—")],
+        attempts: [a("dlv_email", 1, "9:00:01 AM", 201, "delivered", "—")],
+        handOff: ["reached", "9:00:01 AM", "Email"], outcome: ["accepted", "Accepted"], newRows: ["dlv_email#1"] },
+    ] },
+];
+
+const PILL = {
+  pending: ["Pending", "warn"], delivering: ["Sending", "warn"], delivered: ["Accepted", "ok"], skipped: ["Not sent", "muted"],
+  failed: ["Refused", "bad"], cancelled: ["Cancelled", "muted"],
+  "in-progress": ["In progress", "warn"], accepted: ["Accepted", "ok"],
+  reached: ["Reached", "ok"], "reached-by-fallback": ["Reached by fallback", "warn"], expired: ["Missed its window", "bad"],
+};
+const pill = (k) => { const [label, tone] = PILL[k] || [k, "muted"]; return `<span class="pill ${tone}">${esc(label)}</span>`; };
+
+let walk = { scenario: "crm-down", step: 0 };
+function renderWalk() {
+  const sc = SCENARIOS.find((s) => s.id === walk.scenario);
+  const st = sc.steps[walk.step];
+  $("scenarioPicker").innerHTML = SCENARIOS.map((s) => `<button type="button" data-s="${s.id}" aria-pressed="${s.id === sc.id}">${esc(s.name)}</button>`).join("");
+  $("scenarioStory").textContent = sc.story;
+  $("timeline").innerHTML = sc.steps.map((x, i) => `<li><button type="button" data-step="${i}" ${i === walk.step ? 'aria-current="step"' : ""}>
+    <span class="when">${esc(x.t)}</span><span class="what">${esc(x.title)}</span></button></li>`).join("");
+  $("prev").disabled = walk.step === 0;
+  $("next").disabled = walk.step === sc.steps.length - 1;
+  $("stepCount").textContent = `Step ${walk.step + 1} of ${sc.steps.length}`;
+  const L = sc.lead, isNew = (key) => (st.newRows || []).includes(key);
+  $("stepView").innerHTML = `
+    <div style="display:grid;gap:6px"><div class="eyebrow">${esc(st.t)} · Tue Nov 17</div><h3>${esc(st.title)}</h3><p>${esc(st.why)}</p></div>
+    <div style="display:grid;gap:6px"><b class="eyebrow">Ran</b><div class="chips">${st.fns.map((f) => `<span class="chip">${esc(f)}</span>`).join("")}</div></div>
+    <div class="kv">
+      <div><b>Hand-off</b>${pill(st.handOff[0])}<span class="note">${st.handOff[1] === "—" ? `window to act: 72 h, due ${DUE}` : `at ${esc(st.handOff[1])} by ${esc(st.handOff[2])}`}</span></div>
+      <div><b>Lead outcome</b>${pill(st.outcome[0])}<span class="note">computed on read (Store.readLead)</span></div>
+      <div><b>Writes</b><span class="mono">${st.writes.join(", ")}</span></div>
+    </div>
+    <div style="display:grid;gap:6px"><b class="eyebrow">events</b>
+      <div class="scroll"><dl class="lead-card"><dt>id</dt><dd class="mono">${L.id}</dd><dt>caller</dt><dd>${esc(L.caller)} · <span class="mono">${L.phone}</span></dd>
+      <dt>callType</dt><dd class="mono">${esc(L.callType)}</dd><dt>means</dt><dd>${esc(L.category)}${L.practiceArea ? ` · ${esc(L.practiceArea)}` : ""} <span class="note">(Categories.classify)</span></dd>
+      <dt>message</dt><dd>${esc(L.message)}</dd><dt>created_at</dt><dd class="mono">9:00:00 AM</dd></dl></div></div>
+    <div style="display:grid;gap:6px"><b class="eyebrow">deliveries</b><div class="scroll"><table class="rows">
+      <thead><tr><th>id</th><th>destination</th><th>status</th><th>reason</th><th>next_attempt_at</th></tr></thead>
+      <tbody>${st.deliveries.map((x) => `<tr class="${isNew(x.id) ? "new" : ""}"><td class="mono">${x.id}</td><td>${esc(x.dest)}</td><td>${pill(x.status)} <span class="file">${x.status}</span></td><td>${esc(x.reason) || "—"}</td><td class="mono">${esc(x.next)}</td></tr>`).join("")}</tbody></table></div></div>
+    <div style="display:grid;gap:6px"><b class="eyebrow">attempts</b>${st.attempts.length ? `<div class="scroll"><table class="rows">
+      <thead><tr><th>delivery</th><th>n</th><th>at</th><th>HTTP</th><th>outcome</th><th>next wait</th></tr></thead>
+      <tbody>${st.attempts.map((x) => `<tr class="${isNew(x.dlv + "#" + x.n) ? "new" : ""}"><td class="mono">${x.dlv}</td><td class="mono">${x.n}</td><td class="mono">${esc(x.at)}</td><td class="mono">${x.status}</td><td>${esc(x.outcome)}</td><td class="mono">${esc(x.wait)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">None yet: nothing has been sent.</div>`}</div>`;
+  touch(st.writes);
+}
+
+// ----- Flows --------------------------------------------------------------------
+const FLOWS = [
+  { id: "record", name: "Record a lead", input: "POST /api/firms/{id}/leads (also Seed, Simulate, the scenario runner)", output: "{ event, deliveries }: planned, not yet sent", touches: ["events", "deliveries"],
+    steps: [["Handlers.sendLead", "Api/Handlers.fs", "Builds a Lead from a reference lead or Synthetic.lead.", []],
+      ["Dispatch.publish", "Core/Dispatch.fs", "In one transaction: the event, then one delivery per destination that is enabled, active, live and not the fallback.", ["events", "deliveries"]],
+      ["Dispatch.routingExclusion", "Core/Dispatch.fs", "A chat lead to a destination that refuses chat, or a CRM whose firm's active call types exclude this one → skipped, with the reason. Otherwise pending, due now.", ["deliveries"]]] },
+  { id: "send", name: "Send and retry", input: "Time: the DeliveryWorker loop (Api/Worker.fs), or test control's advance", output: "an attempt, the delivery's next state, the destination's health", touches: ["deliveries", "attempts", "connections"],
+    steps: [["Dispatch.runDue → Store.claimDue", "Core/Dispatch.fs, Core/Store.fs", "Claims due pending deliveries (status → delivering).", ["deliveries"]],
+      ["Dispatch.attempt", "Core/Dispatch.fs", "Destination switched off → cancelled. Paused, and not a test → held: pending with no next attempt.", ["deliveries"]],
+      ["Dispatch.buildFor → Payloads.build", "Core/Payloads.fs", "The body this kind expects, from the lead (and the mapping template for webhooks).", []],
+      ["Address checks, then HTTP POST", "Core/Address.fs, Core/Signing.fs", "Refuses unsafe addresses; signed headers carry the lead id.", []],
+      ["Policy.classify", "Core/Policy.fs", "Delivered; Retry (no answer, 408, 425, 429, 5xx); Failed (other 4xx, 3xx); Disable (410).", []],
+      ["Dispatch.transition", "Core/Dispatch.fs", "New status; the next wait from Policy.nextDelayMs (Timing: about 69 hours in all); the failure streak; switch-off at 5; a 410 cancels the destination's pending deliveries.", ["attempts", "deliveries", "connections"]]] },
+  { id: "fallback", name: "Fallback hand-off", input: "Time: every few seconds in the worker", output: "one delivery to the firm's agreed fallback", touches: ["deliveries"],
+    steps: [["Dispatch.runFallbacks", "Core/Dispatch.fs", "Leads with nothing accepted, at firms with a destination whose settings say role=fallback, that routing did not exclude everywhere.", []],
+      ["Urgency.fallbackAfterMs", "Core/Urgency.fs ← Timing.fs", "Its own clock: 1 hour, 15 minutes for emergencies and custody.", []],
+      ["Store.insertDelivery", "Core/Store.fs", "Once per lead; the worker sends it like any other.", ["deliveries"]]] },
+  { id: "pause", name: "Pause, resume, reactivate", input: "PATCH /api/connections/{id} { enabled?, reactivate? }", output: "the Connection", touches: ["connections", "deliveries"],
+    steps: [["Handlers.patchConnection", "Api/Handlers.fs", "enabled=false pauses (desired state); reactivate clears a switch-off and the streak.", ["connections"]],
+      ["Store.releaseHeld", "Core/Store.fs", "When enabled and active again, held deliveries fall due now.", ["deliveries"]]] },
+  { id: "resend", name: "Resend", input: "POST /api/deliveries/{id}/replay", output: "a new Delivery: same lead id, replayOf set", touches: ["deliveries"],
+    steps: [["Dispatch.replay", "Core/Dispatch.fs", "Refused while the destination is switched off. The newest delivery per (lead, destination) is the one that counts.", ["deliveries"]]] },
+  { id: "read", name: "Read a lead", input: "GET /api/leads, /api/leads/{id}", output: "LeadSummary / LeadDetail", touches: [],
+    steps: [["Store.listLeads / leadOrFail", "Core/Store.fs", "Counts the latest delivery per destination.", []],
+      ["Categories.classify", "Core/Categories.fs", "Call type → category, practice area, modifiers (taxonomy.json).", []],
+      ["Store.readLead", "Core/Store.fs", "Hand-off: the first accepted delivery, against Urgency.windowMs (72 h; 24 h for emergencies and custody). None for a test lead, or one routing excluded everywhere.", []],
+      ["outcomeOf", "Core/Store.fs", "expired first (shown as reached late / not reached in time), then none, pending, refused, skipped, delivered. Nothing stored.", []]] },
+  { id: "setup", name: "Set up a destination", input: "/api/setups/* (operator), /api/client/setups/{token}/* (firm contact)", output: "a Setup with its state and next action", touches: ["setups", "approvals", "setup_events", "connections"],
+    steps: [["Onboarding.create / update", "Core/Onboarding.fs", "Draft revisions; any edit is a new version and approvals never carry over.", ["setups", "setup_events"]],
+      ["Onboarding.connect / decide", "Core/Onboarding.fs", "The firm connects and approves, or asks for changes, through its token link.", ["approvals", "connections"]],
+      ["Onboarding.test / confirm / goLive", "Core/Onboarding.fs", "A test lead to that destination only; on go-live the approved mapping becomes the connection's template.", ["deliveries", "connections"]]] },
+  { id: "report", name: "Firm report", input: "GET /api/firms/{id}/report", output: "FirmReport: the week in categories, hand-off, proof of delivery", touches: [],
+    steps: [["Report.build", "Core/Report.fs", "The last 7 days of the firm's leads; in-time counts leave out leads that owe no hand-off.", []],
+      ["Report.afterHours", "Core/Report.fs ← Zones.fs", "8 am–6 pm weekdays in the firm's own time zone.", []]] },
+  { id: "bill", name: "Billing statement", input: "GET /api/firms/{id}/statement?which=current|previous", output: "Statement: segments, free by rule, lines, totals, legacy comparison", touches: ["invoices"],
+    steps: [["Billing.cycleOf", "Core/Billing.fs ← Zones.fs", "The cycle on the company calendar (America/New_York, daylight saving included).", []],
+      ["Billing.conversations + rules", "Core/Billing.fs", "Each conversation billable or free by a named rule (the lab builds them from leads; RFC-007 moves this to conversations).", []],
+      ["Billing.rate → statement", "Core/Billing.fs", "Plan segments, included, overage, lines. A closed cycle is rated once and locked.", ["invoices"]]] },
+  { id: "import", name: "Import source systems", input: "dotnet run --project src/Import -- all (read-only)", output: "firms and destinations, shape only", touches: ["firms", "firm_sources", "connections", "import_runs"],
+    steps: [["Importers: Api2, Chatbot, Airi", "Import/*.fs", "Read each source; a secret becomes present + fingerprint the moment it is read (Secrets.fs).", []],
+      ["Import.apply", "Core/Import.fs", "Upserts firms by source, matches firms across systems, writes connections pointing at the fake receivers.", ["firms", "firm_sources", "connections", "import_runs"]]] },
+];
+let flowId = "send";
+function renderFlow() {
+  const f = FLOWS.find((x) => x.id === flowId);
+  $("flowPicker").innerHTML = FLOWS.map((x) => `<button type="button" data-f="${x.id}" aria-pressed="${x.id === f.id}">${esc(x.name)}</button>`).join("");
+  $("flow").innerHTML = `<h3>${esc(f.name)}</h3>
+    <div class="io"><div><b>Input</b>${esc(f.input)}</div><div><b>Writes</b>${f.touches.length ? `<span class="mono">${f.touches.join(", ")}</span>` : "nothing: reads only"}</div><div><b>Output</b>${esc(f.output)}</div></div>
+    <ol class="steps">${f.steps.map(([fn, file, what, w]) => `<li><div class="stack"><span class="fn">${esc(fn)}</span><span class="file">${esc(file)}</span><span>${esc(what)}</span>${w.length ? `<span class="writes">writes <span class="w">${w.join(", ")}</span></span>` : ""}</div></li>`).join("")}</ol>`;
+}
+
+// ----- Reference tables ---------------------------------------------------------
+const RULES = [
+  ["What did the receiver's answer mean?", "Policy.classify", "status, error, Retry-After → Delivered | Retry | Failed | Disable", "CoreTests"],
+  ["When is the next attempt?", "Policy.nextDelayMs", "attempts so far, Retry-After → the wait, or none (Timing schedule)", "CoreTests"],
+  ["What does one attempt do?", "Dispatch.transition", "destination, outcome → status, next wait, streak, switch-off", "SimulateTests, DiagnoseTests"],
+  ["Does this destination take this lead?", "Dispatch.routingExclusion", "firm, destination, lead → reason or none", "ApiTests, HandOffTests"],
+  ["What kind of call is it?", "Categories.classify", "call type → category, practice area, modifiers", "CategoryTests"],
+  ["Is it in time?", "Urgency.windowMs, handOffState", "category, times → on-time | expired | waiting", "HandOffTests"],
+  ["When does the fallback take it?", "Urgency.fallbackAfterMs", "category → delay", "HandOffTests"],
+  ["What body does a destination get?", "Payloads.build", "kind, lead, template → content type + body", "PayloadTests"],
+  ["Would the CRM accept it?", "FakeCrm.check", "kind, body → missing fields", "PayloadTests"],
+  ["Why did it fail, in operator words?", "Diagnose", "delivery → failure class, cause", "DiagnoseTests"],
+  ["Which calendar?", "Zones.toLocal / fromLocal", "UTC ms ↔ wall clock in an IANA zone", "CoreTests, BillingTests"],
+];
+const NAMES = [
+  ["connection", "destination (plus its connection and health)"], ["event", "lead"], ["contact type", "call type"],
+  ["skipped", "not sent (by routing)"], ["replay", "resend"], ["delivered", "accepted"], ["failed", "refused, or gave up"],
+  ["enabled = false", "paused"], ["status = disabled", "switched off (or needs reconnection)"], ["pending, no next attempt", "held"],
+  ["expired", "missed its window: reached late, or not reached in time"],
+];
+const ENTRIES = [
+  ["API", "dotnet run --project src/Api", "Routes.fs → Handlers.fs; serves the screens on port 5080"],
+  ["Worker", "inside the API", "Worker.fs: fallbacks every 5 s, due deliveries continuously"],
+  ["Importers", "src/Import -- all | seed | simulate | demo-names", "load sources; synthetic traffic; a simulated week; fictional names"],
+  ["Test control", "API with TEST_CONTROL=true", "TestControl.fs: clock, advance, receiver answers (scenario runs only)"],
+  ["Scenario runner", "python tools/run_scenarios.py", "plays docs/contracts/scenarios against a fresh lab"],
+  ["Contract check", "python tools/check_contracts.py", "the scenario files' schemas and references"],
+];
+$("rules").innerHTML = RULES.map(([q, fn, io, t]) => `<tr><td>${esc(q)}</td><td><span class="fn">${esc(fn)}</span></td><td>${esc(io)}</td><td class="file">${esc(t)}</td></tr>`).join("");
+$("names").innerHTML = NAMES.map(([x, y]) => `<tr><td><code>${esc(x)}</code></td><td>${esc(y)}</td></tr>`).join("");
+$("entries").innerHTML = ENTRIES.map(([x, y, z]) => `<tr><td>${esc(x)}</td><td><code>${esc(y)}</code></td><td>${esc(z)}</td></tr>`).join("");
+
+// ----- Wiring -------------------------------------------------------------------
+document.addEventListener("click", (e) => {
+  const node = e.target.closest("[data-t]"); if (node) { showTable(node.dataset.t); return; }
+  const s = e.target.closest("[data-s]"); if (s) { walk = { scenario: s.dataset.s, step: 0 }; renderWalk(); return; }
+  const st = e.target.closest("[data-step]"); if (st) { walk.step = +st.dataset.step; renderWalk(); return; }
+  const f = e.target.closest("[data-f]"); if (f) { flowId = f.dataset.f; renderFlow(); touch(FLOWS.find((x) => x.id === flowId).touches); }
+});
+document.addEventListener("keydown", (e) => {
+  const node = e.target.closest && e.target.closest("#er .node");
+  if (node && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); showTable(node.dataset.t); }
+});
+$("prev").addEventListener("click", () => { if (walk.step > 0) { walk.step--; renderWalk(); } });
+$("next").addEventListener("click", () => { const n = SCENARIOS.find((s) => s.id === walk.scenario).steps.length; if (walk.step < n - 1) { walk.step++; renderWalk(); } });
+
+drawModel();
+showTable("deliveries");
+renderFlow();
+renderWalk();
+</script>
+</body>
+</html>
