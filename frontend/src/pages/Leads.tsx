@@ -14,14 +14,15 @@ const LIMIT = 50;
 
 const OUTCOMES: [LeadOutcome | '', string][] = [
   ['', 'Any outcome'], ['expired', 'Missed its window (late or not reached)'], ['delivered', 'Delivered'], ['refused', 'Refused'], ['pending', 'In progress'],
-  ['skipped', "Not sent (firm's routing)"], ['none', 'No destination'],
+  ['held', 'Held (destination paused)'], ['skipped', 'Not sent'], ['none', 'No destination'],
 ];
 const OUTCOME: Record<LeadOutcome, { label: string; tone: Tone }> = {
   expired: { label: 'Expired', tone: 'bad' },
   delivered: { label: 'Delivered', tone: 'ok' },
   refused: { label: 'Refused', tone: 'bad' },
   pending: { label: 'In progress', tone: 'warn' },
-  skipped: { label: "Not sent (firm's routing)", tone: 'muted' },
+  held: { label: 'Held', tone: 'warn' },
+  skipped: { label: 'Not sent', tone: 'muted' },
   none: { label: 'No destination', tone: 'muted' },
 };
 const asOutcome = (s: string | null): LeadOutcome | '' => OUTCOMES.find(([k]) => k === s)?.[0] ?? '';

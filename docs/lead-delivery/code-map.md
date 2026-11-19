@@ -47,8 +47,8 @@ is also a reading order: each file uses only those above it.
 
 1. `Handlers.sendLead` → `Dispatch.publish`. Everything below is one transaction (`Db.write`), so a lead is never recorded without its deliveries.
 2. `Store.insertEvent` records the lead.
-3. `Store.connectionsOf` lists the firm's destinations; only enabled, active ones not in setup are taken (a test lead goes only to the destination under test).
-4. `Routing.decide` ([Routing.fs](../../backend/src/Core/Routing.fs)) decides each production lead, one destination at a time: a chat lead to a destination that refuses chats, or a call outside the destination's rule (`routeCategories`, `routePracticeAreas` settings; the legacy active-call-type rule for a CRM without one), is **not sent** for routing. A lead whose body would lack a field the kind requires, but only because the lead is missing it (`Routing.leadProblem`), is **not sent** as a lead problem (reason `lead problem: …`). Otherwise `pending`. Test leads are not routed.
+3. `Store.connectionsOf` lists the firm's destinations; live ones (enabled, active, not in setup) and paused ones (`Dispatch.isPaused`: `enabled=false` with the `pausedAt` setting) are taken (a test lead goes only to the destination under test).
+4. `Routing.decide` ([Routing.fs](../../backend/src/Core/Routing.fs)) decides each production lead, one destination at a time: a chat lead to a destination that refuses chats, or a call outside the destination's rule (`routeCategories`, `routePracticeAreas` settings; the legacy active-call-type rule for a CRM without one), is **not sent** for routing. A lead whose body would lack a field the kind requires, but only because the lead is missing it (`Routing.leadProblem`), is **not sent** as a lead problem (reason `lead problem: …`). Otherwise `pending`; for a paused destination, held (`pending` with no next attempt, `Store.heldReason`). Test leads are not routed and never held.
 5. `Store.insertDelivery` writes each delivery (built by `Dispatch.newDelivery`) with its `RoutingDecision` (`decision` column). Only a routing exclusion counts as "the firm's routing sends it nowhere" (`Store.readLead`, `Dispatch.runFallbacks`); a lead problem is still owed a hand-off.
 6. On import, `Import.apply` seeds a CRM's rule with `Routing.seed` from the firm's active call types, unless the destination already has one.
 
@@ -85,7 +85,7 @@ The frontend only renders it:
 | Action | UI | Backend |
 |---|---|---|
 | Resend | `ProblemPanel`; bulk in the Delivery Center | `Handlers.replay` → `Dispatch.replay`: a new delivery for the same lead, `replayOf` set |
-| Pause, resume, reactivate | `ProblemPanel`; Destinations `Row` | `Handlers.patchConnection`. A delivery whose destination is paused is held at send time (`Dispatch.attempt`: pending, no next attempt, `Store.heldReason`); resuming or reactivating releases it (`Store.releaseHeld`). Test leads still go |
+| Pause, resume, reactivate | `ProblemPanel`; Destinations `Row` | `Handlers.patchConnection` records or clears `pausedAt`. Leads recorded while paused are held when planned (`Dispatch.publish`); a delivery already waiting is held at send time (`Dispatch.attempt`). Resuming or reactivating releases both (`Store.releaseHeld`). Held deliveries are `stage: held`, not retrying or late (`Store.sendingOrRetrying`). Test leads still go |
 | Send a test lead | same | `Handlers.testConnection` → `Dispatch.testConnection` (a test lead to this destination only) |
 | Send missed leads | Destinations `Row` | `Handlers.sendMissed` → `Dispatch.sendMissed`, over `Store.missedEvents`; routing applies |
 | Edit mapping | `MappingFix` in [Fix.tsx](../../frontend/src/components/Fix.tsx), reusing `MappingEditor` from [Onboarding.tsx](../../frontend/src/pages/Onboarding.tsx) | `Handlers.patchSetup` → `Onboarding.update` (a draft version; live unchanged), then `send` → `decide` (the firm, through its secure link) → `test` → `confirm` → `goLive`. State: `Onboarding.stateOf` |
@@ -100,7 +100,7 @@ every other kind's body is fixed in `Payloads.build`.
 1a. A lead every destination excluded by routing gets no `HandOff` (`Store.readLead`), so it is never expired and not in the in-time numbers; `Dispatch.runFallbacks` and the simulator's `HandOffCheck` never send it to the fallback.
 1b. The screens never say "Expired" alone: an expired lead that reached the firm is *Reached late* (amber), one that did not is *Not reached in time* (red) (`handOffText` in `frontend/src/lib/delivery.ts`, the Leads badge).
 2. Every lead read (`Store.listLeads`, `Store.leadOrFail`) carries a `HandOff`: its first accepted delivery anywhere, by which destination, and whether that was the fallback. An expired hand-off makes the lead's outcome `expired` (`Store.outcomeOf`).
-3. A destination with the setting `role: fallback` is skipped by `Dispatch.publish`. `Dispatch.runFallbacks`, called every few seconds by `DeliveryWorker`, gives it any lead with no accepted delivery once `Urgency.fallbackAfterMs` has passed, once per lead.
+3. A destination with the setting `role: fallback` is skipped by `Dispatch.publish`. `Dispatch.runFallbacks`, called every few seconds by `DeliveryWorker`, gives it any lead with no accepted delivery once `Urgency.fallbackAfterMs` has passed, or at once when every delivery that could reach the firm is held, once per lead. The simulator's `Publish` queues its `HandOffCheck` at once in the same case.
 4. The simulator does the same with its `HandOffCheck` action.
 
 ## 4b2. Time zones

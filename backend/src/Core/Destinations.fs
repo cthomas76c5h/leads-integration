@@ -73,7 +73,7 @@ let all (s: Session) (nowMs: int64) : Row[] =
         byConnection
             s
             $"""SELECT d.connection_id, SUM(d.status = 'delivered'), SUM(d.status IN ('failed', 'cancelled')),
-                       SUM(d.status = 'skipped'), SUM(d.status IN ('pending', 'delivering'))
+                       SUM(d.status = 'skipped'), SUM({Store.sendingOrRetrying})
                 FROM deliveries d WHERE d.test = 0 AND d.created_at >= $1 AND {Store.newestPerPair}
                 GROUP BY d.connection_id"""
             [ nowMs - weekMs ]
@@ -90,7 +90,7 @@ let all (s: Session) (nowMs: int64) : Row[] =
     let retryingSince =
         byConnection
             s
-            "SELECT connection_id, MIN(created_at) FROM deliveries WHERE test = 0 AND status IN ('pending', 'delivering') GROUP BY connection_id"
+            $"SELECT d.connection_id, MIN(d.created_at) FROM deliveries d WHERE d.test = 0 AND {Store.sendingOrRetrying} GROUP BY d.connection_id"
             []
             (fun r -> Read.int64 r 1)
     // The newest finished production delivery, and the newest refused one.
@@ -143,7 +143,7 @@ let all (s: Session) (nowMs: int64) : Row[] =
                 let reason = if isNull c.DisabledReason then "" else c.DisabledReason
                 if reason.Contains "410" || problemClass = Some "connection" then "needs-reconnection" else "switched-off"
             // Switched off in its source system and never used here: not a pause anyone made.
-            elif not c.Enabled then (if lastLead.ContainsKey c.Id || setting "simulated" = "paused" then "paused" else "off")
+            elif not c.Enabled then (if Dispatch.isPaused c || lastLead.ContainsKey c.Id || setting "simulated" = "paused" then "paused" else "off")
             else "live"
         let since = opt retryingSince c.Id
         let lastLeadAt = opt lastLead c.Id

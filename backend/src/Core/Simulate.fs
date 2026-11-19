@@ -127,6 +127,7 @@ let run (db: Db.Database) (opts: Options) : Summary =
             let wasPaused = setting c "simulated" = "paused"
             let settings = Dictionary<string, string>(c.Settings)
             settings.Remove "simulated" |> ignore
+            if wasPaused then settings.Remove Dispatch.pausedAtKey |> ignore
             let url = receiverBase opts.Origin c.DeliveryUrl |> Option.defaultValue c.DeliveryUrl
             if c.Status <> "active" || c.ConsecutiveFailures <> 0 || wasPaused || url <> c.DeliveryUrl || c.Settings.ContainsKey "simulated" then
                 Store.updateConnection
@@ -529,12 +530,15 @@ let run (db: Db.Database) (opts: Options) : Summary =
                   Attempts = ResizeArray()
                   Template = template }
             sims.Add sim
-            if status = "pending" then schedule sim (t + latency ())
+            // Held (its destination is paused): waits, unscheduled, as Dispatch plans it.
+            if status = "pending" && reason <> Store.heldReason then schedule sim (t + latency ())
 
         let send (sim: Sim) (t: int64) =
             let c = conns[sim.D.ConnectionId]
             let stop status reason = sim.D <- { sim.D with Status = status; Reason = reason; NextAttemptAt = Nullable() }
             if c.Status <> "active" then stop "cancelled" $"connection disabled: {c.DisabledReason}"
+            // As Dispatch.attempt: paused since it was planned, so it is held, unsent.
+            elif not c.Enabled && not sim.D.Test then stop "pending" Store.heldReason
             else
                 let e = events[sim.D.EventId]
                 match Dispatch.buildFor { rows[c.Id] with Connection = c } sim.Template e.Id e.Lead with
@@ -604,17 +608,25 @@ let run (db: Db.Database) (opts: Options) : Summary =
                         let take =
                             match only with
                             | Some only -> c.Id = only && c.Status = "active"
-                            | None -> c.Enabled && c.Status = "active" && setting c "stage" <> "setup" && not (Dispatch.isFallback c)
+                            | None -> (c.Enabled || Dispatch.isPaused c) && c.Status = "active" && setting c "stage" <> "setup" && not (Dispatch.isFallback c)
                         // A destination added in the app gets only leads from after it existed.
                         let existed = not (c.Source = Source.manual && c.CreatedAt > e.CreatedAt)
                         if take && existed then
                             if e.Test then newSim e c "pending" null Unchecked.defaultof<RoutingDecision> e.CreatedAt null None
                             else
                                 let decision = Routing.decide f { rows[id] with Connection = c } e.Lead
-                                if decision.Outcome = "planned" then newSim e c "pending" null decision e.CreatedAt null None
-                                else newSim e c "skipped" decision.Reason decision e.CreatedAt null None
+                                if decision.Outcome <> "planned" then newSim e c "skipped" decision.Reason decision e.CreatedAt null None
+                                elif Dispatch.isPaused c then newSim e c "pending" Store.heldReason decision e.CreatedAt null None
+                                else newSim e c "pending" null decision e.CreatedAt null None
+                    // As Dispatch.runFallbacks: every delivery that could reach the firm is held, so the fallback goes at once.
+                    if only.IsNone && fallbackOf.ContainsKey e.FirmId then
+                        let mine = sims |> Seq.filter (fun x -> x.D.EventId = e.Id && x.D.Status <> "skipped") |> Array.ofSeq
+                        if mine.Length > 0 && mine |> Array.forall (fun x -> x.D.Reason = Store.heldReason) then enqueue t (HandOffCheck e)
                 | Send sim -> if sim.D.Status = "pending" then send sim t
-                | Pause id -> conns[id] <- { conns[id] with Enabled = false }
+                | Pause id ->
+                    let settings = Dictionary<string, string>(conns[id].Settings)
+                    settings[Dispatch.pausedAtKey] <- string t
+                    conns[id] <- { conns[id] with Enabled = false; Settings = settings }
                 | Reactivate id -> conns[id] <- { conns[id] with Status = "active"; DisabledReason = null; ConsecutiveFailures = 0 }
                 | HandOffCheck e ->
                     // As Dispatch.runFallbacks: nothing accepted yet, so the agreed fallback takes the hand-off.
@@ -625,7 +637,8 @@ let run (db: Db.Database) (opts: Options) : Summary =
                     let excludedByRouting =
                         mine.Length > 0 && mine |> Array.forall (fun x -> x.D.Status = "skipped" && not (Diagnose.isLeadProblem x.D.Reason))
                     match fallbackOf.TryGetValue e.FirmId with
-                    | true, id when not handedOff && not excludedByRouting && conns[id].Status = "active" ->
+                    | true, id when not handedOff && not excludedByRouting && conns[id].Status = "active"
+                                    && not (mine |> Array.exists (fun x -> x.D.ConnectionId = id)) ->
                         newSim e conns[id] "pending" null Unchecked.defaultof<RoutingDecision> t null None
                     | _ -> ()
                 | Replay(pick, limit) ->
@@ -715,7 +728,7 @@ let run (db: Db.Database) (opts: Options) : Summary =
                         Where = (firm fid).Name }
               | None -> ()
               match pausedEmail with
-              | Some id -> yield { Name = "paused"; Story = "Paused 2 business days ago at 5 pm: later leads have no delivery for it."; Where = describe id }
+              | Some id -> yield { Name = "paused"; Story = "Paused 2 business days ago at 5 pm: later leads are held for it, and sent when it resumes."; Where = describe id }
               | None -> () ]
           From = windowStart
           To = nowMs })

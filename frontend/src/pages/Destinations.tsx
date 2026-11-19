@@ -175,7 +175,7 @@ function Row({ r, onChanged }: { r: DestinationRow; onChanged: () => void }) {
       case 'retrying':
         return ['Retrying by itself.', []];
       case 'paused':
-        return ['Paused: new leads get no delivery to it.', [{ label: 'Resume', run: resume }]];
+        return ['Paused: new leads are held for it and sent when it resumes; their hand-offs go to the fallback.', [{ label: 'Resume', run: resume }]];
       case 'setting-up':
         return ['Test leads only until go-live.', [{ label: 'Onboarding', href: href('/onboarding') }]];
       case 'healthy':

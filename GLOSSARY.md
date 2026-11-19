@@ -87,7 +87,7 @@ Why one lead goes, or does not go, to one destination: **planned**, **not sent**
 _Avoid_: filter result, match
 
 **Planned**:
-A routing decision that a delivery follows. *Lab.* For a paused destination, a planned delivery is held, not missed. *Proposed.*
+A routing decision that a delivery follows. For a paused destination, a planned delivery is held, not missed. *Lab.*
 
 **Mapping**:
 How a lead's fields become the fields the destination expects.
@@ -132,7 +132,7 @@ A destination imported switched off from its source system and never used here. 
 _Avoid_: paused, disabled
 
 **Missed lead**:
-A lead recorded while a destination was paused or stopped, which therefore has no delivery to it. Sending it later is an operator's decision.
+A lead recorded while a destination was stopped (switched off), which therefore has no delivery to it. Sending it later is an operator's decision. A paused destination misses nothing: its leads are held.
 _Avoid_: dropped lead, lost lead
 
 **Failure streak**:

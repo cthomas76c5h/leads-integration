@@ -22,6 +22,13 @@ let private setting (c: Connection) key =
     | true, v -> v
     | _ -> ""
 
+/// The setting a pause records (when, in ms): an operator stopped this destination on purpose.
+/// A destination imported off in its source system has none, and holds nothing.
+let pausedAtKey = "pausedAt"
+
+/// Paused by an operator: its planned deliveries are held for the record, and the hand-off goes to the fallback at once.
+let isPaused (c: Connection) = not c.Enabled && setting c pausedAtKey <> ""
+
 let private newDelivery (event: LeadEvent) (c: Connection) status reason (decision: RoutingDecision) (nowMs: int64) : Delivery =
     { Id = Secrets.newId "dlv"
       EventId = event.Id
@@ -41,15 +48,17 @@ let private newDelivery (event: LeadEvent) (c: Connection) status reason (decisi
       Attempts = [||]
       Diagnosis = null }
 
-/// A delivery planned, or not sent, as the routing decision says.
+/// A delivery planned, or not sent, as the routing decision says. Planned for a paused
+/// destination, it is held: pending with no next attempt, until the destination resumes.
 let private decided (event: LeadEvent) (c: Connection) (decision: RoutingDecision) (nowMs: int64) =
-    if decision.Outcome = "planned" then newDelivery event c "pending" null decision nowMs
-    else newDelivery event c "skipped" decision.Reason decision nowMs
+    if decision.Outcome <> "planned" then newDelivery event c "skipped" decision.Reason decision nowMs
+    elif isPaused c then { newDelivery event c "pending" Store.heldReason decision nowMs with NextAttemptAt = Nullable() }
+    else newDelivery event c "pending" null decision nowMs
 
 /// Record the lead, then one delivery per destination: production leads get a
-/// routing decision at every enabled, active, live connection (Routing.decide:
-/// planned, or not sent with a reason); a test goes only to `onlyConnection`,
-/// carrying `template` when given, and is not routed.
+/// routing decision at every live or paused connection (Routing.decide: planned,
+/// or not sent with a reason; planned for a paused one is held); a test goes only
+/// to `onlyConnection`, carrying `template` when given, and is not routed.
 let publish (db: Database) (firmId: string) (lead: Lead) (test: bool) (onlyConnection: string option) (template: string option) =
     write db (fun s ->
         let firm = Store.firmOrFail s firmId
@@ -68,11 +77,12 @@ let publish (db: Database) (firmId: string) (lead: Lead) (test: bool) (onlyConne
                 match onlyConnection with
                 | Some id -> c.Id = id
                 // A fallback takes only hand-offs that are running late (runFallbacks), never every lead.
-                | None -> c.Enabled && c.Status = "active" && setting c "stage" <> "setup" && setting c "role" <> "fallback")
+                | None -> (c.Enabled || isPaused c) && c.Status = "active" && setting c "stage" <> "setup" && setting c "role" <> "fallback")
         let deliveries =
             targets
             |> Array.map (fun row ->
                 let d =
+                    // A test is an operator's deliberate check: never held.
                     if test then newDelivery event row.Connection "pending" null Unchecked.defaultof<RoutingDecision> t
                     else decided event row.Connection (Routing.decide firm row lead) t
                 Store.insertDelivery s d (if d.Status = "pending" then template else None)
@@ -129,14 +139,20 @@ let sendMissed (db: Database) (connectionId: string) =
 /// Is this the firm's fallback: the destination it agreed takes the hand-off when the usual one cannot in time.
 let isFallback (c: Connection) = setting c "role" = "fallback"
 
-/// Leads with no accepted delivery once their fallback delay has passed (1 hour
-/// by default, 15 minutes for emergencies and custody) go to the firm's fallback, once each. Pre-agreed in setup and always
-/// visible (RFC-001: never a silent reroute). Returns how many were queued.
+/// Leads with no accepted delivery go to the firm's fallback, once each: at once when every
+/// delivery that could reach the firm is held (its destinations are paused), otherwise once
+/// the fallback delay has passed (1 hour by default, 15 minutes for emergencies and custody).
+/// Pre-agreed in setup and always visible (RFC-001: never a silent reroute). Returns how many were queued.
 let runFallbacks (db: Database) (nowMs: int64) : int =
     write db (fun s ->
         let candidates =
             s.Query
-                """SELECT e.id, c.id FROM events e
+                """SELECT e.id, c.id,
+                          -- Held, and anything else that could still reach the firm (neither held nor not sent).
+                          (SELECT COUNT(*) FROM deliveries x WHERE x.event_id = e.id AND x.status = 'pending' AND x.next_attempt_at IS NULL),
+                          (SELECT COUNT(*) FROM deliveries x WHERE x.event_id = e.id AND x.status <> 'skipped'
+                             AND NOT (x.status = 'pending' AND x.next_attempt_at IS NULL))
+                   FROM events e
                    JOIN connections c ON c.firm_id = e.firm_id AND c.enabled = 1 AND c.status = 'active'
                         AND c.settings LIKE '%"role":"fallback"%'
                    WHERE e.test = 0 AND e.created_at > $1
@@ -149,13 +165,15 @@ let runFallbacks (db: Database) (nowMs: int64) : int =
                               AND NOT EXISTS (SELECT 1 FROM deliveries x WHERE x.event_id = e.id
                                                 AND NOT (x.status = 'skipped' AND COALESCE(x.reason, '') NOT LIKE 'lead problem:%')))"""
                 [ nowMs - 2L * 86_400_000L ]
-                (fun r -> Read.str r 0, Read.str r 1)
+                (fun r -> Read.str r 0, Read.str r 1, Read.int r 2, Read.int r 3)
         let mutable queued = 0
-        for eventId, connectionId in candidates do
+        for eventId, connectionId, held, other in candidates do
             match Store.tryEvent s eventId with
             | Some e ->
-                // The fallback's own clock (Urgency.fallbackAfterMs), not a share of the window to act.
-                if nowMs - e.CreatedAt >= Urgency.fallbackAfterMs (Categories.classify e.Lead.CallType).Category then
+                // The fallback's own clock (Urgency.fallbackAfterMs), not a share of the window to act,
+                // or at once when the usual destinations are paused: waiting cannot deliver.
+                let allHeld = held > 0 && other = 0
+                if allHeld || nowMs - e.CreatedAt >= Urgency.fallbackAfterMs (Categories.classify e.Lead.CallType).Category then
                     let c = (Store.connectionOrFail s connectionId).Connection
                     Store.insertDelivery s (newDelivery e c "pending" null Unchecked.defaultof<RoutingDecision> nowMs) None
                     queued <- queued + 1

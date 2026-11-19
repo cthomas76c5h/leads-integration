@@ -129,11 +129,11 @@ interface LeadSummary {
   webchat: boolean;
   mapping: CallMapping;          // what the call type means
   /** Latest delivery per connection: a replay replaces what it replays. */
-  counts: { total: number; delivered: number; refused: number; skipped: number; pending: number };
+  counts: { total: number; delivered: number; refused: number; skipped: number; pending: number; held: number };
   /** expired: its window to act passed before any hand-off (comes first) · none: no destination
-   *  · pending: any still queued or retrying · refused: any failed or cancelled
-   *  · skipped: routing skipped every one · delivered: the rest (at least one accepted). */
-  outcome: 'expired' | 'none' | 'pending' | 'refused' | 'skipped' | 'delivered';
+   *  · pending: any still queued or retrying · held: any waiting for a paused destination
+   *  · refused: any failed or cancelled · skipped: not sent anywhere · delivered: the rest (at least one accepted). */
+  outcome: 'expired' | 'none' | 'pending' | 'held' | 'refused' | 'skipped' | 'delivered';
   /** Null for test leads. */
   handOff: HandOff | null;
 }
@@ -166,7 +166,7 @@ interface Delivery {
   test: boolean;
   status: DeliveryStatus;
   /** What the operator can claim. 'accepted' = receiver answered 2xx. Never 'in CRM' from HTTP alone. */
-  stage: 'queued' | 'accepted' | 'refused' | 'not-sent';
+  stage: 'queued' | 'held' | 'accepted' | 'refused' | 'not-sent';   // held: waiting for its paused destination (pending, no nextAttemptAt)
   reason: string | null;
   /** Why this lead goes, or not, to this destination. Null for test leads, fallback hand-offs and older deliveries. */
   decision: RoutingDecision | null;
@@ -465,7 +465,7 @@ non-alphanumerics turned into `_` and trimmed ("Date of accident?" →
 | POST | `/api/firms/{id}/connections` | `{ kind, name?, deliveryUrl? }` | `Connection` (source `manual`; URL checked: https, or localhost in dev) |
 | GET | `/api/destinations?q=&health=&kind=&firmActive=all&limit=50&offset=0` | | `{ total: number, counts: Record<DestinationHealth, number>, missed: number, items: DestinationRow[] }` most urgent first. `counts` and `missed` (destinations with missed leads) cover the filter without `health`; `health=missed` lists those with missed leads. Only active firms unless `firmActive=all` |
 | POST | `/api/connections/{id}/send-missed` | | `{ queued: number, notSent: number }`: a delivery for each missed lead, routing applied. 409 unless the destination is live |
-| PATCH | `/api/connections/{id}` | `{ enabled?, deliveryUrl?, reactivate?: true }` | `Connection`. `enabled: false` pauses it: new leads get no delivery to it, and deliveries already waiting are not sent but held (`status: 'pending'`, no `nextAttemptAt`, `reason: 'held: destination paused'`). `enabled: true` resumes it and makes every held delivery due at once |
+| PATCH | `/api/connections/{id}` | `{ enabled?, deliveryUrl?, reactivate?: true }` | `Connection`. `enabled: false` pauses it and records `settings.pausedAt`: new leads still get a routing decision, and a planned delivery is held (`status: 'pending'`, `stage: 'held'`, no `nextAttemptAt`, `reason: 'held: destination paused'`), as are deliveries already waiting. A lead whose every delivery that could reach the firm is held goes to the firm's fallback at once. `enabled: true` resumes it, clears `pausedAt` and makes every held delivery due at once. A destination imported off in its source system (`enabled: false`, no `pausedAt`) holds nothing and gets no deliveries |
 | GET | `/api/connections/{id}/preview?variant=full` | | `{ url, headers: Record<string,string>, body: string, errors: string[] }` |
 | POST | `/api/connections/{id}/test` | | `Delivery` (test lead to this connection only) |
 | GET | `/api/leads?q=&firmId=&category=&outcome=&test=&limit=50&offset=0` | | `{ total: number, items: LeadSummary[] }` newest first. `q` matches caller, phone, call type or firm name; `category` is a call-category id |

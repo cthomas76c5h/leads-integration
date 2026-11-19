@@ -76,8 +76,8 @@ export function ProblemPanel({ d, destinationStopped, setup, onResend, onChanged
   const resend: Action = { label: '▷ Resend', run: onResend, disabled: !canReplay(d) };
   const test: Action = { label: 'Send a test lead', run: () => void act(() => api.testConnection(d.connectionId), 'Test lead sent: see the Tests tab').then(onChanged) };
   const reactivate: Action = { label: 'Reactivate the destination', run: () => void act(() => api.patchConnection(d.connectionId, { reactivate: true }), 'Destination reactivated').then(onChanged) };
-  // In the lab a paused destination gets no delivery for new leads (held leads are proposed, not built).
-  const pause: Action = { label: '❚❚ Pause the destination', run: () => void act(() => api.patchConnection(d.connectionId, { enabled: false }), 'Paused: new leads get no delivery to it until it is resumed').then(onChanged) };
+  // A paused destination holds new leads for the record; their hand-offs go to the firm's fallback at once.
+  const pause: Action = { label: '❚❚ Pause the destination', run: () => void act(() => api.patchConnection(d.connectionId, { enabled: false }), 'Paused: new leads are held until it is resumed').then(onChanged) };
   const copy: Action = { label: 'Copy a link for an engineer', run: () => void act(() => navigator.clipboard.writeText(location.href), 'Link copied') };
   const openLead: Action = { label: 'Open the lead', href: href('/leads', { lead: d.eventId }) };
   // A stopped destination takes no test and no resend: the one step is to bring it back, once that is safe.

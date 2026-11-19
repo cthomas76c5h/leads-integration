@@ -71,6 +71,39 @@ let tests =
               Expect.equal (Dispatch.runFallbacks t.Db now) 0 "never twice"
           }
 
+          test "a paused destination holds the lead for the record, and the hand-off goes to the fallback at once" {
+              let t, firmId, fallbackId = firmWithFallback ()
+              use _ = t
+              let email = (Db.read t.Db (fun s -> Store.connectionsOf s firmId) |> Array.find (fun (r: Store.ConnectionRow) -> r.Connection.Kind = "email")).Connection
+              let paused = { email with Enabled = false; Settings = Dictionary(dict [ (Dispatch.pausedAtKey, "1") ]) }
+              Db.write t.Db (fun s -> Store.updateConnection s paused)
+              let e, ds = Dispatch.publish t.Db firmId (lead "*New Client Calls") false None None
+              let held = ds |> Array.find (fun d -> d.ConnectionId = email.Id)
+              Expect.equal held.Stage "held" "held, not missed"
+              Expect.isFalse held.NextAttemptAt.HasValue "waits for the destination to resume"
+              Expect.equal held.Decision.Outcome "planned" "routing still decided it"
+              Expect.equal (Db.read t.Db (fun s -> (Store.leadOrFail s e.Id).Outcome)) "held" "the lead's outcome"
+              let atOnce = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+              Expect.equal (Dispatch.runFallbacks t.Db atOnce) 1 "to the fallback at once, not after its delay"
+              Expect.equal (Dispatch.runFallbacks t.Db atOnce) 0 "once"
+              let toFallback =
+                  Db.read t.Db (fun s -> s.Query "SELECT COUNT(*) FROM deliveries WHERE event_id=$1 AND connection_id=$2" [ e.Id; fallbackId ] (fun r -> r.GetInt32 0))
+              Expect.equal toFallback [| 1 |] "one hand-off by the fallback"
+              Db.write t.Db (fun s -> Store.releaseHeld s email.Id atOnce |> ignore)
+              let released = Db.read t.Db (fun s -> (Store.deliveryOrFail s held.Id).Delivery)
+              Expect.equal released.Stage "queued" "sent on resume, under the same lead"
+          }
+
+          test "a destination off in its source system holds nothing and sends nothing early to the fallback" {
+              let t, firmId, _ = firmWithFallback ()
+              use _ = t
+              let email = (Db.read t.Db (fun s -> Store.connectionsOf s firmId) |> Array.find (fun (r: Store.ConnectionRow) -> r.Connection.Kind = "email")).Connection
+              Db.write t.Db (fun s -> Store.updateConnection s { email with Enabled = false })
+              let _, ds = Dispatch.publish t.Db firmId (lead "*New Client Calls") false None None
+              Expect.isEmpty ds "no delivery: nobody paused it"
+              Expect.equal (Dispatch.runFallbacks t.Db (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())) 0 "the fallback waits its delay"
+          }
+
           test "a call the firm's routing sends nowhere is not a missed window, and never goes to the fallback" {
               // The firm's CRM takes only its active call type; a billing call goes nowhere, on purpose.
               let t, firmId, fallbackId = firmWithFallbackTo "clio-grow" [ ("api_key", "x") ]

@@ -96,7 +96,7 @@ class Api:
 
 # Lab delivery status -> the model's delivery state (docs/lead-delivery/README.md §4).
 OUTCOMES = {"expired": "expired", "none": "no-destination", "pending": "in-progress",
-            "refused": "needs-attention", "skipped": "not-sent", "delivered": "accepted"}
+            "refused": "needs-attention", "skipped": "not-sent", "delivered": "accepted", "held": "held"}
 FAILURE_CLASSES = {"transient", "lead", "configuration", "connection", "ours"}
 
 
@@ -253,6 +253,8 @@ class LabAdapter:
     @staticmethod
     def _delivery_state(d):
         status, attempts = d["status"], d.get("attempts") or []
+        if d.get("stage") == "held":
+            return "held"
         if status == "pending":
             return "queued" if not attempts else "retrying"
         if status == "failed":
@@ -264,7 +266,7 @@ class LabAdapter:
         kind = next(k for k in e if k != "at")
         x = e[kind]
         if kind == "delivery":
-            unsupported = [k for k in ("late", "revision", "evidence", "verifyOverdue", "outcomes") if k in x]
+            unsupported = [k for k in ("revision", "evidence", "verifyOverdue", "outcomes") if k in x]
             if unsupported:
                 raise Unsupported(f"delivery {', '.join(unsupported)}")
             ds = self._newest(x["lead"], x["destination"])
@@ -284,6 +286,15 @@ class LabAdapter:
                     problems.append(f"failure class {cls}, expected {x['failureClass']}")
             if "attempts" in x and len(d.get("attempts") or []) != x["attempts"]:
                 problems.append(f"{len(d.get('attempts') or [])} attempts, expected {x['attempts']}")
+            if "late" in x:
+                # Late: accepted after the lead's window to act closed (its hand-off's due time).
+                h = self._lead_detail(x["lead"]).get("handOff")
+                accepted = [a["at"] for a in d.get("attempts") or [] if a["outcome"] == "delivered"]
+                if not h or not accepted:
+                    raise Unsupported("delivery late, without a hand-off or an accepted attempt")
+                late = accepted[0] > h["dueAt"]
+                if late != x["late"]:
+                    problems.append(f"late {late}, expected {x['late']}")
             if "reason" in x:
                 words = x["reason"] if isinstance(x["reason"], str) else " ".join(x["reason"])
                 if words.lower() not in (d.get("reason") or "").lower():

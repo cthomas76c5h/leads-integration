@@ -182,8 +182,13 @@ type DeliveryRow =
       /// Some template: the body under test (a draft revision); None: the connection's own.
       Template: string option }
 
-let private stageOf status (attempts: Attempt[]) =
+/// Sending, or waiting to be sent again: retrying. A held delivery (pending, no next attempt) is not.
+let sendingOrRetrying = "(d.status = 'delivering' OR (d.status = 'pending' AND d.next_attempt_at IS NOT NULL))"
+
+let private stageOf status (nextAttemptAt: Nullable<int64>) (attempts: Attempt[]) =
     match status with
+    // Waiting for its paused destination to resume: no next attempt (releaseHeld sets one).
+    | "pending" when not nextAttemptAt.HasValue -> "held"
     | "delivered" -> "accepted"
     | "skipped" -> "not-sent"
     | "cancelled" when attempts.Length = 0 -> "not-sent"
@@ -247,7 +252,7 @@ let private withAttempts (s: Session) (d: DeliveryRow) =
         Delivery =
             { d.Delivery with
                 Attempts = attempts
-                Stage = stageOf d.Delivery.Status attempts
+                Stage = stageOf d.Delivery.Status d.Delivery.NextAttemptAt attempts
                 Diagnosis =
                     Diagnose.diagnose
                         d.Delivery.Kind
@@ -298,7 +303,7 @@ let listDeliveries (s: Session) (f: DeliveryFilter) =
         add "d.status = ?" "failed"
         where.Add newestPerPair
     | "late" ->
-        where.Add "d.status IN ('pending', 'delivering')"
+        where.Add sendingOrRetrying
         add "d.created_at < ?" (box (now () - lateAfterMs))
     | status -> add "d.status = ?" status
     if not (String.IsNullOrEmpty f.FirmId) then add "f.id = ?" f.FirmId
@@ -361,7 +366,7 @@ let deliverySummary (s: Session) (test: bool) (firmId: string) (since: int64) (n
         let sql, args = scoped $"SELECT {deliveryCols} {deliveryFrom} WHERE d.test = $1 AND d.status = 'failed' AND {newestPerPair}" [ box test ]
         s.Query sql args (readDelivery s) |> Array.map (withAttempts s)
     let attention = refusedNow |> Array.filter needsAttention |> Array.length
-    let retrying = "FROM deliveries d JOIN connections c ON c.id = d.connection_id WHERE d.test = $1 AND d.status IN ('pending', 'delivering')"
+    let retrying = $"FROM deliveries d JOIN connections c ON c.id = d.connection_id WHERE d.test = $1 AND {sendingOrRetrying}"
     { Since = since
       Accepted = accepted
       Refused = refused
@@ -380,7 +385,10 @@ type LeadCounts =
       Delivered: int
       Refused: int
       Skipped: int
-      Pending: int }
+      /// Queued, retrying or sending: not held.
+      Pending: int
+      /// Waiting for a paused destination to resume.
+      Held: int }
 
 /// When a lead first reached the firm (its first accepted delivery, anywhere), against its window to act.
 type HandOff =
@@ -442,6 +450,7 @@ let private outcomeOf (c: LeadCounts) (handOff: HandOff) =
     if not (isNull (box handOff)) && handOff.State = "expired" then "expired"
     elif c.Total = 0 then "none"
     elif c.Pending > 0 then "pending"
+    elif c.Held > 0 then "held"
     elif c.Refused > 0 then "refused"
     elif c.Skipped = c.Total then "skipped"
     else "delivered"
@@ -453,14 +462,15 @@ let private leadSql =
               COALESCE(SUM(d.status = 'delivered'), 0),
               COALESCE(SUM(d.status IN ('failed', 'cancelled')), 0),
               COALESCE(SUM(d.status = 'skipped'), 0),
-              COALESCE(SUM(d.status IN ('pending', 'delivering')), 0),
+              COALESCE(SUM(d.status = 'delivering' OR (d.status = 'pending' AND d.next_attempt_at IS NOT NULL)), 0),
               (SELECT MIN(a.at) FROM attempts a JOIN deliveries x ON x.id = a.delivery_id
                 WHERE x.event_id = e.id AND a.outcome = 'delivered'),
               (SELECT c2.name || CASE WHEN c2.settings LIKE '%"role":"fallback"%' THEN '|fallback' ELSE '' END
                  FROM attempts a JOIN deliveries x ON x.id = a.delivery_id JOIN connections c2 ON c2.id = x.connection_id
                 WHERE x.event_id = e.id AND a.outcome = 'delivered' ORDER BY a.at LIMIT 1),
               -- Not sent because the rule excludes it; a lead problem still owes the firm a hand-off.
-              COALESCE(SUM(d.status = 'skipped' AND COALESCE(d.reason, '') NOT LIKE 'lead problem:%'), 0)
+              COALESCE(SUM(d.status = 'skipped' AND COALESCE(d.reason, '') NOT LIKE 'lead problem:%'), 0),
+              COALESCE(SUM(d.status = 'pending' AND d.next_attempt_at IS NULL), 0)
        FROM events e
        JOIN firms f ON f.id = e.firm_id
        LEFT JOIN deliveries d ON d.event_id = e.id
@@ -475,7 +485,8 @@ let private readLead (r: DbDataReader) : LeadSummary * Lead =
           Delivered = Read.int r 7
           Refused = Read.int r 8
           Skipped = Read.int r 9
-          Pending = Read.int r 10 }
+          Pending = Read.int r 10
+          Held = Read.int r 14 }
     let createdAt = Read.int64 r 5
     let mapping = Categories.classify lead.CallType
     // No hand-off is owed for a test lead, nor for one the firm's routing sends nowhere on purpose

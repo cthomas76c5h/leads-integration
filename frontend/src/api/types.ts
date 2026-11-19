@@ -157,7 +157,7 @@ export interface ReferenceLead {
 }
 
 export type DeliveryStatus = 'pending' | 'delivering' | 'delivered' | 'failed' | 'cancelled' | 'skipped';
-export type DeliveryStage = 'queued' | 'accepted' | 'refused' | 'not-sent';
+export type DeliveryStage = 'queued' | 'held' | 'accepted' | 'refused' | 'not-sent';
 
 export interface Attempt {
   n: number;
@@ -361,7 +361,7 @@ export interface DeliveryQuery {
   offset?: number;
 }
 
-export type LeadOutcome = 'expired' | 'none' | 'pending' | 'refused' | 'skipped' | 'delivered';
+export type LeadOutcome = 'expired' | 'none' | 'pending' | 'held' | 'refused' | 'skipped' | 'delivered';
 
 /** When a lead first reached the firm, against its window to act. */
 export interface HandOff {
@@ -384,7 +384,7 @@ export interface LeadSummary {
   callType: string;
   webchat: boolean;
   mapping: CallMapping;
-  counts: { total: number; delivered: number; refused: number; skipped: number; pending: number };
+  counts: { total: number; delivered: number; refused: number; skipped: number; pending: number; held: number };
   outcome: LeadOutcome;
   /** Null for test leads. */
   handOff: HandOff | null;
