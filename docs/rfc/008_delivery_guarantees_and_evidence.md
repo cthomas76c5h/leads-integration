@@ -105,9 +105,10 @@ reached, and when each level was first reached.
 - **Expired** keeps its meaning: no hand-off **accepted** within the window. Acceptance stays the floor for every destination.
 - **The one number is reported at two levels**, side by side and never merged:
   - **Accepted within the window:** measurable for every lead.
-  - **Confirmed within the window:** acknowledged (or verified, for a CRM the firm watches) within the window, for leads whose hand-off destination can confirm.
+  - **Confirmed within the window:** acknowledged within the window, for leads whose hand-off destination can confirm. A CRM **verification** counts as confirmation only where the firm has declared, in its approved setup, that its intake team works from that CRM as its queue (**CRM is our intake queue**). That declaration is a firm-level policy, recorded with the revision that carries it and shown in the report; without it, a verified record is reported as verified, never as confirmed, because a record existing does not mean anyone saw it.
 - **Emergencies and custody** need acknowledgement, not only acceptance. If no acknowledgement arrives within half the window, the hand-off escalates: the fallback, then an operator who calls the firm. Every step is shown to the firm. *Proposed.*
 - A firm may choose, in its approved setup, to require acknowledgement for new matters too.
+- Both firm-level choices (acknowledgement for new matters; CRM as intake queue) are part of the approved revision, so changing either goes through the firm's approval and is in the audit trail.
 
 ### 3.3 What changes for firms
 
