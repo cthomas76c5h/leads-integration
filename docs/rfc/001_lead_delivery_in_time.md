@@ -36,7 +36,7 @@ Approve:
 
 1. **Measurement first** (weeks 1–2): record every delivery decision with a reason in production, real errors instead of "500", and an alert per destination.
 2. **A window to act per kind of call**, and a **lead outcome of Expired** when it passes with nobody at the firm having the lead.
-3. **A fallback** (usually a text to the firm's intake team) agreed at setup, used once a third of the window has passed.
+3. **A fallback** (usually a text to the firm's intake team) agreed at setup, used at once when the usual destination is paused or needs reconnection, or once a third of the window has passed with nothing accepted.
 4. **Held deliveries** for the record while a destination is stopped, sent on when it returns, marked late.
 5. **Failure classes and destination health**, so operators fix the cause rather than chase individual leads.
 6. **A lead delivery owner** in Operations, judged by the share of leads handed off in time.
@@ -126,7 +126,9 @@ shorten a window, not lengthen it. The kind of call comes from call categories
 
 - Each firm agrees a fallback destination in its approved setup (RFC-005): usually SMS to its intake team, or email.
 - **Every firm whose only destination is a CRM must have one;** email is the default for the rest.
-- If no destination has accepted the lead when **a third of its window** has passed, the lead goes to the fallback, once, marked "sent by fallback: {destination} unavailable".
+- If the usual destination is paused or needs reconnection, the lead goes to the fallback **at once**: that destination cannot deliver, and its record is held (4.3).
+- Otherwise, if no destination has accepted the lead when **a third of its window** has passed (still retrying, or refused), the lead goes to the fallback.
+- Either way, once per lead, marked "sent by fallback: {destination} unavailable".
 - A fallback is always pre-agreed and always shown: client information never goes anywhere the firm did not approve.
 
 ### 4.3 Held deliveries
@@ -281,7 +283,7 @@ the firm agreed in its approved setup; every use shown to the firm.
 | D1 | Owner | A lead delivery owner in Operations; engineering on call for our faults |
 | D2 | The one number | Share of leads handed off within their window to act, per firm, plus expired leads |
 | D3 | Windows to act | 15 min / 1 h / same business day / next business day by kind of call; firms may shorten |
-| D4 | Fallback | Agreed at setup; required where the only destination is a CRM; fires at a third of the window |
+| D4 | Fallback | Agreed at setup; required where the only destination is a CRM; fires at once when the usual destination is paused or needs reconnection, otherwise at a third of the window |
 | D5 | Stopped destinations | Deliveries held, sent on return marked late; operator and firm agree after 3 days |
 | D6 | Hang-ups to CRMs | Not sent; recorded as a lead problem; the firm has them by email and the portal |
 | D7 | Switch-off | Counts configuration problems and gave-up only; connection problems stop at once |

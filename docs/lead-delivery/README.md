@@ -256,7 +256,7 @@ its client. Holding and retrying protect the **record**; they do nothing for the
   | Existing client, court or agency, insurance or medical | Same business day |
   | Billing, vendor, general | Next business day |
 
-- **The hand-off never waits for the record.** If the destination that does a lead's hand-off is stopped, paused, or still retrying when a set share of the window has passed (say a third), the hand-off goes to the firm's **fallback**: a destination the firm agreed in its approved setup, usually email or SMS to its intake staff, marked "sent by fallback: {destination} unavailable". RFC-001 forbids silent rerouting, so a fallback is always pre-agreed and always shown.
+- **The hand-off never waits for the record.** The hand-off goes to the firm's **fallback** **at once** when the destination that does it is paused or needs reconnection (its delivery is **held**), and **once a third of the window has passed** when nothing has been accepted yet (still retrying, or refused) ([answers](answers.md#speed-window-to-act-fallback-holding)). The fallback is a destination the firm agreed in its approved setup, usually email or SMS to its intake staff, marked "sent by fallback: {destination} unavailable". RFC-001 forbids silent rerouting, so a fallback is always pre-agreed and always shown.
 - **The record carries on.** Retries continue on their schedule and held deliveries are sent when the destination returns, with the lead's original time. A lead past its window is marked late there and must never appear as a fresh lead (in a CRM, never a new "call back now" task).
 - **An expired lead is the most serious event.** A lead whose window passed with no accepted hand-off goes to the top of the Delivery Center and alerts an operator, who tells the firm.
 
@@ -265,8 +265,9 @@ accepted delivery against its window), the **Expired** outcome, and fallback: a
 destination marked `role: fallback` gets no leads directly, and
 `Dispatch.runFallbacks` (every few seconds in the worker) sends it any lead with
 no accepted delivery once a third of its window has passed. Not built: held
-deliveries (a stopped destination still produces missed leads) and firm-set
-windows.
+deliveries (a stopped destination still produces missed leads), so the fallback
+for a stopped destination also waits a third of the window instead of going at
+once; and firm-set windows.
 
 ## 6. Invariants
 

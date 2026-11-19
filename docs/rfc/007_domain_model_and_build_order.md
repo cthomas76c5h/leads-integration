@@ -173,7 +173,7 @@ the whole model moves into README.md, as the one place it is stated.
 
 | | |
 |---|---|
-| Holds | The lead, its window to act (from the category, or the firm's shorter one), its deadline, the fallback trigger time (a third of the window), its state |
+| Holds | The lead, its window to act (from the category, or the firm's shorter one), its deadline, when the fallback takes it (at once if the usual destination is paused or needs reconnection, otherwise at a third of the window), its state |
 | States | Pending → **Reached** (by which delivery, when) · **Reached by fallback** (which destination, why the usual one could not) · **Expired** |
 | Invariant | The hand-off never waits for the record ([README invariant 9](../lead-delivery/README.md#6-invariants)). Once Expired it stays Expired, whatever the record does later |
 | Events | `HandOffReached`, `FallbackUsed`, `HandOffExpired` |

@@ -17,6 +17,19 @@ airi (SQLite)   ──┘   (shape only)                          └─► … 
 New to this work? Read these in order. The first five are enough to build a
 slice; the rest are for when you need them.
 
+**What is agreed and what is draft.** Not everything here has the same standing:
+
+| Agreed: build on it | Draft: expect it to change |
+|---|---|
+| The glossary, and the decisions in [answers.md](docs/lead-delivery/answers.md) (each marked *Decided*) | [RFC-001 to RFC-007](docs/rfc/README.md): proposed, awaiting approval. RFC-007 (the model and build order) is the newest |
+| Production delivery stays in **api-2**, extended step by step ([answers](docs/lead-delivery/answers.md#routing-and-integrations)) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a first draft, one scenario and one receiver so far |
+| Every rule in the [domain model](docs/lead-delivery/README.md) marked *Lab* or *Production* | Every rule marked *Proposed*: agreed direction, not built |
+
+A scenario marked `"model": "proposed"` is expected to fail against the lab
+until its rule is built. `auth-expired` fails today on purpose: it is the
+acceptance test for slice 6 (held deliveries, needs reconnection, fallback at
+once), not a bug.
+
 | # | Read | To learn | Time |
 |---|---|---|---|
 | 1 | [vision-meeting/summary.md](docs/vision-meeting/summary.md) | What firms buy from us, what goes wrong today, and what we will do | 5 min |
