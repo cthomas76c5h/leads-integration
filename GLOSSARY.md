@@ -10,6 +10,14 @@ operators what happened when it did not arrive. The model and workflows are in
 A law firm (or other business) whose calls Answering AI answers.
 _Avoid_: client, account, customer
 
+**Brand**:
+The name and look under which a firm meets Answering AI. Presentation only: it never decides behaviour, tenancy or billing.
+_Avoid_: app variant, tenant
+
+**Conversation**:
+One call or chat Answering AI took, whatever its outcome. A lead is recorded from some conversations; billing reads every one.
+_Avoid_: session, room, call (when a chat is included)
+
 **Caller**:
 The person who called or chatted with Answering AI on a firm's behalf.
 _Avoid_: lead (the lead is the record, not the person), contact
@@ -80,6 +88,10 @@ An unchangeable version of a destination's routing rule and mapping. Exactly one
 **Setup**:
 Bringing a destination from first contact to live: connect, approve, test, go live.
 _Avoid_: onboarding ticket, install
+
+**Change request**:
+A request to change what a live destination receives. It becomes a draft revision that the firm contact approves before it goes live.
+_Avoid_: ticket, support request
 
 **Live**:
 The state of a destination that receives production leads.

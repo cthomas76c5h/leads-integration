@@ -57,6 +57,10 @@ flowchart LR
 Intake hands over a finished **lead**. From then on Intake is never asked again:
 Delivery must work from what was recorded.
 
+The contexts beyond delivery (accounts, usage and billing, terms), the
+**hand-off** as an aggregate of its own, and the order features are built in are
+proposed in [RFC-007](../rfc/007_domain_model_and_build_order.md).
+
 ## 2. Aggregates
 
 ### Lead
