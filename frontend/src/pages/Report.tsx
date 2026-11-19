@@ -68,7 +68,7 @@ function Body({ r, l }: { r: FirmReport; l: ReturnType<typeof labels> }) {
         </div>
         <div className="tile">
           <span>Urgent calls in time</span><strong>{h.urgentTotal ? `${h.urgentOnTime} of ${h.urgentTotal}` : '—'}</strong>
-          <small className="muted">emergencies and custody: 15-minute window</small>
+          <small className="muted">emergencies and custody: 24-hour window</small>
         </div>
       </div>
 

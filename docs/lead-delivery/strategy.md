@@ -207,7 +207,7 @@ up there first. What the lab still cannot prove is in [lessons.md](lessons.md).
   | Reconnecting a destination (sign in again, new key or hook) | Firm contact, from a reconnect link |
 
 - **From reactive to proactive.** Today support hears about problems when a firm calls. The Destinations view, failure classes and alerts let operators find a stopped destination first. Alerts, failure classes and missed-lead recovery are what let one operator look after thousands of firms. The workflows are in [operations.md](operations.md).
-- **After hours.** Calls arrive all night. Retries and the fallback work around the clock; urgent calls have a 15-minute window and a text message; late leads are the first thing the owner sees the next morning.
+- **After hours.** Calls arrive all night. Retries and the fallback work around the clock; urgent calls go to the fallback after 15 minutes, by text message; late leads are the first thing the owner sees the next morning.
 - **Set up by category.** New firms choose call categories instead of writing free-text call types. Existing call types are already mapped; each firm confirms its mapping once.
 
 ## 7. Measures

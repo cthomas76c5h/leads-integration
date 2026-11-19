@@ -37,7 +37,7 @@ Approve:
 
 1. **Measurement first:** a read-only feed of production numbers (loss, lateness, CRM usage), then a delivery service that records every decision with a reason, real errors instead of "500", and an alert per destination, built in [RFC-007](007_domain_model_and_build_order.md)'s slices.
 2. **A window to act per kind of call**, and a **lead outcome of Expired** when it passes with nobody at the firm having the lead.
-3. **A fallback** (usually a text to the firm's intake team) agreed at setup, used at once when the usual destination is paused or needs reconnection, or once a third of the window has passed with nothing accepted.
+3. **A fallback** (usually a text to the firm's intake team) agreed at setup, used at once when the usual destination is paused or needs reconnection, or once its own fallback delay has passed with nothing accepted (1 hour; 15 minutes for emergencies and custody).
 4. **Held deliveries** for the record while a destination is stopped, sent on when it returns, marked late.
 5. **Failure classes and destination health**, so operators fix the cause rather than chase individual leads.
 6. **A lead delivery owner** in Operations, judged by the share of leads handed off in time.
