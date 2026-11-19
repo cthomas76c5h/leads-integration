@@ -1,0 +1,26 @@
+{
+  "about": "How a fake receiver behaves in each mode, the same for every destination kind. A scenario sets a mode with { \"mode\": \"...\" }. 'checksBody': whether a missing required field is refused (with the kind's refusesMissing answer) before the mode applies. 'model': lab (the lab's receivers do this today, backend/src/Api/Receivers.fs) or proposed.",
+  "modes": {
+    "ok": { "model": "lab", "checksBody": true, "answers": [{ "status": 201, "body": "accepted" }] },
+    "reject": { "model": "lab", "checksBody": true, "answers": [{ "status": 422, "body": "refused (reject mode)" }] },
+    "flaky": {
+      "model": "lab",
+      "checksBody": true,
+      "cycle": true,
+      "answers": [
+        { "status": 503, "body": "unavailable (flaky)", "retryAfter": "1" },
+        { "status": 503, "body": "unavailable (flaky)", "retryAfter": "1" },
+        { "status": 201, "body": "accepted (flaky, third try)" }
+      ]
+    },
+    "gone": { "model": "lab", "checksBody": false, "answers": [{ "status": 410, "body": "gone: hook removed" }] },
+    "down": { "model": "lab", "checksBody": false, "answers": [{ "status": 503, "body": "unavailable (down)" }] },
+    "slow": { "model": "lab", "checksBody": true, "delaySeconds": 15, "answers": [{ "status": 201, "body": "accepted" }] },
+    "expired-auth": {
+      "model": "proposed",
+      "checksBody": false,
+      "answers": [{ "status": 401, "body": "unauthorized: access token expired" }],
+      "note": "The simulator injects this answer today; the receivers have no mode for it yet"
+    }
+  }
+}

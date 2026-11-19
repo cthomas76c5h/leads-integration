@@ -1,0 +1,42 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "auth-expired",
+  "story": "A firm's CRM sign-in expires overnight. The first refusal moves the destination to needs reconnection; its leads are held for the record, and their hand-off goes to the firm's agreed SMS fallback at once. When the firm contact reconnects, the held leads are sent with their original time, marked late, and the destination is never switched off.",
+  "slice": 6,
+  "model": "proposed",
+  "proves": [
+    "docs/lead-delivery/README.md#3-a-leads-journey (planning step 1: needs reconnection is held, hand-off to the fallback at once)",
+    "docs/lead-delivery/README.md#switch-off (a connection problem moves to needs reconnection at once, not after 5 lost leads)",
+    "docs/lead-delivery/README.md#6-invariants (invariant 9: the hand-off never waits for the record)",
+    "docs/lead-delivery/answers.md#speed-window-to-act-fallback-holding (held records sent with the original time, marked late)"
+  ],
+  "today": "The lab refuses a 401, counts it toward the failure streak and switches the destination off after 5 in a row; held deliveries are not built, so later leads become missed leads. Production makes one attempt and records 401. The lab's simulator scenario of the same name shows today's behaviour.",
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [{ "id": "firm-a", "name": "Example Firm A" }],
+    "destinations": [
+      { "id": "crm", "firm": "firm-a", "kind": "clio-grow", "role": "usual", "routing": { "categories": ["new-matter"] } },
+      { "id": "sms", "firm": "firm-a", "kind": "sms", "role": "fallback" }
+    ]
+  },
+  "when": [
+    { "at": "+0m", "receiver": { "destination": "crm", "answers": { "mode": "expired-auth" } } },
+    { "at": "+5m", "lead": { "id": "lead-1", "firm": "firm-a", "category": "new-matter", "practiceArea": "personal-injury" } },
+    { "at": "+10m", "lead": { "id": "lead-2", "firm": "firm-a", "category": "new-matter", "practiceArea": "family" } },
+    { "at": "+2h", "receiver": { "destination": "crm", "answers": { "mode": "ok" } } },
+    { "at": "+2h", "action": { "by": "firm-contact", "do": "reconnect", "destination": "crm" } }
+  ],
+  "then": [
+    { "at": "+6m", "destination": { "id": "crm", "state": "needs-reconnection", "failureStreak": 0 } },
+    { "at": "+6m", "delivery": { "lead": "lead-1", "destination": "crm", "state": "held", "failureClass": "connection", "attempts": 1 } },
+    { "at": "+11m", "delivery": { "lead": "lead-2", "destination": "crm", "state": "held", "attempts": 0 } },
+    { "at": "+15m", "handOff": { "lead": "lead-1", "state": "reached-by-fallback", "by": "sms" } },
+    { "at": "+15m", "handOff": { "lead": "lead-2", "state": "reached-by-fallback", "by": "sms" } },
+    { "at": "+15m", "outcome": { "lead": "lead-1", "is": "held" } },
+    { "at": "+3h", "destination": { "id": "crm", "state": "live", "failureStreak": 0 } },
+    { "at": "+3h", "delivery": { "lead": "lead-1", "destination": "crm", "state": "accepted", "late": true } },
+    { "at": "+3h", "delivery": { "lead": "lead-2", "destination": "crm", "state": "accepted", "late": true } },
+    { "at": "+3h", "handOff": { "lead": "lead-1", "state": "reached-by-fallback", "by": "sms" } },
+    { "at": "+3h", "outcome": { "lead": "lead-1", "is": "accepted" } }
+  ]
+}

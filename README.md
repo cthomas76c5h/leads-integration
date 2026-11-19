@@ -12,6 +12,27 @@ chatbot (dump)  ──┼─► import ─► SQLite ─► outbox ─► worker
 airi (SQLite)   ──┘   (shape only)                          └─► … one per catalog kind
 ```
 
+## Start here
+
+New to this work? Read these in order. The first five are enough to build a
+slice; the rest are for when you need them.
+
+| # | Read | To learn | Time |
+|---|---|---|---|
+| 1 | [vision-meeting/summary.md](docs/vision-meeting/summary.md) | What firms buy from us, what goes wrong today, and what we will do | 5 min |
+| 2 | [GLOSSARY.md](GLOSSARY.md) | The words. Code, screens and docs use them as written | 15 min |
+| 3 | [lead-delivery/README.md](docs/lead-delivery/README.md) | The delivery model: a lead's journey, lifecycles, policies, invariants, events | 30 min |
+| 4 | [RFC-007](docs/rfc/007_domain_model_and_build_order.md) | The whole product's contexts, what any implementation must guarantee, the order to build features in, and how each is built | 30 min |
+| 5 | [contracts/](docs/contracts/README.md) | The checks a feature must pass, as scenario and receiver files | 10 min |
+| 6 | [lead-delivery/answers.md](docs/lead-delivery/answers.md) | Every decision, why, and what would change it | 15 min |
+| 7 | [lead-delivery/operations.md](docs/lead-delivery/operations.md) | What operators do, screen by screen | 15 min |
+| 8 | [lead-delivery/code-map.md](docs/lead-delivery/code-map.md) | Where each flow lives in this lab's code (only if you work on the lab) | 10 min |
+
+Later, by need: the direction and roadmap ([strategy.md](docs/lead-delivery/strategy.md)),
+what building the lab taught us ([lessons.md](docs/lead-delivery/lessons.md)), how
+production differs ([production-today.md](docs/lead-delivery/production-today.md)),
+and the proposal for each area ([rfc/](docs/rfc/README.md)).
+
 ## Run
 
 ```sh
@@ -59,7 +80,8 @@ The api-2 password comes from `pgpass.conf` or `PGPASSWORD`.
 
 | | |
 |---|---|
-| `docs/rfc/` | The proposals for approval, RFC-001 to RFC-006: delivery in time, call categories, billing, terms, the standard lead and integrations, the lab |
+| `docs/rfc/` | The proposals for approval, RFC-001 to RFC-007: delivery in time, call categories, billing, terms, the standard lead and integrations, the lab, the domain model and build order |
+| `docs/contracts/` | Scenarios and receiver contracts as language-neutral data; `python tools/check_contracts.py` checks them |
 | `docs/vision-meeting/` | The proposal: screens in story order, what we will deliver, questions and answers |
 | `docs/billing/strategy.md` | The billing model and how to move off the legacy one |
 | `docs/terms/strategy.md` | Terms of service: acceptance, versions and the record |

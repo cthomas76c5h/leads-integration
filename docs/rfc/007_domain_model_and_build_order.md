@@ -282,43 +282,20 @@ already are: one file, checked by both the F# and the Python rules.
 | **Story** | One or two sentences, in the glossary's words; the slice and rules it proves |
 | **Given** | Firms (fictional), their destinations with kind, role, state and live revision, the taxonomy version, the clock's start |
 | **When** | A timeline: leads arriving, how each destination's receiver answers and from when to when, operator and firm actions |
-| **Then** | Expected states at named times: each delivery's state and failure class, each lead's outcome and hand-off, each destination's state, counts on the operator views, audit entries |
-
-For example, the lab's `auth-expired` scenario would read:
-
-```json
-{
-  "name": "auth-expired",
-  "story": "A CRM's sign-in expires. The destination needs reconnection at once; its leads are held for the record and the hand-off goes to the fallback.",
-  "slice": 6,
-  "given": {
-    "firms": [{ "id": "firm-a", "name": "Example Firm A" }],
-    "destinations": [
-      { "id": "crm", "firm": "firm-a", "kind": "clio-grow", "role": "usual", "routing": "new-matter" },
-      { "id": "sms", "firm": "firm-a", "kind": "sms", "role": "fallback" }
-    ],
-    "clock": "2026-11-16T09:00:00-05:00"
-  },
-  "when": [
-    { "at": "+0m", "receiver": "crm", "answers": { "status": 401, "body": "access token expired" } },
-    { "at": "+5m", "lead": { "id": "lead-1", "firm": "firm-a", "category": "new-matter" } }
-  ],
-  "then": [
-    { "at": "+5m", "destination": "crm", "state": "needs-reconnection" },
-    { "at": "+5m", "delivery": { "lead": "lead-1", "destination": "crm" }, "state": "held" },
-    { "at": "+25m", "handOff": "lead-1", "state": "reached-by-fallback", "by": "sms" }
-  ]
-}
-```
-
-The exact format is fixed in lab refactor phase 6 (section 10.1).
+| **Then** | Expected states at named times: each delivery's state and failure class, each lead's outcome and hand-off, each destination's state |
 
 **A receiver contract** states what one destination kind requires and how it
-answers, as data: the fields it requires and their rules, the content type, how
-it signals acceptance, and its failure modes (accepts, refuses, flaky, gone, slow,
-down) with the answers each gives. The fake receivers are generated from these
-files, and the same files drive the contract tests against each CRM's sandbox
-([RFC-006](006_integration_lab.md)).
+answers, as data: the fields it requires, the content type, how it signals
+acceptance and how it refuses a missing field. The failure modes every kind
+shares (accepts, refuses, flaky, gone, slow, down, expired sign-in) are stated
+once. The fake receivers are generated from these files, and the same files
+drive the contract tests against each CRM's sandbox ([RFC-006](006_integration_lab.md)).
+
+A first draft of both formats, with JSON Schemas and a checker
+(`python tools/check_contracts.py`), is in [docs/contracts/](../contracts/README.md):
+the [auth-expired](../contracts/scenarios/auth-expired.json) scenario and the
+[Clio Grow](../contracts/receivers/clio-grow.json) receiver contract. The
+format is fixed in lab refactor phase 6 (section 10.1).
 
 **The runner** uses only an implementation's public contract ([api.md](../api.md))
 plus a **test control interface**, available in test mode only, to set the clock
@@ -340,8 +317,8 @@ They are kept, versioned and reviewed like code:
 | What operators do, screen by screen | [operations.md](../lead-delivery/operations.md) |
 | The taxonomy and the reference leads it must classify | [call-categories/](../call-categories/README.md) |
 | The contract | [api.md](../api.md) |
-| The scenarios: each failure mode as a story | Scenario files (section 6.3); in `Simulate.fs` until lab refactor phase 6 |
-| What each CRM requires | Receiver contract files (section 6.3); in the fake receivers (`FakeCrm.fs`) until phase 6 |
+| The scenarios: each failure mode as a story | [docs/contracts/scenarios/](../contracts/README.md); mostly still in `Simulate.fs` until lab refactor phase 6 |
+| What each CRM requires | [docs/contracts/receivers/](../contracts/README.md); mostly still in the fake receivers (`FakeCrm.fs`) until phase 6 |
 | What building it taught us | [lessons.md](../lead-delivery/lessons.md) |
 
 The code is the cheapest thing to replace. These assets are the expensive part.
@@ -369,7 +346,7 @@ flowchart LR
 
 | # | Slice: what someone can now do | Adds to the model | Proven by | Lab today |
 |---|---|---|---|---|
-| **0** | *Foundation:* nothing a firm sees yet | Glossary; Lead contract v1; event and outbox store; **Firm**; **test vs production** from the first line; operator action audit; one clock the scenarios control; the scenario runner and test control interface (section 6.3); the guarantees of section 6.1 | "A test lead never appears in a total, a streak or a report" | Test separation built; one clock and scenario files missing |
+| **0** | *Foundation:* nothing a firm sees yet | Glossary; Lead contract v1; event and outbox store; **Firm**; **test vs production** from the first line; operator action audit; one clock the scenarios control; the scenario runner and test control interface (section 6.3); the guarantees of section 6.1 | "A test lead never appears in a total, a streak or a report" | Test separation built; scenario and receiver formats drafted ([docs/contracts/](../contracts/README.md)); one clock and the runner missing |
 | **1** | **A caller's details reach the firm by email** | Minimal intake (chat or web form) → **lead** → one **delivery** with **attempts** → **accepted** | "Recorded before sent"; "the lead never changes" | Delivery side built; leads enter through the API and the simulator, not a real intake |
 | **2** | **A firm has several destinations, and each gets a decision** | **Destination** with state; routing rule (everything, or no chat leads); **not sent** with a reason; deliveries independent; **lead outcome** | "One destination down never delays another"; "every destination of the firm has a delivery for every lead" | Built (routing by call-type text) |
 | **3** | **Failures say what happened, and operators fix them where they find them** | Failure classes; retry policy; **retrying**, **refused**, **gave up**; **failure streak**; **switched off**; **needs reconnection**; **resend** under the same lead identity; operator and senior operator; the Delivery Center and Destinations screens | platform-outage, relay-timeouts, dead-endpoint, auth-expired, hook-gone, redirect, incident-now, mapping gap fixed and resent | Built; needs reconnection and lead-problem handling Proposed |
@@ -504,7 +481,7 @@ with their reasons, and the model in section 5 moves into
 1. Move section 5 into the domain model and the new terms into the glossary.
 2. Lab refactor phase 1: domain types separate from API shapes.
 3. Write the scenario library index: each scenario, its story, its slice and the rule it proves.
-4. Draft the scenario and receiver contract formats from two existing cases (`auth-expired` and one CRM kind), ahead of phase 6.
+4. Review the drafted scenario and receiver contract formats in [docs/contracts/](../contracts/README.md) (`auth-expired` and Clio Grow), then write the remaining scenarios and kinds in them, ahead of phase 6.
 
 ---
 

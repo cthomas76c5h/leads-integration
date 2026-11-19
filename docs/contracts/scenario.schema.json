@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scenario.schema.json",
+  "title": "Scenario",
+  "description": "A story about lead delivery stated as data: given a starting state, when things happen on a timeline, then these states hold. Words are the glossary's (GLOSSARY.md). See README.md in this folder.",
+  "type": "object",
+  "required": ["name", "story", "slice", "model", "proves", "given", "when", "then"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "story": { "type": "string", "minLength": 1 },
+    "slice": { "type": "integer", "minimum": 0, "maximum": 12, "description": "RFC-007 section 8" },
+    "model": {
+      "enum": ["production", "lab", "proposed"],
+      "description": "Which rules the expectations state: what production does, what the lab does, or the agreed model not yet built"
+    },
+    "proves": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "The rules it proves, as links into the model docs" },
+    "today": { "type": "string", "description": "Where the lab or production differs from these expectations, if it does" },
+    "given": {
+      "type": "object",
+      "required": ["clock", "firms", "destinations"],
+      "additionalProperties": false,
+      "properties": {
+        "clock": { "type": "string", "format": "date-time", "description": "Time zero; every 'at' is an offset from it" },
+        "taxonomy": { "type": "string", "description": "Taxonomy version; the current one if absent" },
+        "firms": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "name"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "name": { "type": "string", "description": "Fictional, always" }
+            }
+          }
+        },
+        "destinations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "firm", "kind", "role"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "firm": { "$ref": "#/$defs/id" },
+              "kind": { "type": "string", "description": "A destination kind; for CRMs, a file in receivers/" },
+              "role": { "enum": ["usual", "fallback"] },
+              "state": { "$ref": "#/$defs/destinationState", "default": "live" },
+              "routing": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "categories": { "type": "array", "items": { "type": "string" }, "description": "Call categories it takes; every category if absent" },
+                  "chatLeads": { "type": "boolean", "default": true }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "when": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/step" } },
+    "then": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/expectation" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "offset": { "type": "string", "pattern": "^\\+[0-9]+(s|m|h|d)$", "description": "Time after the clock's start: +30s, +5m, +2h, +1d" },
+    "destinationState": { "enum": ["setting-up", "live", "paused", "needs-reconnection", "switched-off"] },
+    "deliveryState": { "enum": ["queued", "sending", "retrying", "accepted", "refused", "gave-up", "not-sent", "held", "cancelled"] },
+    "failureClass": { "enum": ["transient", "lead", "configuration", "connection", "ours"] },
+    "handOffState": { "enum": ["pending", "reached", "reached-by-fallback", "expired"] },
+    "leadOutcome": { "enum": ["no-destination", "in-progress", "held", "needs-attention", "not-sent", "accepted", "expired"] },
+    "answer": {
+      "description": "How a destination's receiver answers: a mode from receivers/modes.json, an exact answer, or no answer at all",
+      "oneOf": [
+        { "type": "object", "required": ["mode"], "additionalProperties": false, "properties": { "mode": { "type": "string" } } },
+        {
+          "type": "object",
+          "required": ["status"],
+          "additionalProperties": false,
+          "properties": {
+            "status": { "type": "integer", "minimum": 100, "maximum": 599 },
+            "body": { "type": "string" },
+            "retryAfter": { "type": "string" }
+          }
+        },
+        { "type": "object", "required": ["noAnswer"], "additionalProperties": false, "properties": { "noAnswer": { "const": true } } }
+      ]
+    },
+    "step": {
+      "type": "object",
+      "required": ["at"],
+      "minProperties": 2,
+      "maxProperties": 2,
+      "properties": {
+        "at": { "$ref": "#/$defs/offset" },
+        "lead": {
+          "description": "A lead is recorded. Callers are invented; only what the rules read is stated",
+          "type": "object",
+          "required": ["id", "firm", "category"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "firm": { "$ref": "#/$defs/id" },
+            "category": { "type": "string" },
+            "practiceArea": { "type": "string" },
+            "channel": { "enum": ["call", "chat"], "default": "call" },
+            "test": { "type": "boolean", "default": false },
+            "only": { "$ref": "#/$defs/id", "description": "For a test lead: the one destination under test" },
+            "hangUp": { "type": "boolean", "default": false, "description": "The caller left before giving a name" }
+          }
+        },
+        "receiver": {
+          "description": "From this time on, the destination's receiver answers like this",
+          "type": "object",
+          "required": ["destination", "answers"],
+          "additionalProperties": false,
+          "properties": {
+            "destination": { "$ref": "#/$defs/id" },
+            "answers": { "$ref": "#/$defs/answer" }
+          }
+        },
+        "action": {
+          "description": "An operator, senior operator or firm contact does something",
+          "type": "object",
+          "required": ["by", "do"],
+          "additionalProperties": false,
+          "properties": {
+            "by": { "enum": ["operator", "senior-operator", "firm-contact"] },
+            "do": { "enum": ["resend", "pause", "resume", "reactivate", "reconnect", "send-missed"] },
+            "destination": { "$ref": "#/$defs/id" },
+            "lead": { "$ref": "#/$defs/id" },
+            "why": { "type": "string" }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "expectation": {
+      "description": "A state that holds at the given time. Exactly one of destination, delivery, handOff, outcome",
+      "type": "object",
+      "required": ["at"],
+      "minProperties": 2,
+      "maxProperties": 2,
+      "properties": {
+        "at": { "$ref": "#/$defs/offset" },
+        "destination": {
+          "type": "object",
+          "required": ["id", "state"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "state": { "$ref": "#/$defs/destinationState" },
+            "failureStreak": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "delivery": {
+          "description": "The newest delivery of this lead to this destination",
+          "type": "object",
+          "required": ["lead", "destination", "state"],
+          "additionalProperties": false,
+          "properties": {
+            "lead": { "$ref": "#/$defs/id" },
+            "destination": { "$ref": "#/$defs/id" },
+            "state": { "$ref": "#/$defs/deliveryState" },
+            "failureClass": { "$ref": "#/$defs/failureClass" },
+            "attempts": { "type": "integer", "minimum": 0 },
+            "late": { "type": "boolean", "description": "Accepted after the lead's window to act" }
+          }
+        },
+        "handOff": {
+          "type": "object",
+          "required": ["lead", "state"],
+          "additionalProperties": false,
+          "properties": {
+            "lead": { "$ref": "#/$defs/id" },
+            "state": { "$ref": "#/$defs/handOffState" },
+            "by": { "$ref": "#/$defs/id", "description": "The destination that reached the firm" }
+          }
+        },
+        "outcome": {
+          "type": "object",
+          "required": ["lead", "is"],
+          "additionalProperties": false,
+          "properties": {
+            "lead": { "$ref": "#/$defs/id" },
+            "is": { "$ref": "#/$defs/leadOutcome" }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
