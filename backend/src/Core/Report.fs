@@ -102,7 +102,7 @@ let build (s: Session) (firmId: string) (nowMs: int64) : FirmReport =
           ViaFallback = leads |> Array.filter (fun l -> state l = "on-time" && l.HandOff.ViaFallback) |> Array.length
           MedianMs = median
           UrgentOnTime = urgent |> Array.filter (fun l -> state l = "on-time") |> Array.length
-          UrgentTotal = urgent.Length }
+          UrgentTotal = urgent |> Array.filter (fun l -> state l <> "") |> Array.length }
       Destinations =
         Destinations.all s nowMs
         |> Array.filter (fun r -> r.FirmId = firmId && r.State <> "off")

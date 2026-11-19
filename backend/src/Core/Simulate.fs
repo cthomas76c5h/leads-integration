@@ -619,8 +619,11 @@ let run (db: Db.Database) (opts: Options) : Summary =
                     // As Dispatch.runFallbacks: nothing accepted yet, so the agreed fallback takes the hand-off.
                     let handedOff =
                         sims |> Seq.exists (fun x -> x.D.EventId = e.Id && x.Attempts |> Seq.exists (fun a -> a.Outcome = "delivered"))
+                    // As Dispatch.runFallbacks: never for a lead the firm's routing sends nowhere on purpose.
+                    let mine = sims |> Seq.filter (fun x -> x.D.EventId = e.Id) |> Array.ofSeq
+                    let excludedByRouting = mine.Length > 0 && mine |> Array.forall (fun x -> x.D.Status = "skipped")
                     match fallbackOf.TryGetValue e.FirmId with
-                    | true, id when not handedOff && conns[id].Status = "active" -> newSim e conns[id] "pending" null t null None
+                    | true, id when not handedOff && not excludedByRouting && conns[id].Status = "active" -> newSim e conns[id] "pending" null t null None
                     | _ -> ()
                 | Replay(pick, limit) ->
                     let chosen = sims |> Seq.filter (fun x -> x.D.CreatedAt < t && pick x) |> Seq.truncate limit |> Array.ofSeq

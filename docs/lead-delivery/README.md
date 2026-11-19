@@ -206,6 +206,8 @@ clears an earlier refusal. *Lab rule, in this order:*
 4. All not sent → **Not sent**.
 5. Otherwise → **Accepted**.
 
+**A lead the firm's routing sends nowhere** (every destination excluded it) owes no hand-off: it is never Expired, is not counted in the in-time numbers, and never goes to the fallback, which does not override routing. *Lab.* A lead with no live destination at all is still a missed window: that is a setup gap, not a choice.
+
 *Proposed:* any held → **Held**, between 2 and 3. And a lead whose window to act
 passed before any hand-off was accepted is **Expired**, whatever happens to its
 record afterwards: the most serious outcome, shown first.

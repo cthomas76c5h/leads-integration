@@ -91,6 +91,7 @@ every other kind's body is fixed in `Payloads.build`.
 ## 4b. Window to act and fallback
 
 1. `Urgency.windowMs` gives each call category its window to act (72 hours; 24 for emergencies and custody) and `Urgency.fallbackAfterMs` its fallback delay (1 hour; 15 minutes): two separate clocks, read by `Timing` from [delivery-timing.json](delivery-timing.json), which also holds the retry schedule `Policy.retryScheduleMs` reads. Set by Answering AI; `DELIVERY_TIMING_FILE` points a deployment at its own copy. `Urgency.handOffState` says on time, expired or waiting.
+1a. A lead every destination excluded by routing gets no `HandOff` (`Store.readLead`), so it is never expired and not in the in-time numbers; `Dispatch.runFallbacks` and the simulator's `HandOffCheck` never send it to the fallback.
 1b. The screens never say "Expired" alone: an expired lead that reached the firm is *Reached late* (amber), one that did not is *Not reached in time* (red) (`handOffText` in `frontend/src/lib/delivery.ts`, the Leads badge).
 2. Every lead read (`Store.listLeads`, `Store.leadOrFail`) carries a `HandOff`: its first accepted delivery anywhere, by which destination, and whether that was the fallback. An expired hand-off makes the lead's outcome `expired` (`Store.outcomeOf`).
 3. A destination with the setting `role: fallback` is skipped by `Dispatch.publish`. `Dispatch.runFallbacks`, called every few seconds by `DeliveryWorker`, gives it any lead with no accepted delivery once `Urgency.fallbackAfterMs` has passed, once per lead.

@@ -154,7 +154,10 @@ let runFallbacks (db: Database) (nowMs: int64) : int =
                    WHERE e.test = 0 AND e.created_at > $1
                      AND NOT EXISTS (SELECT 1 FROM attempts a JOIN deliveries x ON x.id = a.delivery_id
                                       WHERE x.event_id = e.id AND a.outcome = 'delivered')
-                     AND NOT EXISTS (SELECT 1 FROM deliveries x WHERE x.event_id = e.id AND x.connection_id = c.id)"""
+                     AND NOT EXISTS (SELECT 1 FROM deliveries x WHERE x.event_id = e.id AND x.connection_id = c.id)
+                     -- Not a lead the firm's routing sends nowhere on purpose: the fallback never overrides routing.
+                     AND NOT (EXISTS (SELECT 1 FROM deliveries x WHERE x.event_id = e.id)
+                              AND NOT EXISTS (SELECT 1 FROM deliveries x WHERE x.event_id = e.id AND x.status <> 'skipped'))"""
                 [ nowMs - 2L * 86_400_000L ]
                 (fun r -> Read.str r 0, Read.str r 1)
         let mutable queued = 0

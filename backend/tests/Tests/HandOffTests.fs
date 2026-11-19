@@ -12,10 +12,10 @@ let private hour = 60L * minute
 /// so a lead it publishes is past its 1-hour fallback delay by `now` on any day the tests run.
 let private now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 90L * minute
 
-/// A firm with an email destination and an agreed SMS fallback.
-let private firmWithFallback () =
+/// A firm with one destination (`kind`) and an agreed SMS fallback.
+let private firmWithFallbackTo (kind: string) (credentials: (string * string) list) =
     let t = new Support.TempDb()
-    let f = { Support.firm "1" "Fallback Firm" "k" [ Support.conn "10" "email" [] ] with ContactTypes = [| { Name = "*New Client Calls"; Active = true } |] }
+    let f = { Support.firm "1" "Fallback Firm" "k" [ Support.conn "10" kind credentials ] with ContactTypes = [| { Name = "*New Client Calls"; Active = true } |] }
     Import.apply t.Db Support.origin (Support.batch Domain.Source.api2 [ f ]) |> ignore
     let firmId = Db.read t.Db (fun s -> (Store.allFirms s |> Array.head).Id)
     let fallback: Connection =
@@ -26,6 +26,9 @@ let private firmWithFallback () =
           DeliveryUrl = Support.origin + "/receiver/crm/sms"; Issues = [||]; CreatedAt = 0L }
     Db.write t.Db (fun s -> Store.insertConnection s fallback (Secrets.newSigningSecret ()) null)
     t, firmId, fallback.Id
+
+/// A firm with an email destination and an agreed SMS fallback.
+let private firmWithFallback () = firmWithFallbackTo "email" []
 
 let private lead callType = { Support.sampleLead () with CallType = callType }
 
@@ -66,6 +69,21 @@ let tests =
               Expect.equal (toFallback late) 1 "past its 1-hour fallback delay: to the fallback"
               Expect.equal (toFallback fresh) 0 "5 minutes in: not yet"
               Expect.equal (Dispatch.runFallbacks t.Db now) 0 "never twice"
+          }
+
+          test "a call the firm's routing sends nowhere is not a missed window, and never goes to the fallback" {
+              // The firm's CRM takes only its active call type; a billing call goes nowhere, on purpose.
+              let t, firmId, fallbackId = firmWithFallbackTo "clio-grow" [ ("api_key", "x") ]
+              use _ = t
+              let e, ds = Dispatch.publish t.Db firmId (lead "*Billing/Payment Calls") false None None
+              Expect.isTrue (ds |> Array.forall (fun d -> d.Status = "skipped")) "excluded by routing"
+              Db.write t.Db (fun s -> s.Execute "UPDATE events SET created_at=$2 WHERE id=$1" [ e.Id; now - 100L * hour ] |> ignore)
+              let l = Db.read t.Db (fun s -> Store.leadOrFail s e.Id)
+              Expect.isNull (box l.HandOff) "no hand-off is owed"
+              Expect.equal l.Outcome "skipped" "not sent, by the firm's routing; not missed"
+              Expect.equal (Dispatch.runFallbacks t.Db now) 0 "the fallback never overrides routing"
+              let toFallback = Db.read t.Db (fun s -> s.Query "SELECT COUNT(*) FROM deliveries WHERE event_id=$1 AND connection_id=$2" [ e.Id; fallbackId ] (fun r -> r.GetInt32 0)) |> Array.head
+              Expect.equal toFallback 0 "nothing sent to the fallback"
           }
 
           test "a lead that reached the firm after its window is expired, and says when and how" {

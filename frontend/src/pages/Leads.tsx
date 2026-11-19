@@ -14,14 +14,14 @@ const LIMIT = 50;
 
 const OUTCOMES: [LeadOutcome | '', string][] = [
   ['', 'Any outcome'], ['expired', 'Missed its window (late or not reached)'], ['delivered', 'Delivered'], ['refused', 'Refused'], ['pending', 'In progress'],
-  ['skipped', 'Skipped by routing'], ['none', 'No destination'],
+  ['skipped', "Not sent (firm's routing)"], ['none', 'No destination'],
 ];
 const OUTCOME: Record<LeadOutcome, { label: string; tone: Tone }> = {
   expired: { label: 'Expired', tone: 'bad' },
   delivered: { label: 'Delivered', tone: 'ok' },
   refused: { label: 'Refused', tone: 'bad' },
   pending: { label: 'In progress', tone: 'warn' },
-  skipped: { label: 'Skipped', tone: 'muted' },
+  skipped: { label: "Not sent (firm's routing)", tone: 'muted' },
   none: { label: 'No destination', tone: 'muted' },
 };
 const asOutcome = (s: string | null): LeadOutcome | '' => OUTCOMES.find(([k]) => k === s)?.[0] ?? '';
@@ -135,7 +135,7 @@ function Row({ x, on, onOpen, onFirm, l }: { x: LeadSummary; on: boolean; onOpen
   const c = x.counts;
   const parts = [
     c.delivered && `${c.delivered} of ${c.total} destinations accepted`, c.refused && `${c.refused} refused`,
-    c.pending && `${c.pending} in progress`, c.skipped && `${c.skipped} skipped`,
+    c.pending && `${c.pending} in progress`, c.skipped && `${c.skipped} not sent by routing`,
   ].filter(Boolean).join(' · ');
   return (
     <tr className={on ? 'on' : ''}>

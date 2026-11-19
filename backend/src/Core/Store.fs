@@ -467,8 +467,11 @@ let private readLead (r: DbDataReader) : LeadSummary * Lead =
           Pending = Read.int r 10 }
     let createdAt = Read.int64 r 5
     let mapping = Categories.classify lead.CallType
+    // No hand-off is owed for a test lead, nor for one the firm's routing sends nowhere on purpose
+    // (every destination excluded it): it cannot be late or missed, and is not in the in-time numbers.
+    let excludedByRouting = counts.Total > 0 && counts.Skipped = counts.Total
     let handOff =
-        if Read.bool r 3 then Unchecked.defaultof<HandOff>
+        if Read.bool r 3 || excludedByRouting then Unchecked.defaultof<HandOff>
         else
             let window = Urgency.windowMs mapping.Category
             let at = Read.int64N r 11
