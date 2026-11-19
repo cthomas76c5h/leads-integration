@@ -466,9 +466,11 @@
                 "lease-expires",
                 "database-unavailable",
                 "database-available",
-                "intake-event-repeated"
+                "intake-event-repeated",
+                "answer-held",
+                "answer-released"
               ],
-              "description": "worker-crash-after-send: the destination received the request and the worker died before recording an answer. second-worker-claims: another worker tries to claim a delivery that is already claimed. worker-stalls-before-send: a worker claims a delivery and stops just before transmitting; worker-continues resumes it. lease-expires: the claim of a stalled worker runs out. database-unavailable / database-available: our database stops and starts answering. intake-event-repeated: the channel sends a lead's completion event again"
+              "description": "worker-crash-after-send: the destination received the request and the worker died before recording an answer. second-worker-claims: another worker tries to claim a delivery that is already claimed. worker-stalls-before-send: a worker claims a delivery and stops just before transmitting; worker-continues resumes it. lease-expires: the claim of a stalled worker runs out. database-unavailable / database-available: our database stops and starts answering. intake-event-repeated: the channel sends a lead's completion event again answer-held: the next request to the destination is sent and received, and its answer is held: the attempt is on the wire; answer-released: the held answer arrives."
             },
             "lead": {
               "$ref": "#/$defs/id"

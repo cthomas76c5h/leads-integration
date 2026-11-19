@@ -11,6 +11,11 @@ reports.
     python tools/run_scenarios.py --model lab       # only the ones the lab should pass
     python tools/run_scenarios.py --report out.json # results as JSON too
 
+A scenario passes only when every assertion is supported and holds:
+pass = all assertions supported AND all satisfied. Each scenario's line shows
+assertions passed/failed/unsupported (unsupported includes those never reached
+because an earlier step was unsupported), and the run ends with the totals.
+
 A scenario marked `lab` must pass; one marked `proposed` is expected to fail or
 be unsupported until its rule is built. The exit code is 1 if any `lab`
 scenario does not pass. A `proposed` scenario that passes is reported, so it can
@@ -379,28 +384,37 @@ def start(dll: Path, workdir: Path):
 def run_one(dll: Path, path: Path) -> dict:
     scenario = json.loads(path.read_text(encoding="utf-8"))
     t0 = int(datetime.fromisoformat(scenario["given"]["clock"]).timestamp() * 1000)
-    result = {"name": scenario["name"], "model": scenario["model"], "slice": scenario["slice"], "result": None, "details": []}
+    # Every expectation is counted, including those never reached because a step was unsupported:
+    # missing capability never leaves the denominator.
+    counts = {"passed": 0, "failed": 0, "unsupported": 0, "notReached": len(scenario["then"])}
+    result = {"name": scenario["name"], "model": scenario["model"], "slice": scenario["slice"], "result": None, "details": [],
+              "assertions": counts}
     with tempfile.TemporaryDirectory(prefix=f"scenario-{scenario['name']}-") as tmp:
         proc, api, log = start(dll, Path(tmp))
         try:
+            failures, unsupported = [], []
             lab = LabAdapter(api, scenario, t0)
             lab.setup()
             timeline = sorted(
                 [(offset_ms(s["at"]), 0, i, s) for i, s in enumerate(scenario["when"])]
                 + [(offset_ms(e["at"]), 1, i, e) for i, e in enumerate(scenario["then"])],
                 key=lambda x: (x[0], x[1], x[2]))
-            failures, unsupported = [], []
             for at, is_expectation, _, item in timeline:
                 api.ok("POST", "/api/test/advance", {"to": t0 + at})
                 if not is_expectation:
                     lab.step(item)
                     api.ok("POST", "/api/test/advance", {"to": t0 + at})
                     continue
+                counts["notReached"] -= 1
                 try:
                     holds, why = lab.expect(item)
-                    if not holds:
+                    if holds:
+                        counts["passed"] += 1
+                    else:
+                        counts["failed"] += 1
                         failures.append(f"{item['at']} {next(k for k in item if k != 'at')}: {why}")
                 except Unsupported as u:
+                    counts["unsupported"] += 1
                     unsupported.append(f"{item['at']} {u}")
             if failures:
                 result["result"], result["details"] = "FAIL", failures + [f"(unsupported) {u}" for u in unsupported]
@@ -409,7 +423,9 @@ def run_one(dll: Path, path: Path) -> dict:
             else:
                 result["result"] = "PASS"
         except Unsupported as u:
-            result["result"], result["details"] = "UNSUPPORTED", [f"cannot run: {u}"]
+            # Stopped at an unsupported step; assertions already failed still make it a FAIL.
+            stop = [f"cannot run further: {u}"] + [f"(unsupported) {x}" for x in unsupported]
+            result["result"], result["details"] = ("FAIL", failures + stop) if failures else ("UNSUPPORTED", stop)
         except Exception as ex:  # a runner or API error, not a scenario verdict
             result["result"], result["details"] = "ERROR", [str(ex)]
         finally:
@@ -444,7 +460,9 @@ def main() -> int:
         r = run_one(dll, p)
         results.append(r)
         expected = "expected" if (r["model"] == "lab") == (r["result"] == "PASS") else "UNEXPECTED"
-        print(f"{r['result']:<11} {r['model']:<8} {r['name']:<30} ({expected})", flush=True)
+        c = r["assertions"]
+        tally = f"{c['passed']}/{c['failed']}/{c['unsupported'] + c['notReached']}"
+        print(f"{r['result']:<11} {r['model']:<8} {r['name']:<30} {tally:<9} ({expected})", flush=True)
         for d in r["details"]:
             print(f"            {d}")
 
@@ -452,6 +470,10 @@ def main() -> int:
     promoted = [r for r in results if r["model"] == "proposed" and r["result"] == "PASS"]
     counts = {k: sum(1 for r in results if r["result"] == k) for k in ("PASS", "FAIL", "UNSUPPORTED", "ERROR")}
     print(f"\n{len(results)} scenarios: " + ", ".join(f"{v} {k.lower()}" for k, v in counts.items() if v))
+    a = {k: sum(r["assertions"][k] for r in results) for k in ("passed", "failed", "unsupported", "notReached")}
+    total = sum(a.values())
+    print(f"{total} assertions: {a['passed']} passed, {a['failed']} failed, {a['unsupported']} unsupported, "
+          f"{a['notReached']} not reached (a step before them was unsupported)")
     if lab_bad:
         print("lab scenarios not passing: " + ", ".join(r["name"] for r in lab_bad))
     if promoted:

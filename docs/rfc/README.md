@@ -17,6 +17,36 @@ with why and what would change them, live in
 | [007](007_domain_model_and_build_order.md) | The Domain Model and the Order to Build It | Engineering / Product | Nine bounded contexts; the hand-off as an aggregate; classification at intake; billing from conversations; thirteen slices and one method per feature; six guarantees any implementation keeps; scenarios and receiver contracts as language-neutral files |
 | [008](008_delivery_guarantees_and_evidence.md) | Delivery Guarantees, Concurrency and End-to-End Evidence | Engineering / Product | Evidence levels and the two-level number; honest guarantees at each boundary; desired state and observed health; a classification policy; security and failure-injection gates; revises RFC-007's build order |
 
+## Review status
+
+**Architecture review (November 2026): approved for stakeholder review, not for
+production.** Three rounds; the second produced RFC-008, the third accepted it,
+with the implementation gaps disclosed. No further architecture RFC is asked for:
+what remains is engineering and evidence.
+
+What stakeholders are asked to approve:
+
+> Not that the system already delivers these guarantees, but the guarantees it
+> must satisfy, the order in which they are built, and the executable tests by
+> which each is judged done.
+
+| Area | Standing |
+|---|---|
+| Domain model and ownership | Ready for review |
+| Delivery and concurrency guarantees | Ready, as specifications |
+| Executable scenario contracts | Ready; the lab passes every `lab` scenario, and each `proposed` one shows the gap its slice closes |
+| Receiver deduplication | Unresolved by design: `unknown` until each receiver is shown, in its sandbox, to handle repeats and ambiguous timeouts |
+| Security requirements | Specified; implementation evidence pending |
+| Commercial model (RFC-003) | Proposed; needs Product and Finance approval |
+| Effort estimates | Planning estimates, not commitments |
+| Production deployment | Not approved |
+
+Conditions carried into the build:
+
+- **Green means everything is shown.** A scenario passes only when every assertion is supported and holds; an assertion the implementation cannot report counts against it, never out of the total ([contracts](../contracts/README.md#running-the-scenarios)).
+- **Three counts, always.** Results report passed, failed and unsupported, for scenarios and for assertions, so progress cannot hide missing instrumentation.
+- **The first three priorities:** a destination's desired state checked again when a planned delivery is about to be sent (the pause bug), with a pause that races the worker before sending told apart from one that arrives while the request is on the wire; then leases and unknown outcomes (slice 3); then held deliveries and the immediate fallback (slice 6).
+
 ## How they fit together
 
 ```mermaid

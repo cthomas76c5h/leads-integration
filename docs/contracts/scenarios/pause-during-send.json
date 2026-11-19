@@ -1,14 +1,14 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "pause-during-send",
-  "story": "A worker has claimed a delivery to the firm's CRM and is about to send when an operator pauses the destination. Nothing is sent after the pause: the delivery is held, and the hand-off goes to the SMS fallback at once. After a resume, the held lead is sent. Later, an operator pauses while an attempt is already on the wire; that attempt is recorded as it ends.",
+  "story": "Two pauses, told apart. First, a worker has claimed a delivery to the firm's CRM and is about to send when an operator pauses the destination: nothing is sent after the pause, the delivery is held, and the hand-off goes to the SMS fallback at once; after a resume, the held lead is sent. Second, an operator pauses while an attempt is already on the wire: that attempt finishes and is recorded as it ends, accepted, and nothing about it is treated as sent against the pause; no further attempt follows while paused.",
   "slice": 3,
   "model": "proposed",
   "proves": [
     "docs/rfc/008_delivery_guarantees_and_evidence.md#53-claims-and-revalidation (revalidate before sending; a pause applies to attempts not yet started)",
     "docs/rfc/008_delivery_guarantees_and_evidence.md#51-two-owners-one-rule (desired state paused makes the destination ineligible)"
   ],
-  "today": "The worker checks only whether a destination is switched off, once, when the attempt starts (Dispatch.attempt). A pause (enabled off) does not stop a delivery already queued, and later leads to a paused destination get no delivery at all (missed leads), not held.",
+  "today": "The worker checks only whether a destination is switched off, once, when the attempt starts (Dispatch.attempt). A pause (enabled off) does not stop a delivery already queued, and later leads to a paused destination get no delivery at all (missed leads), not held. The lab cannot hold an answer on the wire or stall a worker, so both halves need test-control faults it does not have.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [
@@ -83,11 +83,9 @@
     },
     {
       "at": "+10m",
-      "receiver": {
-        "destination": "crm",
-        "answers": {
-          "mode": "slow"
-        }
+      "fault": {
+        "kind": "answer-held",
+        "destination": "crm"
       }
     },
     {
@@ -106,6 +104,13 @@
         "do": "pause",
         "destination": "crm",
         "why": "maintenance"
+      }
+    },
+    {
+      "at": "+10m10s",
+      "fault": {
+        "kind": "answer-released",
+        "destination": "crm"
       }
     }
   ],
@@ -205,10 +210,20 @@
       }
     },
     {
+      "at": "+11m",
+      "noEvent": {
+        "name": "Held",
+        "lead": "lead-2",
+        "destination": "crm",
+        "after": "+10m",
+        "before": "+11m"
+      }
+    },
+    {
       "at": "+1h",
       "noAttempt": {
         "destination": "crm",
-        "after": "+10m5s"
+        "after": "+10m10s"
       }
     }
   ]
