@@ -74,10 +74,10 @@
     "status": 422,
     "body": "missing {field}"
   },
-  "duplicates": "idempotency-key",
+  "duplicates": "unknown",
   "toConfirm": [
     "The field mapping lives in the firm's Zap: whether a Zap fails visibly when a field it maps is blank",
     "That a deleted Zap answers 410 Gone (the lab's hook-removed rule)",
-    "The Zap is expected to deduplicate on event_id (the lead id, also sent as the webhook-id header); a Zap that does not filter on it gets duplicates after an unknown outcome"
+    "Duplicate handling: we send the lead id as event_id and as the webhook-id header; whether a firm's Zap filters on it is the Zap's choice, so this stays unknown (RFC-008 §4.3)"
   ]
 }

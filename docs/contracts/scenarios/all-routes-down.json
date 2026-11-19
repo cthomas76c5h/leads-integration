@@ -115,6 +115,14 @@
       }
     },
     {
+      "at": "+10m",
+      "event": {
+        "name": "HandOffEscalated",
+        "lead": "lead-1",
+        "count": 1
+      }
+    },
+    {
       "at": "+17m",
       "handOff": {
         "lead": "lead-1",
@@ -130,19 +138,11 @@
       }
     },
     {
-      "at": "+1h",
-      "delivery": {
+      "at": "+17m",
+      "event": {
+        "name": "HandOffExpired",
         "lead": "lead-1",
-        "destination": "email",
-        "state": "accepted",
-        "late": true
-      }
-    },
-    {
-      "at": "+1h",
-      "handOff": {
-        "lead": "lead-1",
-        "state": "expired"
+        "count": 1
       }
     },
     {
@@ -162,6 +162,51 @@
         "by": "email",
         "evidence": "acknowledged",
         "escalated": false
+      }
+    },
+    {
+      "at": "+48m",
+      "event": {
+        "name": "HandOffAcknowledged",
+        "lead": "lead-2",
+        "count": 1
+      }
+    },
+    {
+      "at": "+1h",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "accepted",
+        "late": true
+      }
+    },
+    {
+      "at": "+1h",
+      "handOff": {
+        "lead": "lead-1",
+        "state": "expired"
+      }
+    },
+    {
+      "at": "+1h",
+      "noEvent": {
+        "name": "HandOffReached",
+        "lead": "lead-1"
+      }
+    },
+    {
+      "at": "+1h",
+      "noEvent": {
+        "name": "HandOffEscalated",
+        "lead": "lead-2"
+      }
+    },
+    {
+      "at": "+1h",
+      "noEvent": {
+        "name": "HandOffExpired",
+        "lead": "lead-2"
       }
     }
   ]

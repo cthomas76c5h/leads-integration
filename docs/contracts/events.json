@@ -1,0 +1,113 @@
+{
+  "about": "The domain events a scenario may assert (event, noEvent). Each names its source: the domain model (docs/lead-delivery/README.md §7), RFC-007 §5.3, RFC-008, or 'contracts' for a name these scenarios introduce that RFC-008 should adopt.",
+  "events": {
+    "ConversationHandled": {
+      "source": "RFC-007 §5.3",
+      "meaning": "Intake took a call or chat, lead or not"
+    },
+    "LeadRecorded": {
+      "source": "README §7",
+      "meaning": "A lead was recorded with its planned deliveries"
+    },
+    "DeliveryPlanned": {
+      "source": "README §7",
+      "meaning": "A delivery was planned for a destination"
+    },
+    "NotSent": {
+      "source": "README §7",
+      "meaning": "A delivery was decided against, with a reason"
+    },
+    "Held": {
+      "source": "README §7",
+      "meaning": "A delivery is held while its destination is stopped"
+    },
+    "AttemptMade": {
+      "source": "README §7",
+      "meaning": "An attempt was started and its outcome recorded"
+    },
+    "DeliveryAccepted": {
+      "source": "README §7",
+      "meaning": "The destination accepted the delivery"
+    },
+    "DeliveryRefused": {
+      "source": "README §7",
+      "meaning": "The destination refused the delivery"
+    },
+    "DeliveryGaveUp": {
+      "source": "README §7",
+      "meaning": "The delivery ran out of attempts"
+    },
+    "DeliveryCancelled": {
+      "source": "contracts",
+      "meaning": "A waiting delivery was cancelled, with a reason (RFC-008 §5.2)"
+    },
+    "DeliveryUnknown": {
+      "source": "contracts",
+      "meaning": "An attempt's outcome is unknown (RFC-008 §4.2)"
+    },
+    "DeliveryVerified": {
+      "source": "contracts",
+      "meaning": "A lookup found the record at the destination (RFC-008 §3.1)"
+    },
+    "VerificationOverdue": {
+      "source": "contracts",
+      "meaning": "An accepted record was not found within the set time"
+    },
+    "LeaseRecovered": {
+      "source": "contracts",
+      "meaning": "An expired claim was recovered by another worker (RFC-008 §5.3)"
+    },
+    "LeadResent": {
+      "source": "README §7",
+      "meaning": "An operator resent a lead under the same identity"
+    },
+    "DesiredStateChanged": {
+      "source": "RFC-008 §5.1",
+      "meaning": "Firm configuration changed a destination's desired state"
+    },
+    "DestinationHealthChanged": {
+      "source": "RFC-008 §5.1",
+      "meaning": "Delivery changed a destination's observed health"
+    },
+    "RevisionWentLive": {
+      "source": "RFC-007 §5.3",
+      "meaning": "A destination's new revision became live"
+    },
+    "HandOffReached": {
+      "source": "RFC-007 §5.1",
+      "meaning": "A lead's hand-off was reached"
+    },
+    "FallbackUsed": {
+      "source": "RFC-007 §5.1",
+      "meaning": "The hand-off went to the firm's fallback"
+    },
+    "HandOffExpired": {
+      "source": "RFC-007 §5.1",
+      "meaning": "The window to act passed with no accepted hand-off"
+    },
+    "HandOffEscalated": {
+      "source": "contracts",
+      "meaning": "The hand-off was escalated to an operator (RFC-008 §3.2)"
+    },
+    "HandOffAcknowledged": {
+      "source": "contracts",
+      "meaning": "A person at the firm acknowledged the lead (RFC-008 §3.1)"
+    },
+    "ClassificationCorrected": {
+      "source": "RFC-007 §5.1",
+      "meaning": "A classification was superseded by a correction"
+    },
+    "UsageRated": {
+      "source": "contracts",
+      "meaning": "A conversation was rated as a charge"
+    },
+    "UsageCredited": {
+      "source": "contracts",
+      "meaning": "A credit was added for a conversation (RFC-008 §6.2, §7)"
+    },
+    "AccessRefused": {
+      "source": "contracts",
+      "meaning": "A request for another firm's data was refused and audited (RFC-008 §9)"
+    }
+  }
+}

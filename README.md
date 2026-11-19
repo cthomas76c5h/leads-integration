@@ -22,11 +22,11 @@ slice; the rest are for when you need them.
 | Agreed: build on it | Draft: expect it to change |
 |---|---|
 | The glossary, and the decisions in [answers.md](docs/lead-delivery/answers.md) (each marked *Decided*) | [RFC-001 to RFC-008](docs/rfc/README.md): proposed, awaiting approval. RFC-007 (the model and build order) and RFC-008 (the guarantees and evidence, which revises RFC-007) are the newest |
-| The product is **built new, to the domain model**, in RFC-007's slices; api-2 is not extended ([answers](docs/lead-delivery/answers.md#routing-and-integrations)); the milestones are the [roadmap](docs/lead-delivery/strategy.md#5-roadmap) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a draft, with 16 scenarios and a receiver contract for every catalog kind; no runner yet, and no CRM contract confirmed against its sandbox |
+| The product is **built new, to the domain model**, in RFC-007's slices; api-2 is not extended ([answers](docs/lead-delivery/answers.md#routing-and-integrations)); the milestones are the [roadmap](docs/lead-delivery/strategy.md#5-roadmap) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a draft, with 26 scenarios (including RFC-008's ten failure-injection scenarios) and a receiver contract for every catalog kind; no runner yet, and no CRM contract confirmed against its sandbox |
 | Every rule in the [domain model](docs/lead-delivery/README.md) marked *Lab* or *Production* | Every rule marked *Proposed*: agreed direction, not built |
 
 A scenario marked `"model": "proposed"` is expected to fail against the lab
-until its rule is built. Six do today on purpose (for example `auth-expired`,
+until its rule is built. Sixteen do today on purpose (for example `auth-expired`,
 the acceptance test for slice 6: held deliveries, needs reconnection, fallback
 at once); each says how the lab differs in its `today` field. They are not bugs.
 

@@ -70,6 +70,15 @@
       }
     },
     {
+      "at": "+10m",
+      "event": {
+        "name": "DeliveryVerified",
+        "lead": "lead-1",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
       "at": "+35m",
       "delivery": {
         "lead": "lead-2",
@@ -95,6 +104,31 @@
         "destination": "crm",
         "state": "accepted",
         "evidence": "verified"
+      }
+    },
+    {
+      "at": "+3h",
+      "event": {
+        "name": "VerificationOverdue",
+        "lead": "lead-2",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+3h",
+      "noEvent": {
+        "name": "DeliveryVerified",
+        "lead": "lead-2",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+3h",
+      "noEvent": {
+        "name": "VerificationOverdue",
+        "lead": "lead-1",
+        "destination": "crm"
       }
     }
   ]

@@ -21,8 +21,8 @@
     "status": 422,
     "body": "missing {field}"
   },
-  "duplicates": "idempotency-key",
+  "duplicates": "unknown",
   "toConfirm": [
-    "Receivers are expected to deduplicate on the signed webhook-id header (the lead id, the same on every retry); a receiver that does not honour it gets duplicates after an unknown outcome"
+    "Duplicate handling: we send the lead id as the signed webhook-id header, the same on every retry, so a receiver can deduplicate on it; whether a given receiver does is its own choice, so this stays unknown per receiver (RFC-008 §4.3)"
   ]
 }

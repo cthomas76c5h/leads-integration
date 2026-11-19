@@ -124,6 +124,14 @@
       }
     },
     {
+      "at": "+20m",
+      "event": {
+        "name": "ClassificationCorrected",
+        "lead": "lead-1",
+        "count": 1
+      }
+    },
+    {
       "at": "+1h",
       "billing": {
         "lead": "lead-2",
@@ -168,6 +176,59 @@
       "noDelivery": {
         "lead": "lead-3",
         "destination": "crm"
+      }
+    },
+    {
+      "at": "+4h",
+      "event": {
+        "name": "ClassificationCorrected",
+        "lead": "lead-2",
+        "count": 1
+      }
+    },
+    {
+      "at": "+4h",
+      "event": {
+        "name": "ClassificationCorrected",
+        "lead": "lead-3",
+        "count": 1
+      }
+    },
+    {
+      "at": "+4h",
+      "event": {
+        "name": "UsageCredited",
+        "lead": "lead-2",
+        "count": 1
+      }
+    },
+    {
+      "at": "+4h",
+      "noEvent": {
+        "name": "UsageRated",
+        "lead": "lead-3",
+        "after": "+2h"
+      }
+    },
+    {
+      "at": "+4h",
+      "noEvent": {
+        "name": "UsageCredited",
+        "lead": "lead-3"
+      }
+    },
+    {
+      "at": "+4h",
+      "noAttempt": {
+        "destination": "crm",
+        "lead": "lead-1"
+      }
+    },
+    {
+      "at": "+4h",
+      "noAttempt": {
+        "destination": "crm",
+        "lead": "lead-3"
       }
     }
   ]

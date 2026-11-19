@@ -522,7 +522,7 @@
       "additionalProperties": false
     },
     "expectation": {
-      "description": "A state that holds at the given time. Exactly one of destination, delivery, noDelivery, handOff, outcome, capture, access, classification, billing",
+      "description": "A state, an emitted event or a prohibited effect that holds at the given time. Exactly one of destination, delivery, noDelivery, handOff, outcome, capture, access, classification, billing, event, noEvent, noAttempt",
       "type": "object",
       "required": [
         "at"
@@ -796,6 +796,116 @@
               ]
             }
           }
+        },
+        "event": {
+          "description": "Exactly `count` events with this name about these ids have been emitted by then (1 if absent). Names are from events.json. Name the lead, destination or firm the event is about, at least one",
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": [
+                "lead"
+              ]
+            },
+            {
+              "required": [
+                "destination"
+              ]
+            },
+            {
+              "required": [
+                "firm"
+              ]
+            }
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "lead": {
+              "$ref": "#/$defs/id"
+            },
+            "destination": {
+              "$ref": "#/$defs/id"
+            },
+            "firm": {
+              "$ref": "#/$defs/id"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "noEvent": {
+          "description": "A prohibited effect: no event with this name about these ids is emitted between `after` and `before` (from the start, and up to the expectation's own time, if absent)",
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": [
+                "lead"
+              ]
+            },
+            {
+              "required": [
+                "destination"
+              ]
+            },
+            {
+              "required": [
+                "firm"
+              ]
+            }
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "lead": {
+              "$ref": "#/$defs/id"
+            },
+            "destination": {
+              "$ref": "#/$defs/id"
+            },
+            "firm": {
+              "$ref": "#/$defs/id"
+            },
+            "after": {
+              "$ref": "#/$defs/offset"
+            },
+            "before": {
+              "$ref": "#/$defs/offset"
+            }
+          }
+        },
+        "noAttempt": {
+          "description": "A prohibited effect: no attempt is started to this destination (for this lead, if named) between `after` and `before` (from the start, and up to the expectation's own time, if absent)",
+          "type": "object",
+          "required": [
+            "destination"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "destination": {
+              "$ref": "#/$defs/id"
+            },
+            "lead": {
+              "$ref": "#/$defs/id"
+            },
+            "after": {
+              "$ref": "#/$defs/offset"
+            },
+            "before": {
+              "$ref": "#/$defs/offset"
+            }
+          }
         }
       },
       "additionalProperties": false
@@ -824,9 +934,10 @@
         "lookup",
         "external-reference",
         "none",
-        "harmless"
+        "harmless",
+        "unknown"
       ],
-      "description": "How a destination handles a lead it may have seen (RFC-008 §4.3)"
+      "description": "How a destination handles a lead it may have seen (RFC-008 §4.3). unknown: not yet verified against the destination's sandbox; treated at runtime like external-reference or none (RFC-008 §4.3). Every kind is 'unknown' until there is evidence"
     }
   }
 }

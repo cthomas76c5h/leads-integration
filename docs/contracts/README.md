@@ -12,7 +12,8 @@ receivers are rewritten to read these files.
 | [scenarios/](scenarios/) | One file per scenario |
 | [receiver.schema.json](receiver.schema.json) | The format of a receiver contract |
 | [receivers/modes.json](receivers/modes.json) | How a fake receiver behaves in each mode, the same for every kind |
-| [receivers/](receivers/) | One file per destination kind: what it requires, how it accepts and refuses |
+| [receivers/](receivers/) | One file per destination kind: what it requires, how it accepts and refuses, how it handles duplicates |
+| [events.json](events.json) | The domain events a scenario may assert, each with its source |
 
 Check every file:
 
@@ -21,9 +22,17 @@ python tools/check_contracts.py
 ```
 
 It validates each file against its schema, then checks what a schema cannot:
-every firm, destination and lead a scenario names exists, every mode is in
-`modes.json`, and every category and practice area is in
+every firm, destination and lead a scenario names exists (in steps, faults,
+access requests and expectations), every mode is in `modes.json`, every event
+is in `events.json`, and every category and practice area, including corrected
+categories and new routing rules, is in
 [taxonomy.json](../call-categories/taxonomy.json).
+
+**Checked is not run.** The checker proves the files are well formed and
+consistent. Running a scenario against an implementation needs the scenario
+runner and its test control interface (clock, receiver modes, faults), which
+come with [RFC-007](../rfc/007_domain_model_and_build_order.md) slice 0 and are
+not built yet.
 
 ## A scenario
 
@@ -37,13 +46,21 @@ timeline, **then** these states hold.
 | `model` | Whose rules the expectations state: `production`, `lab`, or `proposed` (agreed, not built) |
 | `proves` | Links to the rules it proves, in the model docs |
 | `today` | Where the lab or production differs from the expectations, if it does |
-| `given` | `clock` (time zero, with its time zone); `firms` (fictional names, always); `destinations` with kind, role (`usual` or `fallback`), state, routing (categories, chat leads) and, for a webhook, the body fields its live revision sends (`mapping`) |
-| `when` | Steps, each at an offset from the clock, largest unit first (`+30s`, `+5m`, `+2h30m`, `+25h10m`, `+1d`), doing one thing: a **lead** is recorded; a destination's **receiver** starts answering a certain way (a mode, optionally with fields it requires on top of its kind's; an exact answer; or no answer); someone takes an **action** (resend, pause, resume, reactivate, reconnect, send missed leads, change a mapping, approve) |
-| `then` | Expectations, each at an offset, stating one thing that holds then: a **destination**'s state and failure streak; the newest **delivery** of a lead to a destination (its state, failure class, attempts, how many deliveries the pair has with resends, whether it was late); that a lead has **no delivery** to a destination at all; a lead's **hand-off**; a lead's **outcome** |
+| `given` | `clock` (time zero, with its time zone); `firms` (fictional names, always); `destinations` with kind, role (`usual` or `fallback`), state, routing (categories, chat leads) for a webhook, the body fields its live revision sends (`mapping`), and, where a scenario relies on duplicate handling the kind's contract has not confirmed, the handling it **assumes** (`duplicates`) |
+| `when` | Steps, each at an offset from the clock, largest unit first (`+30s`, `+5m`, `+2h30m`, `+25h10m`, `+1d`), doing one thing: a **lead** is recorded; a destination's **receiver** starts answering a certain way (a mode, optionally with fields it requires on top of its kind's; an exact answer; or no answer); someone takes an **action** (resend, pause, resume, reactivate, reconnect, send missed leads, change a mapping, change routing, approve (optionally applying the new revision to waiting deliveries), acknowledge a lead, correct a classification); a **fault** happens inside our system (a worker crashes after sending, a second worker claims, a worker stalls before sending and later continues, a lease expires, the database stops or starts answering, the channel repeats a completion event); a firm's user makes an **access** request (read, list, export or resend a lead); a firm's billing **cycle closes**. A lead may carry the channel's **conversation** id |
+| `then` | Expectations, each at an offset, stating one thing that holds then: a **destination**'s state and failure streak; the newest **delivery** of a lead to a destination (its state, failure class, attempts, how many deliveries the pair has with resends, whether it was late); the revision it uses, its evidence level, whether verification is overdue, each attempt's outcome, words its reason contains); that a lead has **no delivery** to a destination at all; a lead's **hand-off** (with its evidence level and whether it escalated); a lead's **outcome**; what intake **captured** (recorded or not, how many leads for its conversation, what the channel was told); the answer to an **access** request (allowed or refused, audited); a lead's current **classification** (records kept, destinations offered); how its conversation is **billed**. And two kinds that are not states: an **event** emitted (exactly how many, about which lead, destination or firm), and a **prohibited effect**: no event of a kind (`noEvent`), or no attempt to a destination (`noAttempt`), within a stated interval |
 
 Expectation times allow for the retry schedule's ±20% jitter, so a scenario
 holds whatever the random draw. `approve` is the firm contact approving a draft
 revision, after which it is live: setup's test and confirm steps are not modelled.
+Revisions are numbered per destination: the live one in `given` is 1, and each
+approval makes the next one live.
+
+The fault, access, acknowledgement, correction, capture, evidence, billing,
+event and prohibited-effect parts, and the delivery state `unknown`, come from
+[RFC-008](../rfc/008_delivery_guarantees_and_evidence.md); its ten
+failure-injection scenarios use them, and each asserts the durable state it
+leaves, the events it emits and the side effects it must not have.
 
 States use the model's names ([domain model §4](../lead-delivery/README.md#4-lifecycles)),
 not any implementation's: `needs-reconnection`, not `disabled`; `held`, not
@@ -67,16 +84,34 @@ CRM's sandbox ([RFC-006](../rfc/006_integration_lab.md)).
 | `requires`, `optional` | Each field (a dotted JSON path, `name[key]` for an array of name and value, or a form field) and which part of the standard lead fills it. `requires` may be empty: a plain webhook requires nothing by itself, and a scenario adds what a particular receiver requires |
 | `accepts` | The status of an accepted lead |
 | `refusesMissing` | The answer when a required field is missing or blank |
+| `duplicates` | How the kind handles a lead it may have seen, which decides what follows an unknown outcome ([RFC-008 §4.3](../rfc/008_delivery_guarantees_and_evidence.md#43-duplicate-handling-per-destination-kind)): `idempotency-key`, `lookup`, `external-reference`, `none` (confirmed to have no way to tell), `harmless`, or **`unknown`**: not yet verified against the destination's sandbox, and treated at runtime like `external-reference` or `none`. Every kind is `unknown` until there is evidence; only email, SMS and Slack, where a second copy is harmless by nature, are not |
 | `toConfirm` | What the sandbox must still settle |
 
-Modes (`ok`, `reject`, `flaky`, `gone`, `down`, `slow`, `expired-auth`) are the
-same for every kind and live once, in [modes.json](receivers/modes.json).
+Modes (`ok`, `reject`, `flaky`, `gone`, `down`, `slow`, `expired-auth`,
+`lost-record`) are the same for every kind and live once, in
+[modes.json](receivers/modes.json). `expired-auth` and `lost-record` (accepts, but
+a lookup never finds the record) are proposed: the lab's receivers do not have
+them yet.
+
+## Events
+
+[events.json](events.json) lists every event a scenario may assert, with its
+source: the [domain model](../lead-delivery/README.md#7-domain-events),
+[RFC-007 §5](../rfc/007_domain_model_and_build_order.md#5-aggregates-and-invariants),
+[RFC-008](../rfc/008_delivery_guarantees_and_evidence.md), or `contracts` for a
+name these scenarios introduce that RFC-008 should adopt (`DeliveryCancelled`,
+`DeliveryUnknown`, `DeliveryVerified`, `VerificationOverdue`, `LeaseRecovered`,
+`HandOffEscalated`, `HandOffAcknowledged`, `UsageRated`, `UsageCredited`,
+`AccessRefused`).
 
 ## What is here
 
 Every scenario the lab's simulator runs, a scenario for each delivery rule that
-had none, and a receiver contract for every kind in the catalog. A `proposed`
-scenario fails on the lab today; its `today` field says how the lab differs.
+had none, RFC-008's ten failure-injection scenarios, and a receiver contract for
+every kind in the catalog: 26 scenarios (10 `lab`, 16 `proposed`) and 16
+receivers. A `proposed` scenario fails on the lab today; its `today` field says
+how the lab differs. None is runnable yet: that needs the scenario runner
+(RFC-007 slice 0).
 
 ### Scenarios
 
@@ -99,9 +134,30 @@ scenario fails on the lab today; its `today` field says how the lab differs.
 | [hook-gone](scenarios/hook-gone.json) | 6 | `proposed` | 410: needs reconnection, held; the firm reconnects and held leads are accepted |
 | [paused-destination](scenarios/paused-destination.json) | 6 | `proposed` | Paused: held, hand-off to the fallback at once; on resume, sent with the original time, marked late |
 
-Billing (slice 10) and terms (slice 11) have no scenarios yet: the format covers
-delivery only, and would need conversations, statements and terms versions added
-to `given`, `when` and `then`.
+#### RFC-008 failure injection
+
+Each scenario of [RFC-008 §10](../rfc/008_delivery_guarantees_and_evidence.md#10-failure-injection-scenarios),
+the production gates, and the file that states it. All `proposed`; each asserts
+durable state, emitted events and prohibited effects.
+
+| RFC-008 §10 scenario | File | Slice | Events asserted | Prohibited effects |
+|---|---|---|---|---|
+| crash-after-send | [crash-after-send.json](scenarios/crash-after-send.json) | 3 | `DeliveryUnknown`, `DeliveryAccepted` | No attempt to the CRM after the crash; the CRM never accepted twice |
+| double-claim | [double-claim.json](scenarios/double-claim.json) | 3 | `LeaseRecovered`, exactly two `AttemptMade`, `DeliveryAccepted` | No attempt after the stalled worker wakes |
+| pause-during-send | [pause-during-send.json](scenarios/pause-during-send.json) | 3 | `DesiredStateChanged` (three), `Held`, `FallbackUsed` | No attempt while paused; none after the second pause |
+| routing-change-during-outage | [routing-change-during-outage.json](scenarios/routing-change-during-outage.json) | 5 | `RevisionWentLive`, `DeliveryCancelled`, `NotSent` | No attempt for a cancelled or not-sent delivery |
+| accepted-never-verified | [accepted-never-verified.json](scenarios/accepted-never-verified.json) | 3 | `DeliveryVerified`, `VerificationOverdue` | Never verified without a found record |
+| duplicate-intake | [duplicate-intake.json](scenarios/duplicate-intake.json) | 1 | Exactly one `ConversationHandled`, `LeadRecorded`, `AttemptMade` | No second conversation, lead or delivery (exact counts) |
+| classification-corrected | [classification-corrected.json](scenarios/classification-corrected.json) | 9 | `ClassificationCorrected`, `UsageCredited` | No new charge after the cycle closes; no automatic send |
+| cross-firm-read | [cross-firm-read.json](scenarios/cross-firm-read.json) | 0 | Four `AccessRefused` | No resend, no attempt from the refused request |
+| database-down-at-intake | [database-down-at-intake.json](scenarios/database-down-at-intake.json) | 1 | `ConversationHandled`, `LeadRecorded`, `DeliveryAccepted`, once each | No capture, conversation or attempt while the database is down |
+| all-routes-down | [all-routes-down.json](scenarios/all-routes-down.json) | 6 | `HandOffEscalated`, `HandOffExpired`, `HandOffAcknowledged` | The expired lead never reached; the acknowledged one never escalated or expired |
+
+Billing (slice 10) and terms (slice 11) have no scenarios of their own yet. The
+format now states a cycle closing and a conversation's billing effect (for
+corrections), but full billing scenarios would need conversations with
+durations, prices and statements, and terms scenarios would need terms versions,
+users and acceptances, in `given`, `when` and `then`.
 
 ### Receivers
 
@@ -109,26 +165,26 @@ All are `lab`: what the fake receivers check today
 ([FakeCrm.fs](../../backend/src/Core/FakeCrm.fs)), with each one's `requires`
 equal to the kind's fields in [Catalog.fs](../../backend/src/Core/Catalog.fs).
 None is `confirmed` against a sandbox yet; each external product's `toConfirm`
-lists what its sandbox must settle.
+lists what its sandbox must settle, including its duplicate handling.
 
-| Kind | Content | Requires |
-|---|---|---|
-| [answering-legal](receivers/answering-legal.json) | JSON | first_name, last_name, phone, message |
-| [clio-grow](receivers/clio-grow.json) | JSON | inbox_lead.from_first, from_last, from_phone, from_message, from_source |
-| [mycase](receivers/mycase.json) | JSON | first_name, last_name, cell_phone_number, lead_details |
-| [lawmatics-form](receivers/lawmatics-form.json) | JSON | first_name, last_name, phone, message |
-| [lawmatics-form-v2](receivers/lawmatics-form-v2.json) | JSON | first_name, last_name, phone, full_message |
-| [lawmatics-api](receivers/lawmatics-api.json) | JSON | first_name, last_name, phone, match_contact_by, notes |
-| [lead-docket](receivers/lead-docket.json) | Form | First, Last, Phone, Summary |
-| [smokeball](receivers/smokeball.json) | JSON | contact.person.firstName, lastName, phone; matter.isLead; task.staffId |
-| [practicepanther](receivers/practicepanther.json) | JSON | account.primary_contact.first_name, phone_mobile; call_log.call_direction |
-| [lawruler](receivers/lawruler.json) | JSON | first_name, last_name, phone (retired) |
-| [hubspot](receivers/hubspot.json) | JSON | fields[firstname], fields[lastname], fields[phone] |
-| [zapier-webhook](receivers/zapier-webhook.json) | JSON | event_id, first_name, phone |
-| [webhook](receivers/webhook.json) | JSON | Nothing by itself: the body is the firm's approved mapping |
-| [email](receivers/email.json) | JSON | to, subject, text |
-| [sms](receivers/sms.json) | JSON | to, text |
-| [slack](receivers/slack.json) | JSON | text |
+| Kind | Content | Requires | Duplicates |
+|---|---|---|---|
+| [answering-legal](receivers/answering-legal.json) | JSON | first_name, last_name, phone, message | `unknown`: api-2 answers 208 for an `answer_id` it has, but this kind sends `message_id` |
+| [clio-grow](receivers/clio-grow.json) | JSON | inbox_lead.from_first, from_last, from_phone, from_message, from_source | `unknown` until its sandbox confirms |
+| [mycase](receivers/mycase.json) | JSON | first_name, last_name, cell_phone_number, lead_details | `unknown` until its sandbox confirms |
+| [lawmatics-form](receivers/lawmatics-form.json) | JSON | first_name, last_name, phone, message | `unknown` until its sandbox confirms |
+| [lawmatics-form-v2](receivers/lawmatics-form-v2.json) | JSON | first_name, last_name, phone, full_message | `unknown` until its sandbox confirms |
+| [lawmatics-api](receivers/lawmatics-api.json) | JSON | first_name, last_name, phone, match_contact_by, notes | `unknown` until its sandbox confirms |
+| [lead-docket](receivers/lead-docket.json) | Form | First, Last, Phone, Summary | `unknown` until its sandbox confirms |
+| [smokeball](receivers/smokeball.json) | JSON | contact.person.firstName, lastName, phone; matter.isLead; task.staffId | `unknown` until its sandbox confirms |
+| [practicepanther](receivers/practicepanther.json) | JSON | account.primary_contact.first_name, phone_mobile; call_log.call_direction | `unknown` until its sandbox confirms |
+| [lawruler](receivers/lawruler.json) | JSON | first_name, last_name, phone (retired) | `unknown` until its sandbox confirms |
+| [hubspot](receivers/hubspot.json) | JSON | fields[firstname], fields[lastname], fields[phone] | `unknown` until its sandbox confirms |
+| [zapier-webhook](receivers/zapier-webhook.json) | JSON | event_id, first_name, phone | `unknown`: the lead id is sent as `event_id`; filtering on it is each Zap's choice |
+| [webhook](receivers/webhook.json) | JSON | Nothing by itself: the body is the firm's approved mapping | `unknown`: the lead id is sent as the signed `webhook-id` header; deduplicating on it is each receiver's choice |
+| [email](receivers/email.json) | JSON | to, subject, text | `harmless` |
+| [sms](receivers/sms.json) | JSON | to, text | `harmless` |
+| [slack](receivers/slack.json) | JSON | text | `harmless` |
 
 Next, in lab refactor phase 6: the lab's simulator and fake receivers read these
 files instead of holding their own copies.

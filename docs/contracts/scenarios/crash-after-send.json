@@ -8,7 +8,7 @@
     "docs/rfc/008_delivery_guarantees_and_evidence.md#42-an-unknown-outcome (a send with no recorded answer is unknown)",
     "docs/rfc/008_delivery_guarantees_and_evidence.md#43-duplicate-handling-per-destination-kind (what follows an unknown outcome, per kind)"
   ],
-  "today": "On restart, Store.requeueInterrupted moves every in-flight delivery back to pending and sends it again, whatever the destination, and a timeout is retried as transient. The lab has no unknown outcome and no per-kind duplicate handling, so the CRM would get the lead twice.",
+  "today": "On restart, Store.requeueInterrupted moves every in-flight delivery back to pending and sends it again, whatever the destination, and a timeout is retried as transient. The lab has no unknown outcome and no per-kind duplicate handling, so the CRM would get the lead twice. The webhook's duplicate handling is assumed (idempotency-key): its receiver contract says unknown, since honouring our lead-id header is each receiver's choice.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [
@@ -33,7 +33,8 @@
         "id": "hook",
         "firm": "firm-a",
         "kind": "webhook",
-        "role": "usual"
+        "role": "usual",
+        "duplicates": "idempotency-key"
       },
       {
         "id": "email",
@@ -127,6 +128,40 @@
         "state": "reached",
         "by": "email",
         "evidence": "accepted"
+      }
+    },
+    {
+      "at": "+30m",
+      "event": {
+        "name": "DeliveryUnknown",
+        "lead": "lead-1",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+30m",
+      "event": {
+        "name": "DeliveryAccepted",
+        "lead": "lead-1",
+        "destination": "hook",
+        "count": 1
+      }
+    },
+    {
+      "at": "+30m",
+      "noAttempt": {
+        "destination": "crm",
+        "lead": "lead-1",
+        "after": "+1m"
+      }
+    },
+    {
+      "at": "+30m",
+      "noEvent": {
+        "name": "DeliveryAccepted",
+        "lead": "lead-1",
+        "destination": "crm"
       }
     }
   ]

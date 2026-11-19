@@ -62,6 +62,7 @@ lab's code and each other, four gaps remain:
 | **External duplicates promised away.** "Receiving the same lead twice has no further effect, on our side or the destination's" | RFC-007 §6.1 | The lead id is sent as a header; whether a CRM uses it is unknown. RFC-001 is the honest one: "no promise of exactly-once CRM creation" |
 | **Two owners of destination state.** Firm configuration owns the destination "including state and failure streak"; Delivery owns "destination health" and sends `DestinationStateChanged` back | RFC-007 §4, §5.2, §5.3 | One `connections` row holds both; the worker reads its state, sends, then writes the outcome against whatever the row says by then |
 | **Claims without leases.** A claim flips `pending` to `delivering`; on restart, every `delivering` row goes back to `pending` and is sent again | `Store.claimDue`, `Store.requeueInterrupted` | A crash after the CRM created a record, before we recorded it, sends the lead again |
+| **A pause does not stop queued deliveries.** Planning skips a paused destination, but the worker checks only whether it is switched off before sending | `Dispatch.attempt` | A delivery queued before an operator pauses is still sent after the pause (found while writing the [pause-during-send](../contracts/scenarios/pause-during-send.json) scenario) |
 
 And three cross-RFC questions had no answer: what a corrected category does to a
 bill already rated; how repeat calls are detected without keeping caller
@@ -164,11 +165,14 @@ Each destination kind declares how it handles a lead it may have seen, in its
 | **External reference** | The destination stores our lead reference but does not deduplicate | Retry for a hand-off destination; for a record-only destination, hold for an operator, who checks and resends or closes |
 | **None** | No way to tell | As external reference |
 | **Duplicates harmless** | A second copy costs nothing (SMS, email, Slack, the portal) | Retry: a duplicate notice is better than a missed one |
+| **Unknown** | Not yet verified in the destination's sandbox | As external reference, until verified |
 
-The capability of each of the six CRMs is **to be confirmed in its sandbox**; it
-is listed among each receiver contract's open questions until then. Webhooks and
-Zapier receive the lead id in a signed header and are documented as expected to
-deduplicate on it.
+Every destination kind is **unknown** until its sandbox shows otherwise; a
+contract never claims a capability without evidence. Today only SMS, email and
+Slack are declared (harmless); every CRM, the answering-legal web-leads API,
+webhooks and Zapier are unknown, with the question listed in their receiver
+contract. Webhooks and Zapier receive the lead id in a signed header; whether a
+receiver honours it is that receiver's choice, so it is not counted on.
 
 ---
 
@@ -209,6 +213,26 @@ destination; consumers ignore anything older than what they hold.
 - **Revalidate before sending.** In the transaction that claims the delivery, and again immediately before the request is sent, the worker checks eligibility (section 5.1) and stamps the attempt with the **revision** and **authorization version** it uses. If either check fails, nothing is sent.
 - **A pause takes effect for attempts not yet started.** An attempt already on the wire when an operator pauses is recorded as it ends. The audit shows both, in order.
 - **Recording is truthful.** An attempt's outcome is recorded against the revision and authorization version it used, never the ones current when the answer arrives.
+
+### 5.4 Events these rules add
+
+In addition to those of [RFC-007 §5.3](007_domain_model_and_build_order.md#53-events-between-contexts)
+and the [domain model](../lead-delivery/README.md#7-domain-events). The full list a
+scenario may assert, with where each comes from, is
+[events.json](../contracts/events.json).
+
+| Event | Raised by | When |
+|---|---|---|
+| `DeliveryUnknown` | Delivery | An attempt was sent and never answered (section 4.2) |
+| `DeliveryVerified` | Delivery | A lookup found the record at the destination |
+| `VerificationOverdue` | Delivery | An accepted delivery was not verified within the set time |
+| `DeliveryCancelled` | Delivery | A waiting delivery stopped: destination removed, or routing no longer matches under a carried-forward revision |
+| `LeaseRecovered` | Delivery | A worker took over an expired lease; the covered attempt became unknown |
+| `HandOffAcknowledged` | Delivery | Someone at the firm confirmed receipt |
+| `HandOffEscalated` | Delivery | No acknowledgement in half the window: the fallback, then an operator |
+| `UsageRated` | Usage | A conversation was rated for its cycle |
+| `UsageCredited` | Usage | A correction lowered a closed cycle's charge; the credit lands in a later cycle |
+| `AccessRefused` | Accounts | A request crossed firms, or lacked the role, and was refused |
 
 ---
 
@@ -423,10 +447,9 @@ D2, D9 and the conditional CRM list are recorded in
 
 ## 15. Next Steps
 
-1. Write the ten failure-injection scenarios and the `fault` step in [contracts](../contracts/README.md).
-2. Add the `duplicates` field to every receiver contract, marked to confirm for each CRM.
-3. Choose the first CRM to certify end to end, from the production feed and sandbox access.
-4. Fold sections 3, 5 and 7 into the [domain model](../lead-delivery/README.md) once approved.
+1. Build the scenario runner and test control interface (RFC-007 slice 0), and run all [contract scenarios](../contracts/README.md) against the lab: the `lab` ones must pass, the `proposed` ones fail for the reasons their `today` field gives. The ten failure-injection scenarios and every receiver's `duplicates` field are written.
+2. Choose the first CRM to certify end to end, from the production feed and sandbox access.
+3. Fold sections 3, 5 and 7 into the [domain model](../lead-delivery/README.md) once approved.
 
 ---
 

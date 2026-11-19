@@ -78,6 +78,39 @@
         "is": "recorded",
         "count": 1
       }
+    },
+    {
+      "at": "+5m",
+      "event": {
+        "name": "ConversationHandled",
+        "lead": "lead-1",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "event": {
+        "name": "LeadRecorded",
+        "lead": "lead-1",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "event": {
+        "name": "AttemptMade",
+        "lead": "lead-1",
+        "destination": "email",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "event": {
+        "name": "ConversationHandled",
+        "lead": "lead-2",
+        "count": 1
+      }
     }
   ]
 }

@@ -130,12 +130,42 @@
       }
     },
     {
+      "at": "+7m",
+      "event": {
+        "name": "AccessRefused",
+        "firm": "firm-b",
+        "count": 4
+      }
+    },
+    {
+      "at": "+7m",
+      "noEvent": {
+        "name": "AccessRefused",
+        "firm": "firm-a"
+      }
+    },
+    {
       "at": "+10m",
       "delivery": {
         "lead": "lead-1",
         "destination": "email-a",
         "state": "accepted",
         "count": 1
+      }
+    },
+    {
+      "at": "+10m",
+      "noEvent": {
+        "name": "LeadResent",
+        "lead": "lead-1"
+      }
+    },
+    {
+      "at": "+10m",
+      "noAttempt": {
+        "destination": "email-a",
+        "lead": "lead-1",
+        "after": "+1m"
       }
     }
   ]

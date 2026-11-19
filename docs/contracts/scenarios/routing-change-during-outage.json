@@ -200,6 +200,40 @@
       }
     },
     {
+      "at": "+20m",
+      "event": {
+        "name": "RevisionWentLive",
+        "destination": "crm-a",
+        "count": 1
+      }
+    },
+    {
+      "at": "+20m",
+      "event": {
+        "name": "RevisionWentLive",
+        "destination": "crm-b",
+        "count": 1
+      }
+    },
+    {
+      "at": "+20m",
+      "event": {
+        "name": "DeliveryCancelled",
+        "lead": "lead-b1",
+        "destination": "crm-b",
+        "count": 1
+      }
+    },
+    {
+      "at": "+20m",
+      "event": {
+        "name": "NotSent",
+        "lead": "lead-b2",
+        "destination": "crm-b",
+        "count": 1
+      }
+    },
+    {
       "at": "+2h",
       "delivery": {
         "lead": "lead-a1",
@@ -215,6 +249,21 @@
         "destination": "crm-a",
         "state": "accepted",
         "revision": 2
+      }
+    },
+    {
+      "at": "+2h",
+      "noAttempt": {
+        "destination": "crm-b",
+        "lead": "lead-b1",
+        "after": "+12m"
+      }
+    },
+    {
+      "at": "+2h",
+      "noAttempt": {
+        "destination": "crm-b",
+        "lead": "lead-b2"
       }
     }
   ]

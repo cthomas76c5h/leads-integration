@@ -73,6 +73,30 @@
       }
     },
     {
+      "at": "+5m",
+      "noEvent": {
+        "name": "LeadRecorded",
+        "lead": "lead-1",
+        "before": "+5m"
+      }
+    },
+    {
+      "at": "+5m",
+      "noEvent": {
+        "name": "ConversationHandled",
+        "lead": "lead-1",
+        "before": "+5m"
+      }
+    },
+    {
+      "at": "+5m",
+      "noAttempt": {
+        "destination": "email",
+        "lead": "lead-1",
+        "before": "+5m"
+      }
+    },
+    {
       "at": "+10m",
       "capture": {
         "lead": "lead-1",
@@ -97,6 +121,31 @@
         "state": "reached",
         "by": "email",
         "evidence": "accepted"
+      }
+    },
+    {
+      "at": "+10m",
+      "event": {
+        "name": "ConversationHandled",
+        "lead": "lead-1",
+        "count": 1
+      }
+    },
+    {
+      "at": "+10m",
+      "event": {
+        "name": "LeadRecorded",
+        "lead": "lead-1",
+        "count": 1
+      }
+    },
+    {
+      "at": "+10m",
+      "event": {
+        "name": "DeliveryAccepted",
+        "lead": "lead-1",
+        "destination": "email",
+        "count": 1
       }
     }
   ]

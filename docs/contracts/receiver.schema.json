@@ -137,9 +137,10 @@
         "lookup",
         "external-reference",
         "none",
-        "harmless"
+        "harmless",
+        "unknown"
       ],
-      "description": "How this kind handles a lead it may have seen, which decides what follows an unknown outcome (RFC-008 §4.3). idempotency-key: ignores a request with a key it has seen. lookup: we can ask whether a record with our lead reference exists. external-reference: stores our reference but does not deduplicate. none: no way to tell. harmless: a second copy costs nothing. 'none' until confirmed"
+      "description": "How this kind handles a lead it may have seen, which decides what follows an unknown outcome (RFC-008 §4.3). idempotency-key: ignores a request with a key it has seen. lookup: we can ask whether a record with our lead reference exists. external-reference: stores our reference but does not deduplicate. none: confirmed to have no way to tell. harmless: a second copy costs nothing. unknown: not yet verified against the destination's sandbox; treated at runtime like external-reference or none (RFC-008 §4.3). Every kind is 'unknown' until there is evidence"
     },
     "toConfirm": {
       "type": "array",

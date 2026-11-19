@@ -1,8 +1,9 @@
 """Check the language-neutral scenario and receiver contract files (docs/contracts/).
 
 Validates every file against its JSON Schema, then checks what a schema cannot:
-every id a scenario refers to exists, every receiver mode exists, and every
-category and practice area is in the taxonomy. Exits 1 on any problem.
+every id a scenario refers to exists, every receiver mode exists, every event
+name is in events.json, and every category and practice area is in the
+taxonomy. Exits 1 on any problem.
 
     python tools/check_contracts.py
 """
@@ -26,7 +27,7 @@ def schema_problems(validator: Draft202012Validator, doc) -> list[str]:
     return [f"{'/'.join(map(str, e.absolute_path)) or '(root)'}: {e.message}" for e in validator.iter_errors(doc)]
 
 
-def scenario_problems(s: dict, modes: set[str], categories: set[str], areas: set[str]) -> list[str]:
+def scenario_problems(s: dict, modes: set[str], categories: set[str], areas: set[str], events: set[str]) -> list[str]:
     problems = []
     firms = {f["id"] for f in s["given"]["firms"]}
     destinations = {d["id"]: d for d in s["given"]["destinations"]}
@@ -107,6 +108,12 @@ def scenario_problems(s: dict, modes: set[str], categories: set[str], areas: set
             refs += [("destination", d) for d in c.get("offered", [])]
             if c["category"] not in categories:
                 problems.append(f"expectation at {e['at']}: no category {c['category']} in the taxonomy")
+        for key in ("event", "noEvent", "noAttempt"):
+            if key in e:
+                ev = e[key]
+                refs += [(what, ev[what]) for what in ("lead", "destination", "firm") if what in ev]
+                if "name" in ev and ev["name"] not in events:
+                    problems.append(f"expectation at {e['at']}: no event {ev['name']} in events.json")
         for what, ref in refs:
             known = {"lead": leads, "destination": destinations, "firm": firms}[what]
             if ref not in known:
@@ -119,6 +126,7 @@ def main() -> int:
     categories = {c["id"] for c in taxonomy["categories"]}
     areas = {a["id"] for a in taxonomy["practiceAreas"]}
     modes = set(load(CONTRACTS / "receivers" / "modes.json")["modes"])
+    events = set(load(CONTRACTS / "events.json")["events"])
 
     scenario_validator = Draft202012Validator(load(CONTRACTS / "scenario.schema.json"))
     receiver_validator = Draft202012Validator(load(CONTRACTS / "receiver.schema.json"))
@@ -141,7 +149,7 @@ def main() -> int:
         doc = load(path)
         problems = schema_problems(scenario_validator, doc)
         if not problems:
-            problems = scenario_problems(doc, modes, categories, areas)
+            problems = scenario_problems(doc, modes, categories, areas, events)
             if doc["name"] != path.stem:
                 problems.append(f"name {doc['name']} does not match the file name")
         checked += 1

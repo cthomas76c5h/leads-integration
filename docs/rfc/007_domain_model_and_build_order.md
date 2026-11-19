@@ -294,10 +294,11 @@ once. The fake receivers are generated from these files, and the same files
 drive the contract tests against each CRM's sandbox ([RFC-006](006_integration_lab.md)).
 
 Both formats, with JSON Schemas and a checker (`python tools/check_contracts.py`),
-are in [docs/contracts/](../contracts/README.md): 16 scenarios (every simulator
-story, plus each delivery rule that had none; 10 the lab passes today, 6
-proposed) and a receiver contract for every catalog kind, none yet confirmed
-against a CRM's sandbox. Billing and terms have no scenarios yet; the format
+are in [docs/contracts/](../contracts/README.md): 26 scenarios (every simulator
+story, each delivery rule that had none, and RFC-008's ten failure-injection
+scenarios; 10 the lab passes today, 16 proposed) and a receiver contract for
+every catalog kind with its duplicate handling, none yet confirmed against a
+CRM's sandbox. Billing and terms have no scenarios yet; the format
 covers delivery only. The format is fixed in lab refactor phase 6 (section 10.1).
 
 **The runner** uses only an implementation's public contract ([api.md](../api.md))

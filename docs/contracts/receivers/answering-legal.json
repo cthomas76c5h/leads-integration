@@ -46,8 +46,8 @@
     "status": 422,
     "body": "missing {field}"
   },
-  "duplicates": "idempotency-key",
+  "duplicates": "unknown",
   "toConfirm": [
-    "api-2 answers 208 Already Reported for an answer_id it already has (docs/lead-delivery/production-today.md); confirm the lab's message_id (the lead id) is what it keys on"
+    "Duplicate handling: api-2 answers 208 Already Reported for an answer_id it already has (docs/lead-delivery/production-today.md), but this kind's body carries the lead id as message_id, not answer_id; confirm what the web-leads API keys on (RFC-008 §4.3)"
   ]
 }

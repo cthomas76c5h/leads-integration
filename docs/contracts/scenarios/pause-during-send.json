@@ -135,6 +135,40 @@
       }
     },
     {
+      "at": "+3m",
+      "event": {
+        "name": "DesiredStateChanged",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+3m",
+      "event": {
+        "name": "Held",
+        "lead": "lead-1",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+3m",
+      "event": {
+        "name": "FallbackUsed",
+        "lead": "lead-1",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "noAttempt": {
+        "destination": "crm",
+        "lead": "lead-1",
+        "after": "+1m",
+        "before": "+5m"
+      }
+    },
+    {
       "at": "+7m",
       "delivery": {
         "lead": "lead-1",
@@ -160,6 +194,21 @@
       "destination": {
         "id": "crm",
         "state": "paused"
+      }
+    },
+    {
+      "at": "+11m",
+      "event": {
+        "name": "DesiredStateChanged",
+        "destination": "crm",
+        "count": 3
+      }
+    },
+    {
+      "at": "+1h",
+      "noAttempt": {
+        "destination": "crm",
+        "after": "+10m5s"
       }
     }
   ]

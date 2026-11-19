@@ -8,7 +8,7 @@
     "docs/rfc/008_delivery_guarantees_and_evidence.md#53-claims-and-revalidation (a lease, not a flag; only the holder records)",
     "docs/rfc/008_delivery_guarantees_and_evidence.md#42-an-unknown-outcome (an expired lease's attempt counts as unknown)"
   ],
-  "today": "Store.claimDue flips pending to delivering with no owner and no expiry. The lab runs one worker per API process, so a second claim is never exercised, and a stalled claim is recovered only by Store.requeueInterrupted on restart.",
+  "today": "Store.claimDue flips pending to delivering with no owner and no expiry. The lab runs one worker per API process, so a second claim is never exercised, and a stalled claim is recovered only by Store.requeueInterrupted on restart. The webhook's duplicate handling is assumed (idempotency-key): its receiver contract says unknown, since honouring our lead-id header is each receiver's choice.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [
@@ -22,7 +22,8 @@
         "id": "hook",
         "firm": "firm-a",
         "kind": "webhook",
-        "role": "usual"
+        "role": "usual",
+        "duplicates": "idempotency-key"
       }
     ]
   },
@@ -91,6 +92,42 @@
           "answered"
         ],
         "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "event": {
+        "name": "LeaseRecovered",
+        "lead": "lead-1",
+        "destination": "hook",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "event": {
+        "name": "AttemptMade",
+        "lead": "lead-1",
+        "destination": "hook",
+        "count": 2
+      }
+    },
+    {
+      "at": "+5m",
+      "event": {
+        "name": "DeliveryAccepted",
+        "lead": "lead-1",
+        "destination": "hook",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "noEvent": {
+        "name": "AttemptMade",
+        "lead": "lead-1",
+        "destination": "hook",
+        "after": "+3m"
       }
     }
   ]
