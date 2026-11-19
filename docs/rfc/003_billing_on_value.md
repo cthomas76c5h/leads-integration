@@ -179,12 +179,12 @@ illustrative; talk time is synthetic; nobody is charged.
 
 ## 7. Migration and Rollout
 
-| Phase | When | Deliver |
+| Phase | When ([RFC-007](007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices) slice) | Deliver |
 |---|---|---|
-| **1. Audit** | Weeks 1–2 | Every account on unusual terms listed with an owner; past cycles locked |
-| **2. Clean** | Weeks 3–8 | Price list and free-call rules written down; billing data as numbers, not text; one system of record per field |
-| **3. Shadow** | Months 3–5 | The usage record; every account rated both ways for two cycles without charging; every difference above a set amount explained |
-| **4. Switch** | After | Firms told first; switch by group: new accounts, then those whose price changes least; contracts honoured to their end date |
+| **1. Audit** | Now; needs no build | Every account on unusual terms listed with an owner; past cycles locked |
+| **2. Clean** | Before slice 10 | Price list and free-call rules written down; billing data as numbers, not text; one system of record per field |
+| **3. Shadow** | Slice 10 | The usage record; every account rated both ways for two cycles without charging; every difference above a set amount explained |
+| **4. Switch** | After slice 10's two shadow cycles | Firms told first; switch by group: new accounts, then those whose price changes least; contracts honoured to their end date |
 | **5. Retire** | After all moved | Legacy formulas and the "No Charge" call type removed |
 
 ### Out of scope

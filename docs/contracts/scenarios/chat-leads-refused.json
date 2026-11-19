@@ -1,0 +1,75 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "chat-leads-refused",
+  "story": "A firm's CRM does not take chat leads. A chat lead is not sent to it, with the reason recorded, and reaches the firm by email.",
+  "slice": 2,
+  "model": "lab",
+  "proves": [
+    "docs/lead-delivery/README.md#routing (a destination can refuse chat leads)",
+    "docs/lead-delivery/README.md#6-invariants (invariant 2: every destination gets a decision)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "mycase",
+        "role": "usual",
+        "routing": {
+          "chatLeads": false
+        }
+      },
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+5m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "channel": "chat",
+        "practiceArea": "immigration"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+10m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "not-sent",
+        "attempts": 0
+      }
+    },
+    {
+      "at": "+10m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "accepted"
+      }
+    },
+    {
+      "at": "+10m",
+      "outcome": {
+        "lead": "lead-1",
+        "is": "accepted"
+      }
+    }
+  ]
+}

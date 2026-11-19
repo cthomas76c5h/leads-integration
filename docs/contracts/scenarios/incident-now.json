@@ -1,0 +1,99 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "incident-now",
+  "story": "PracticePanther answers 503 (Retry-After 60 s) for four hours. A new matter keeps retrying and is accepted after PracticePanther recovers, but the firm has no fallback, so its hand-off expired after an hour: retries keep the record and lose the client.",
+  "slice": 6,
+  "model": "lab",
+  "proves": [
+    "docs/lead-delivery/README.md#window-to-act-and-fallback (the hand-off never waits for the record)",
+    "docs/lead-delivery/README.md#lead-outcome (Expired, whatever happens to the record afterwards)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "practicepanther",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "crm",
+        "answers": {
+          "status": 503,
+          "body": "unavailable",
+          "retryAfter": "60"
+        }
+      }
+    },
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "criminal"
+      }
+    },
+    {
+      "at": "+4h",
+      "receiver": {
+        "destination": "crm",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+1h05m",
+      "handOff": {
+        "lead": "lead-1",
+        "state": "expired"
+      }
+    },
+    {
+      "at": "+3h",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "retrying",
+        "failureClass": "transient"
+      }
+    },
+    {
+      "at": "+11h",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "accepted"
+      }
+    },
+    {
+      "at": "+11h",
+      "handOff": {
+        "lead": "lead-1",
+        "state": "expired"
+      }
+    },
+    {
+      "at": "+11h",
+      "outcome": {
+        "lead": "lead-1",
+        "is": "expired"
+      }
+    }
+  ]
+}

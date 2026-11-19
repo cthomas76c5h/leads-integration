@@ -1,0 +1,27 @@
+{
+  "$schema": "../receiver.schema.json",
+  "kind": "sms",
+  "label": "SMS",
+  "model": "lab",
+  "request": {
+    "method": "POST",
+    "contentType": "application/json"
+  },
+  "requires": [
+    {
+      "field": "to",
+      "from": "the destination's number setting, in E.164"
+    },
+    {
+      "field": "text",
+      "from": "\"New lead:\", the caller's full name and phone, and the message"
+    }
+  ],
+  "accepts": {
+    "status": 201
+  },
+  "refusesMissing": {
+    "status": 422,
+    "body": "missing {field}"
+  }
+}

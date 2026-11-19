@@ -1,0 +1,98 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "test-lead-isolation",
+  "story": "An operator sends test leads to one destination while setting it up. A test lead goes only to the destination under test, and a refused test lead never counts toward its failure streak.",
+  "slice": 0,
+  "model": "lab",
+  "proves": [
+    "docs/lead-delivery/README.md#6-invariants (invariant 5: tests are separate)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "mycase",
+        "role": "usual"
+      },
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "test-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "test": true,
+        "only": "crm"
+      }
+    },
+    {
+      "at": "+10m",
+      "receiver": {
+        "destination": "crm",
+        "answers": {
+          "mode": "reject"
+        }
+      }
+    },
+    {
+      "at": "+15m",
+      "lead": {
+        "id": "test-2",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "test": true,
+        "only": "crm"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+5m",
+      "delivery": {
+        "lead": "test-1",
+        "destination": "crm",
+        "state": "accepted"
+      }
+    },
+    {
+      "at": "+5m",
+      "noDelivery": {
+        "lead": "test-1",
+        "destination": "email"
+      }
+    },
+    {
+      "at": "+20m",
+      "delivery": {
+        "lead": "test-2",
+        "destination": "crm",
+        "state": "refused",
+        "attempts": 1
+      }
+    },
+    {
+      "at": "+20m",
+      "destination": {
+        "id": "crm",
+        "state": "live",
+        "failureStreak": 0
+      }
+    }
+  ]
+}

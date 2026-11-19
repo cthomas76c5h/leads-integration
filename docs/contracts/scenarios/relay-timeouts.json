@@ -1,0 +1,82 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "relay-timeouts",
+  "story": "The email relay stops answering for 90 minutes. Each attempt times out with no answer, which is a transient failure, so the lead is retried and accepted once the relay answers again.",
+  "slice": 3,
+  "model": "lab",
+  "proves": [
+    "docs/lead-delivery/README.md#retry (no answer is transient and retried)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "email",
+        "answers": {
+          "noAnswer": true
+        }
+      }
+    },
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+1h30m",
+      "receiver": {
+        "destination": "email",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+30m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "retrying",
+        "failureClass": "transient"
+      }
+    },
+    {
+      "at": "+3h10m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "accepted"
+      }
+    },
+    {
+      "at": "+3h10m",
+      "destination": {
+        "id": "email",
+        "state": "live",
+        "failureStreak": 0
+      }
+    }
+  ]
+}

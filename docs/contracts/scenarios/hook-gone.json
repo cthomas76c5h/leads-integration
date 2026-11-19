@@ -1,0 +1,126 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "hook-gone",
+  "story": "A firm deletes its Zap, so the hook answers 410 Gone. That is a connection problem: the destination needs reconnection at once, and its leads are held for the record until the firm connects a new hook.",
+  "slice": 6,
+  "model": "proposed",
+  "proves": [
+    "docs/lead-delivery/README.md#retry (410 is a connection problem; proposed: needs reconnection, held)",
+    "docs/lead-delivery/README.md#3-a-leads-journey (planning step 1: needs reconnection is held)"
+  ],
+  "today": "The lab switches the destination off at the first 410 and cancels its other pending deliveries; later leads get no delivery (missed leads), and an operator reactivates it and sends the missed leads.",
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "zap",
+        "firm": "firm-a",
+        "kind": "zapier-webhook",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "zap",
+        "answers": {
+          "mode": "gone"
+        }
+      }
+    },
+    {
+      "at": "+5m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+10m",
+      "lead": {
+        "id": "lead-2",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+3h",
+      "receiver": {
+        "destination": "zap",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    },
+    {
+      "at": "+3h",
+      "action": {
+        "by": "firm-contact",
+        "do": "reconnect",
+        "destination": "zap"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+6m",
+      "destination": {
+        "id": "zap",
+        "state": "needs-reconnection",
+        "failureStreak": 0
+      }
+    },
+    {
+      "at": "+6m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "zap",
+        "state": "held",
+        "failureClass": "connection",
+        "attempts": 1
+      }
+    },
+    {
+      "at": "+11m",
+      "delivery": {
+        "lead": "lead-2",
+        "destination": "zap",
+        "state": "held",
+        "attempts": 0
+      }
+    },
+    {
+      "at": "+3h05m",
+      "destination": {
+        "id": "zap",
+        "state": "live",
+        "failureStreak": 0
+      }
+    },
+    {
+      "at": "+3h05m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "zap",
+        "state": "accepted"
+      }
+    },
+    {
+      "at": "+3h05m",
+      "delivery": {
+        "lead": "lead-2",
+        "destination": "zap",
+        "state": "accepted"
+      }
+    }
+  ]
+}

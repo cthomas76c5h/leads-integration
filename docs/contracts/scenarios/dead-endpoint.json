@@ -1,0 +1,124 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "dead-endpoint",
+  "story": "A firm's email endpoint answers 503 from the start of the week. Each lead is retried for about 21 hours, then gives up; after 5 leads in a row give up, the destination is switched off.",
+  "slice": 3,
+  "model": "lab",
+  "proves": [
+    "docs/lead-delivery/README.md#retry (eight attempts over about 21 hours)",
+    "docs/lead-delivery/README.md#switch-off (5 in a row that end gave up)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "email",
+        "answers": {
+          "mode": "down"
+        }
+      }
+    },
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+1h",
+      "lead": {
+        "id": "lead-2",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+2h",
+      "lead": {
+        "id": "lead-3",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+3h",
+      "lead": {
+        "id": "lead-4",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+4h",
+      "lead": {
+        "id": "lead-5",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+6h",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "retrying",
+        "failureClass": "transient"
+      }
+    },
+    {
+      "at": "+6h",
+      "destination": {
+        "id": "email",
+        "state": "live",
+        "failureStreak": 0
+      }
+    },
+    {
+      "at": "+30h",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "gave-up",
+        "attempts": 8
+      }
+    },
+    {
+      "at": "+30h",
+      "delivery": {
+        "lead": "lead-5",
+        "destination": "email",
+        "state": "gave-up",
+        "attempts": 8
+      }
+    },
+    {
+      "at": "+30h",
+      "destination": {
+        "id": "email",
+        "state": "switched-off",
+        "failureStreak": 5
+      }
+    }
+  ]
+}

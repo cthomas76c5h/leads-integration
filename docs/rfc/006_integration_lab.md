@@ -133,12 +133,12 @@ area is next touched, so code, screens and documents agree.
 
 ## 5. Scope and Rollout
 
-| Phase | When | Deliver |
+| Phase | When ([RFC-007](007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices) slice) | Deliver |
 |---|---|---|
-| **1. Hygiene** | Weeks 1–2 | One command; reset; screenshot runs without side effects; checks on every change |
-| **2. Real data** | Weeks 3–8 | The anonymised production feed; figures in the deck from it |
-| **3. Real CRMs** | Months 2–4, with RFC-005 | Contract tests against the six sandboxes |
-| **4. Scale** | Months 3–5 | Queries and indexes sized for production volume; the scenario library complete |
+| **1. Hygiene** | Alongside slice 0 | One command; reset; screenshot runs without side effects; checks on every change |
+| **2. Real data** | Alongside slice 0 (the roadmap's Measure milestone) | The anonymised production feed; figures in the deck from it |
+| **3. Real CRMs** | Slice 7, with RFC-005 | Contract tests against the six sandboxes |
+| **4. Scale** | With slices 1–3 | Queries and indexes sized for production volume; the scenario library complete |
 
 ### Out of scope
 

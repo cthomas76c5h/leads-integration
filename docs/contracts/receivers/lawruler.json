@@ -1,0 +1,44 @@
+{
+  "$schema": "../receiver.schema.json",
+  "kind": "lawruler",
+  "label": "LawRuler",
+  "model": "lab",
+  "request": {
+    "method": "POST",
+    "contentType": "application/json"
+  },
+  "requires": [
+    {
+      "field": "first_name",
+      "from": "caller first name"
+    },
+    {
+      "field": "last_name",
+      "from": "caller last name"
+    },
+    {
+      "field": "phone",
+      "from": "caller phone"
+    }
+  ],
+  "optional": [
+    {
+      "field": "email",
+      "from": "caller email"
+    },
+    {
+      "field": "notes",
+      "from": "the message with the intake answers appended"
+    }
+  ],
+  "accepts": {
+    "status": 201
+  },
+  "refusesMissing": {
+    "status": 422,
+    "body": "missing {field}"
+  },
+  "toConfirm": [
+    "Retired (answers.md): its production handler is already off. Kept so imported rows are not lost; no sandbox work planned"
+  ]
+}

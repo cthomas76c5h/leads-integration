@@ -180,12 +180,12 @@ leads, the Call categories page, and the firm report.
 
 ## 7. Scope and Rollout
 
-| Phase | When | Deliver |
+| Phase | When ([RFC-007](007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices) slice) | Deliver |
 |---|---|---|
-| **1. Show and confirm** | Weeks 3–8 | Weekly firm report; mapping confirmation in onboarding; categories chosen at setup for new firms |
-| **2. Untangle** | Months 2–3 | Flags to billing settings; staff directory; line-handling settings |
-| **3. Classify at intake** | Months 3–5, with RFC-005 | Category, practice area, urgency and confidence on every lead; review queue; firm corrections |
-| **4. Drive** | After phase 3 | Routing by category (RFC-001), windows to act, free-call rules (RFC-003), Insight benchmarks |
+| **1. Show and confirm** | Slices 4 and 8 | Weekly firm report; mapping confirmation in onboarding; categories chosen at setup for new firms |
+| **2. Untangle** | Slice 4 | Flags to billing settings; staff directory; line-handling settings |
+| **3. Classify at intake** | Slice 9, with the conversation engine | Category, practice area, urgency and confidence on every lead; review queue; firm corrections |
+| **4. Drive** | Slices 4 (routing), 6 (windows), 10 (free-call rules), 12 (benchmarks) | Routing by category (RFC-001), windows to act, free-call rules (RFC-003), Insight benchmarks |
 
 ### Out of scope
 

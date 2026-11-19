@@ -34,7 +34,7 @@ usual route cannot make it in time, and name one owner judged by one number.**
 
 Approve:
 
-1. **Measurement first** (weeks 1–2): record every delivery decision with a reason in production, real errors instead of "500", and an alert per destination.
+1. **Measurement first:** a read-only feed of production numbers (loss, lateness, CRM usage), then a delivery service that records every decision with a reason, real errors instead of "500", and an alert per destination, built in [RFC-007](007_domain_model_and_build_order.md)'s slices.
 2. **A window to act per kind of call**, and a **lead outcome of Expired** when it passes with nobody at the firm having the lead.
 3. **A fallback** (usually a text to the firm's intake team) agreed at setup, used at once when the usual destination is paused or needs reconnection, or once a third of the window has passed with nothing accepted.
 4. **Held deliveries** for the record while a destination is stopped, sent on when it returns, marked late.
@@ -208,40 +208,47 @@ destination and the next action.
 
 ## 6. Technical Approach
 
-**Extend api-2; do not build a new delivery service now.** This is the lab's
-model moved into production, step by step.
+**Build the delivery model from the domain, in the slices of
+[RFC-007](007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices);
+api-2 is not extended** ([answers](../lead-delivery/answers.md#routing-and-integrations)).
+This RFC's parts land in these slices:
 
-| Step | Change in api-2 | Behaviour change |
+| Part | RFC-007 slice | What firms and operators get |
 |---|---|---|
-| **1. Visibility** | One migration: `reason`, `error`, `response_snippet` on each CRM delivery. Write a row for every decision, including not sent. Check each kind's required fields before posting | None |
-| **2. Worker** | Post from a worker: `next_attempt_at`, retries on the schedule, a management command on the existing cron | Retries; intake no longer waits on CRMs |
-| **3. Destination state** | Live, paused, needs reconnection, switched off per CRM; alert per CRM | Connection problems stop at once |
-| **4. Hand-off** | The window per lead from its category; the fallback job (a third of the window, once per lead) | Fallback |
-| **5. Held** | Held deliveries for stopped destinations; sent on return, marked late | No lead silently skipped |
-| **6. Audit** | Who, when and why for resend, pause, reactivate, override | Repeat resends allowed, audited |
+| **Every decision recorded** with a reason, including not sent; required fields checked before sending | 2 | No lead silently skipped by a destination |
+| **Worker and retries:** recorded before sent, retries on the schedule, failure classes | 1, 3 | Intake never waits on a CRM; transient failures recover by themselves |
+| **Destination state:** live, paused, needs reconnection, switched off; an alert per destination | 3 | Connection problems stop at once; we find stopped destinations before firms do |
+| **Hand-off:** the window per lead from its category; the fallback | 6 | Every new client reaches a person in time |
+| **Held deliveries** for stopped destinations; sent on return, marked late | 6 | A complete record, never presented as new |
+| **Audit:** who, when and why for resend, pause, reactivate, override | 0, 3 | Repeat resends allowed, and accountable |
 
-The lab implements steps 1–4 and the views (`Dispatch.transition`,
+The lab already implements most of these and the views (`Dispatch.transition`,
 `Dispatch.runFallbacks`, `Urgency`, `Diagnose`, `Destinations`); see the
 [code map](../lead-delivery/code-map.md). Held deliveries are proposed: the lab's
 stand-in is **missed leads**, counted and sent by hand.
 
-Requirements throughout: stable delivery identity, resend under
-the same lead identity, tests separate from production, credentials never stored
-in plain form, no promise of exactly-once CRM creation.
+Requirements throughout are the guarantees in
+[RFC-007 §6](007_domain_model_and_build_order.md#6-what-any-implementation-must-guarantee):
+recorded before sent, a stable lead identity safe to receive twice, destinations
+independent, exactly one sender, tests separate from production. Credentials are
+never stored in plain form, and nothing promises exactly-once creation in a CRM.
 
 ---
 
 ## 7. Scope and Rollout
 
-| Phase | When | Deliver |
+Rollout follows the [roadmap](../lead-delivery/strategy.md#5-roadmap):
+
+| Phase | Milestone | Deliver |
 |---|---|---|
-| **1. Measure** | Weeks 1–2 | Visibility migration; per-destination alert; a read-only production report (loss, CRM usage, call mix); reconnect firms whose CRM sign-in expired |
-| **2. Reliability** | Weeks 3–8 | Worker and retries; destination state; failure classes; fallback; held deliveries; the Delivery Center and Destinations views; the weekly firm report |
-| **3. By category** | With RFC-002 | Windows to act and routing from call categories set at intake |
+| **1. Measure** | Measure | The read-only production feed (RFC-006): loss, CRM usage, call mix; the baseline for every measure below |
+| **2. Reliability** | 1 (slices 0–3) | Recorded before sent; worker and retries; destination state; failure classes; the Delivery Center and Destinations views |
+| **3. In time** | 2 (slices 4–6) | Windows to act and routing from call categories; fallback; held deliveries |
+| **4. Proof** | 3 (slice 8) | The weekly firm report and proof of delivery in the firm portal |
 
 ### Out of scope
 
-- A new, separate delivery service.
+- Extending api-2.
 - Firm-set windows to act in the first release (fixed defaults first).
 - Confirming records inside every CRM (where an API allows it, RFC-005).
 - Calling firms automatically.
@@ -272,7 +279,7 @@ the firm agreed in its approved setup; every use shown to the firm.
 
 **Duplicate CRM records on resend.** *Mitigation:* the same lead identity; resending an accepted delivery needs a senior operator and the firm's confirmation the record is missing.
 
-**Changing api-2 under load.** *Mitigation:* phase 1 is additive with no behaviour change; the worker behind a feature flag; each step proven in the lab first (RFC-006).
+**Moving firms onto the new build.** *Mitigation:* firms move one at a time, behind a flag per firm, with exactly one system sending each firm's leads; each slice proven against its scenarios first (RFC-006, RFC-007).
 
 ---
 
@@ -288,7 +295,7 @@ the firm agreed in its approved setup; every use shown to the firm.
 | D6 | Hang-ups to CRMs | Not sent; recorded as a lead problem; the firm has them by email and the portal |
 | D7 | Switch-off | Counts configuration problems and gave-up only; connection problems stop at once |
 | D8 | Resend of an accepted lead | Senior operator, after the firm confirms the record is missing |
-| D9 | Architecture | Extend api-2 step by step; no new service now |
+| D9 | Architecture | Built from the domain model in RFC-007's slices; api-2 not extended |
 
 The reasoning, and what would change each, is in [answers.md](../lead-delivery/answers.md).
 
@@ -296,12 +303,12 @@ The reasoning, and what would change each, is in [answers.md](../lead-delivery/a
 
 1. The window to act, fallback and held-delivery model.
 2. The lead delivery owner and the one number.
-3. Phase 1 (measurement) to start now; phase 2 sized from its numbers.
+3. Phase 1 (the production feed) to start now, alongside slice 0; later phases sized from its numbers.
 
 ### Specialist sign-off before production
 
 - **Operations:** owner, alert routing, after-hours handling.
-- **Engineering:** worker design, migration, failure thresholds.
+- **Engineering:** worker design, moving firms one at a time, failure thresholds.
 - **Customer Success:** fallback agreement in setup; how firms are told.
 - **Privacy:** fallback destinations and SMS content (minimum caller detail).
 
@@ -310,10 +317,10 @@ The reasoning, and what would change each, is in [answers.md](../lead-delivery/a
 ## 11. Next Steps
 
 1. Name the lead delivery owner.
-2. Ship the phase 1 migration and the per-destination alert.
-3. After two weeks, publish the production report and revise any answer it overturns.
+2. Start the production feed (RFC-006) and slice 0 (RFC-007).
+3. Publish the first production numbers and revise any answer they overturn.
 4. Agree fallbacks with firms whose only destination is a CRM.
-5. Plan phase 2 from the measured loss.
+5. Size slices 3 and 6 from the measured loss and lateness.
 
 ---
 

@@ -1,0 +1,81 @@
+{
+  "$schema": "../receiver.schema.json",
+  "kind": "zapier-webhook",
+  "label": "Zapier (Catch Hook)",
+  "model": "lab",
+  "request": {
+    "method": "POST",
+    "contentType": "application/json"
+  },
+  "requires": [
+    {
+      "field": "event_id",
+      "from": "the lead id"
+    },
+    {
+      "field": "first_name",
+      "from": "caller first name"
+    },
+    {
+      "field": "phone",
+      "from": "caller phone"
+    }
+  ],
+  "optional": [
+    {
+      "field": "schema_version",
+      "from": "always 1"
+    },
+    {
+      "field": "event",
+      "from": "always \"lead.created\""
+    },
+    {
+      "field": "lead_id",
+      "from": "the lead id"
+    },
+    {
+      "field": "last_name",
+      "from": "caller last name"
+    },
+    {
+      "field": "full_name",
+      "from": "the caller's full name"
+    },
+    {
+      "field": "email",
+      "from": "caller email"
+    },
+    {
+      "field": "call_type",
+      "from": "the firm's call type"
+    },
+    {
+      "field": "message",
+      "from": "the message, without intake answers"
+    },
+    {
+      "field": "source",
+      "from": "the lead's source"
+    },
+    {
+      "field": "webchat",
+      "from": "whether it was a chat lead"
+    },
+    {
+      "field": "custom",
+      "from": "the intake answers, each as label and data"
+    }
+  ],
+  "accepts": {
+    "status": 201
+  },
+  "refusesMissing": {
+    "status": 422,
+    "body": "missing {field}"
+  },
+  "toConfirm": [
+    "The field mapping lives in the firm's Zap: whether a Zap fails visibly when a field it maps is blank",
+    "That a deleted Zap answers 410 Gone (the lab's hook-removed rule)"
+  ]
+}

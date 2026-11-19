@@ -12,7 +12,7 @@ Each fact lives in one document; the others link to it.
 | [lessons.md](lessons.md) | What building the lab taught us, and what a 10/10 product needs | You are planning what to build next |
 | This file | The domain model: contexts, aggregates, lifecycles, policies, invariants, events | You are changing a rule |
 | [operations.md](operations.md) | What operators do, day to day and when something breaks; the console's screens and principles | You run or design the operator console |
-| [production-today.md](production-today.md) | How api-2 delivers today, and the smallest change for each gap | You are changing api-2 |
+| [production-today.md](production-today.md) | How api-2 delivers today, and its gaps against this model (evidence, not a plan) | You need to know what today's system does |
 | [code-map.md](code-map.md) | Where each flow and screen lives in the code, in the order it runs | You are reading or changing the lab's code |
 
 Elsewhere:

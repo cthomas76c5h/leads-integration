@@ -1,0 +1,128 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "platform-outage",
+  "story": "The web-leads platform is down for 2½ hours: rate-limited (429, Retry-After 120 s) for 20 minutes, then 503. Its leads keep retrying, never sooner than Retry-After, and are accepted once it returns. Retrying is not failing: the destination stays live and its failure streak stays at zero.",
+  "slice": 3,
+  "model": "lab",
+  "proves": [
+    "docs/lead-delivery/README.md#retry (transient failures retry, never sooner than Retry-After)",
+    "docs/lead-delivery/README.md#switch-off (only refused and gave up count toward the streak)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "platform",
+        "firm": "firm-a",
+        "kind": "answering-legal",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "platform",
+        "answers": {
+          "status": 429,
+          "body": "rate limited",
+          "retryAfter": "120"
+        }
+      }
+    },
+    {
+      "at": "+5m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+20m",
+      "receiver": {
+        "destination": "platform",
+        "answers": {
+          "status": 503,
+          "body": "unavailable (outage)"
+        }
+      }
+    },
+    {
+      "at": "+2h30m",
+      "receiver": {
+        "destination": "platform",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    },
+    {
+      "at": "+2h45m",
+      "lead": {
+        "id": "lead-2",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+1h",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "platform",
+        "state": "retrying",
+        "failureClass": "transient"
+      }
+    },
+    {
+      "at": "+1h",
+      "destination": {
+        "id": "platform",
+        "state": "live",
+        "failureStreak": 0
+      }
+    },
+    {
+      "at": "+2h50m",
+      "delivery": {
+        "lead": "lead-2",
+        "destination": "platform",
+        "state": "accepted",
+        "attempts": 1
+      }
+    },
+    {
+      "at": "+11h",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "platform",
+        "state": "accepted"
+      }
+    },
+    {
+      "at": "+11h",
+      "handOff": {
+        "lead": "lead-1",
+        "state": "reached",
+        "by": "platform"
+      }
+    },
+    {
+      "at": "+11h",
+      "destination": {
+        "id": "platform",
+        "state": "live",
+        "failureStreak": 0
+      }
+    }
+  ]
+}

@@ -22,13 +22,13 @@ slice; the rest are for when you need them.
 | Agreed: build on it | Draft: expect it to change |
 |---|---|
 | The glossary, and the decisions in [answers.md](docs/lead-delivery/answers.md) (each marked *Decided*) | [RFC-001 to RFC-007](docs/rfc/README.md): proposed, awaiting approval. RFC-007 (the model and build order) is the newest |
-| Production delivery stays in **api-2**, extended step by step ([answers](docs/lead-delivery/answers.md#routing-and-integrations)) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a first draft, one scenario and one receiver so far |
+| The product is **built new, to the domain model**, in RFC-007's slices; api-2 is not extended ([answers](docs/lead-delivery/answers.md#routing-and-integrations)); the milestones are the [roadmap](docs/lead-delivery/strategy.md#5-roadmap) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a draft, with 16 scenarios and a receiver contract for every catalog kind; no runner yet, and no CRM contract confirmed against its sandbox |
 | Every rule in the [domain model](docs/lead-delivery/README.md) marked *Lab* or *Production* | Every rule marked *Proposed*: agreed direction, not built |
 
 A scenario marked `"model": "proposed"` is expected to fail against the lab
-until its rule is built. `auth-expired` fails today on purpose: it is the
-acceptance test for slice 6 (held deliveries, needs reconnection, fallback at
-once), not a bug.
+until its rule is built. Six do today on purpose (for example `auth-expired`,
+the acceptance test for slice 6: held deliveries, needs reconnection, fallback
+at once); each says how the lab differs in its `today` field. They are not bugs.
 
 | # | Read | To learn | Time |
 |---|---|---|---|
@@ -42,8 +42,8 @@ once), not a bug.
 | 8 | [lead-delivery/code-map.md](docs/lead-delivery/code-map.md) | Where each flow lives in this lab's code (only if you work on the lab) | 10 min |
 
 Later, by need: the direction and roadmap ([strategy.md](docs/lead-delivery/strategy.md)),
-what building the lab taught us ([lessons.md](docs/lead-delivery/lessons.md)), how
-production differs ([production-today.md](docs/lead-delivery/production-today.md)),
+what building the lab taught us ([lessons.md](docs/lead-delivery/lessons.md)), what
+today's production system does, as evidence ([production-today.md](docs/lead-delivery/production-today.md)),
 and the proposal for each area ([rfc/](docs/rfc/README.md)).
 
 ## Run

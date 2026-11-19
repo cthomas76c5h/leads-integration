@@ -132,11 +132,11 @@ a grammar fix, the promotions clause, and a price change with an effective date.
 
 ## 7. Scope and Rollout
 
-| Phase | When | Deliver |
+| Phase | When ([RFC-007](007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices) slice) | Deliver |
 |---|---|---|
-| **1. Unblock** | Weeks 1–2 | Scoped acceptance and notice in the portal; the promotions clause published as a version for firm admins |
-| **2. Record** | Weeks 3–8 | The append-only acceptance record; coverage; Word import with preview |
-| **3. One place** | Months 3–5 | App and website display the portal's version; promotions as their own terms |
+| **1. Unblock** | Slice 11 | Scoped acceptance and notice in the portal; the promotions clause published as a version for firm admins |
+| **2. Record** | Slice 11 | The append-only acceptance record; coverage; Word import with preview |
+| **3. One place** | After slice 11 | App and website display the portal's version; promotions as their own terms |
 
 ### Out of scope
 

@@ -4,6 +4,13 @@ How api-2 delivers leads to CRMs now, measured against the model in
 [README.md](README.md). Read from the api-2 source and a local, read-only copy of
 its database. Paths are relative to `api-2/leads/`.
 
+**This is evidence, not a plan.** api-2 is not being extended: the product is
+built new, to the domain model, in the slices of
+[RFC-007](../rfc/007_domain_model_and_build_order.md)
+([answers](answers.md#routing-and-integrations)). This page records what today's
+system does, so the gaps the new build closes are written down and the
+production feed can check them.
+
 ## How a lead flows today
 
 1. Intake posts the lead to api-2. A lead whose `answer_id` already exists is
@@ -59,7 +66,7 @@ deciding priorities.
 
 ## Gap to the model
 
-| Model rule ([README.md](README.md)) | Production today | Smallest change in api-2 |
+| Model rule ([README.md](README.md)) | Production today | What closing it in api-2 would have taken (not planned) |
 |---|---|---|
 | Every destination gets a decision | Routing and chat decisions leave no record | Write a `CRMLead` row with a `reason` for every decision, including not sent |
 | Failures say what happened | Exceptions and missing answers are all "500" | Add `error` and `response_snippet`; leave the status empty when nothing answered |
@@ -72,13 +79,3 @@ deciding priorities.
 | Resend is safe and audited | Once per row; success resend by SuperAdmin | Allow repeat resends, record who and why, keep the lead identity |
 | Routing is explicit | Active contact-type text match for all CRMs together | Store the call category on each contact type; a routing rule per CRM |
 | Setup problems block go-live | A CRM can be enabled with missing keys or IDs | Run the lab's setup checks when a CRM is saved |
-
-## Order of work
-
-The table above, in the order of the [roadmap](strategy.md#5-roadmap): visibility
-first (record every decision with a reason, record real errors, check required
-fields: one migration adding `reason`, `error` and `response_snippet`, no
-behaviour change), then reliability (a worker, retries, per-CRM state and
-alerts, fallback and held deliveries, audited resend), then explicit routing by
-call category through the RFC-001 change-request workflow. Each step follows
-the [answers](answers.md) that touch it.

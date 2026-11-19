@@ -1,0 +1,223 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "both-routes-down",
+  "story": "During an outage, two firms lose both their routes: the web-leads platform and their email. Firm A agreed an SMS fallback to its intake team, so its new matter reaches someone a third of the way into its one-hour window. Firm B has no fallback, so its new matter expires; its record still arrives after the outage, but the client is lost.",
+  "slice": 6,
+  "model": "lab",
+  "proves": [
+    "docs/lead-delivery/README.md#window-to-act-and-fallback (a third of the window with nothing accepted: the fallback takes the hand-off)",
+    "docs/lead-delivery/answers.md#speed-window-to-act-fallback-holding (fallback timing; every firm whose routes can all fail needs one)",
+    "docs/lead-delivery/README.md#lead-outcome (Expired)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      },
+      {
+        "id": "firm-b",
+        "name": "Example Firm B"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "a-platform",
+        "firm": "firm-a",
+        "kind": "answering-legal",
+        "role": "usual"
+      },
+      {
+        "id": "a-email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      },
+      {
+        "id": "a-sms",
+        "firm": "firm-a",
+        "kind": "sms",
+        "role": "fallback"
+      },
+      {
+        "id": "b-platform",
+        "firm": "firm-b",
+        "kind": "answering-legal",
+        "role": "usual"
+      },
+      {
+        "id": "b-email",
+        "firm": "firm-b",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "a-platform",
+        "answers": {
+          "status": 503,
+          "body": "unavailable"
+        }
+      }
+    },
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "a-email",
+        "answers": {
+          "status": 503,
+          "body": "unavailable"
+        }
+      }
+    },
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "b-platform",
+        "answers": {
+          "status": 503,
+          "body": "unavailable"
+        }
+      }
+    },
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "b-email",
+        "answers": {
+          "status": 503,
+          "body": "unavailable"
+        }
+      }
+    },
+    {
+      "at": "+10m",
+      "lead": {
+        "id": "lead-a",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "personal-injury"
+      }
+    },
+    {
+      "at": "+10m",
+      "lead": {
+        "id": "lead-b",
+        "firm": "firm-b",
+        "category": "new-matter",
+        "practiceArea": "family"
+      }
+    },
+    {
+      "at": "+2h30m",
+      "receiver": {
+        "destination": "a-platform",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    },
+    {
+      "at": "+2h30m",
+      "receiver": {
+        "destination": "a-email",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    },
+    {
+      "at": "+2h30m",
+      "receiver": {
+        "destination": "b-platform",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    },
+    {
+      "at": "+2h30m",
+      "receiver": {
+        "destination": "b-email",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+35m",
+      "handOff": {
+        "lead": "lead-a",
+        "state": "reached-by-fallback",
+        "by": "a-sms"
+      }
+    },
+    {
+      "at": "+35m",
+      "delivery": {
+        "lead": "lead-a",
+        "destination": "a-email",
+        "state": "retrying",
+        "failureClass": "transient"
+      }
+    },
+    {
+      "at": "+35m",
+      "handOff": {
+        "lead": "lead-b",
+        "state": "pending"
+      }
+    },
+    {
+      "at": "+1h15m",
+      "handOff": {
+        "lead": "lead-b",
+        "state": "expired"
+      }
+    },
+    {
+      "at": "+1h15m",
+      "outcome": {
+        "lead": "lead-b",
+        "is": "expired"
+      }
+    },
+    {
+      "at": "+11h",
+      "delivery": {
+        "lead": "lead-b",
+        "destination": "b-email",
+        "state": "accepted"
+      }
+    },
+    {
+      "at": "+11h",
+      "handOff": {
+        "lead": "lead-b",
+        "state": "expired"
+      }
+    },
+    {
+      "at": "+11h",
+      "outcome": {
+        "lead": "lead-b",
+        "is": "expired"
+      }
+    },
+    {
+      "at": "+11h",
+      "handOff": {
+        "lead": "lead-a",
+        "state": "reached-by-fallback",
+        "by": "a-sms"
+      }
+    }
+  ]
+}

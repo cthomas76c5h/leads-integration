@@ -1,0 +1,70 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "resend-accepted",
+  "story": "A firm says a lead never appeared in its CRM, although MyCase accepted it. Only a senior operator may resend an accepted lead, because it can create a duplicate; the resend is a new delivery under the same lead identity, and the newest delivery is the one that counts.",
+  "slice": 3,
+  "model": "proposed",
+  "proves": [
+    "docs/lead-delivery/answers.md#routing-and-integrations (who may resend an accepted lead)",
+    "docs/lead-delivery/README.md#6-invariants (invariants 3 and 10: same lead; every operator action recorded)"
+  ],
+  "today": "The lab lets anyone resend any delivery, accepted ones included, and does not record who or why.",
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "mycase",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "employment"
+      }
+    },
+    {
+      "at": "+1h",
+      "action": {
+        "by": "senior-operator",
+        "do": "resend",
+        "destination": "crm",
+        "lead": "lead-1",
+        "why": "firm confirmed the record is missing"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+5m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "accepted",
+        "count": 1
+      }
+    },
+    {
+      "at": "+1h05m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "accepted",
+        "count": 2
+      }
+    }
+  ]
+}

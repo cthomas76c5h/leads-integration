@@ -9,8 +9,9 @@ what we still assume.
 |---|---|
 | What we decided, why, and what would change it | [answers.md](answers.md), the only place decisions are stated |
 | What building the lab taught us about the product | [lessons.md](lessons.md) |
-| The model the roadmap moves production towards | [README.md](README.md) |
-| How production works today, and the smallest change for each gap | [production-today.md](production-today.md) |
+| The model the roadmap builds | [README.md](README.md), and for the whole product [RFC-007](../rfc/007_domain_model_and_build_order.md) |
+| Each slice of the build, its tasks and effort | [RFC-007 §8](../rfc/007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices) |
+| How production works today, and its gaps against the model | [production-today.md](production-today.md) |
 | The case for call categories | [why-it-matters.md](../call-categories/why-it-matters.md) |
 | Billing and terms of service | [billing](../billing/strategy.md), [terms](../terms/strategy.md) |
 | The version for leadership | [vision-meeting/](../vision-meeting/README.md) and its [one-page summary](../vision-meeting/summary.md) |
@@ -18,8 +19,8 @@ what we still assume.
 **How this was formed.** From the code of the source systems and a development
 copy of their data, through this lab; not from conversations with firms or the
 operations team. That copy may be a scrubbed restore and is mostly test traffic,
-so every figure here is a signal to check, not a fact. Step 1 of the roadmap
-replaces them with production numbers (section 8).
+so every figure here is a signal to check, not a fact. The read-only production
+feed, the roadmap's first step, replaces them with production numbers (section 8).
 
 ## 1. In one sentence
 
@@ -103,8 +104,8 @@ The answer to each is in [answers.md](answers.md).
 | Move | What it means | Cost | Where |
 |---|---|---|---|
 | **1. Name an owner for the lead's whole life** | One accountable owner, judged by one number: leads handed off within their window to act, per firm, plus expired leads | An organisational decision; no code | Section 6 |
-| **2. Measure before building** | Small visibility changes in api-2: record every decision with a reason, record real errors, alert per destination. Settles 2.3 and 2.4 within weeks | Days of engineering | Roadmap step 1 |
-| **3. Standardise, then simplify** | Call categories instead of free-text call types; one lead shape for every channel; a short list of supported integrations. Each removes a class of fires, not one fire | Quarters, in steps | Roadmap steps 2–5 |
+| **2. Measure before building** | A read-only, anonymised feed of production into the lab ([RFC-006](../rfc/006_integration_lab.md)): loss, CRM usage, the call mix. Settles 2.3 and 2.4 before the slices they size | Weeks; nothing in production changes | Section 5, alongside slice 0 |
+| **3. Build to a standard** | The domain model built slice by slice ([RFC-007](../rfc/007_domain_model_and_build_order.md)): call categories instead of free-text call types; one lead shape for every channel; a short list of supported integrations. Each slice removes a class of fires, not one fire | Quarters, in slices | Section 5 |
 
 ## 4. Direction: a platform for leads
 
@@ -138,13 +139,13 @@ with a public contract, reaching firms through the tools they already use.
 - **A few deep native integrations, certified with their vendors,** chosen from real usage and described as catalog and mapping data, not code per CRM.
 - **Trust as a feature:** credentials never stored (already a rule here), minimal data, audit trails, and in time a recognised security certification such as SOC 2.
 
-**Engineering: replace gradually, never rewrite**
+**Engineering: build from the domain, slice by slice**
 
 1. **Agree the contract first:** the lead schema and delivery states ([api.md](../api.md), [README.md](README.md)).
-2. **Add the outbox and visibility inside api-2:** roadmap steps 1–2.
-3. **Move channels one at a time** onto the shared lead and delivery service, behind feature flags.
-4. **Retire each old path** once its traffic has moved.
-5. **Use the lab as the test harness throughout:** the same rules, the simulated week, a contract test for every destination kind.
+2. **Build the slices in order** ([RFC-007 §8](../rfc/007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices)), each usable on its own and done only when its scenarios pass.
+3. **Hold every implementation to the same guarantees and checks:** [RFC-007 §6](../rfc/007_domain_model_and_build_order.md#6-what-any-implementation-must-guarantee) and the [contract files](../contracts/README.md), whatever its language.
+4. **Move firms and channels onto it one at a time,** behind a flag per firm; exactly one system sends a firm's leads.
+5. **Retire each old path** once its firms have moved.
 
 ### 4.3 Sequence
 
@@ -161,30 +162,36 @@ This repository covers the first step and the design of the second.
 
 ## 5. Roadmap
 
-The systems involved: the intake channels (voice and chat), api-2 (leads, CRM
-posting, the portal), the chatbot, the airi client portal, billing, the
-destinations themselves, and this lab.
+The roadmap is the build order of [RFC-007](../rfc/007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices):
+thirteen slices, grouped here into the milestones a firm or an operator would
+notice. Each slice's tasks and effort are in
+[RFC-007 §8](../rfc/007_domain_model_and_build_order.md#tasks-and-effort); this
+section says what each milestone gives and why it comes in this order.
 
 ```mermaid
 flowchart LR
-  M["1. Measure<br/>(weeks 1–2)"] --> R["2. Reliability<br/>(weeks 3–8)"] --> F["3. One lead format<br/>(months 3–5)"] --> C["4. Route by category"] --> S["5. Self-serve<br/>and proof"]
+  M["Measure<br/>production feed"] --> R["1. Reliable delivery<br/>slices 0–3"] --> T["2. In time,<br/>with approval<br/>slices 4–6"] --> P["3. Proof, CRMs,<br/>classification<br/>slices 7–9"] --> B["4. Billing<br/>and terms<br/>slices 10–11"] --> S["5. Self-serve<br/>and platform<br/>slice 12"]
+  E["Conversation engine<br/>(own track)"] -.-> P
 ```
 
-| Step | What changes | Why this order |
-|---|---|---|
-| **1. Measure** (weeks 1–2) | In api-2: record every decision with a reason (including not sent), the real error instead of "500", required fields checked before posting; one migration, no behaviour change. An alert per destination. A read-only production report: loss, CRM usage, the call mix, billing accounts on unusual terms. Reconnect firms whose CRM sign-in expired. Scoped terms acceptance, so the promotions clause ships. Past billing cycles locked | Low risk, and it replaces this document's assumptions with production numbers that size steps 2–5 |
-| **2. Reliability** (weeks 3–8) | Post from a worker with retries; a state per destination (live, paused, needs reconnection, switched off); a **fallback** for the hand-off, and held deliveries for the record. The lab's delivery model moved into api-2, as RFC-001 recommends, not a new service. The daily operations screens; a weekly report to every firm; the price list and free-call rules written down; billing data cleaned | Stops silent loss, the main risk |
-| **3. One lead format** (months 3–5) | Voice and chat produce the same lead, with its call category set at intake instead of inferred afterwards. The usage record billing reads. The new bill run beside the old for two months | Routing, reporting and billing need one shape of lead from every channel |
-| **4. Route by category** | A routing rule per destination ("CRMs take new matters"), changed through the RFC-001 approval workflow; the default reproduces today's behaviour. Firms choose which calls go where | Needs steps 1–3 and each firm's agreement on its mapping |
-| **5. Self-serve and proof** | Firms connect and approve destinations themselves (RFC-001 phase 2) and see their own delivery record. The packages launched in groups; a published contract for other software; a trades package | Builds on reliable delivery; reduces onboarding and support load |
+| Milestone | Slices | What firms and operators get | Why this order |
+|---|---|---|---|
+| **Measure** | Alongside slice 0 | The read-only production feed ([RFC-006](../rfc/006_integration_lab.md)): real loss, CRM usage, the call mix, call lengths | Replaces this document's assumptions with numbers that size the slices: how many CRMs slice 7 needs, the windows slice 6 uses, the free-call rules slice 10 applies |
+| **1. Reliable delivery** | 0–3 | Every lead recorded before it is sent; every destination gets a decision with a reason; retries, failure classes, destinations stopped and needing reconnection; resend; the Delivery Center and an alert per destination | Stops silent loss, the main risk; everything later is measured on deliveries that always end in a recorded state |
+| **2. In time, with approval** | 4–6 | Call categories as the language of a call; routing by category; nothing a firm receives changes without its approval; the window to act, the fallback and held deliveries | The product firms buy: every new client reaching a person in time. Fallback needs an approved revision, and windows need the taxonomy |
+| **3. Proof, CRMs and classification** | 7–9 | The six native CRMs, tested against their sandboxes; proof of delivery and the weekly report in the firm portal; Answering AI classifying each call as it takes it | Proof earns the trust self-serve depends on; classification at intake needs the conversation engine |
+| **4. Billing and terms** | 10–11 | Billing per handled conversation with free-call rules, shadow bills beside the old ones; terms versions asked only of the users they concern | Billing reads conversations and the category set at intake |
+| **5. Self-serve and platform** | 12 | Firms connect and approve destinations themselves; a published contract for other software; Zapier; benchmarks; a trades package | Builds on reliable, provable delivery; reduces onboarding and support load |
 
-The api-2 detail of steps 1–2, gap by gap, is in
-[production-today.md](production-today.md#gap-to-the-model).
+The conversation engine (the AI that takes calls and chats, one engine for both)
+is a track of its own; milestones 1 and 2 run on a minimal intake and do not wait
+for it. Today's systems and their gaps against the model are recorded in
+[production-today.md](production-today.md) as evidence, not as a plan.
 
-**The lab's role throughout:** prove each change against the simulated week
-(`dotnet run --project src/Import -- simulate`) before it reaches api-2. The
-simulator uses the same rules as the worker, so a change that breaks a scenario
-shows up here first. What the lab still cannot prove is in [lessons.md](lessons.md).
+**The lab's role throughout:** prove each slice against its scenarios
+([contracts](../contracts/README.md)) before it ships. The lab is the reference
+implementation (RFC-006, RFC-007 §10), so a change that breaks a scenario shows
+up there first. What the lab still cannot prove is in [lessons.md](lessons.md).
 
 ## 6. Operations: scale through product, not headcount
 
@@ -235,10 +242,10 @@ acquirer's diligence.
 
 | Area | Confident | Assumed, and how we check |
 |---|---|---|
-| **Call categories** | 4,390 names reduce to about a dozen categories; 99.8% of active call types are new matters; the F# and Python rules agree on the same reference leads | How calls really split across categories (the simulator's mix is invented): step 1 report. Whether firms accept the mapping and value seeing their calls as matters: show five firms their own report. What to do with staff names: a staff directory ([answers](answers.md#call-categories)) |
-| **Delivery model** | Record first, one delivery per destination, retry transient failures, stop on 401/403/410, failure classes, resend under the same lead identity: established webhook practice, exercised on every path by the simulated week | Real failure rates (the copy shows 43% of 476 CRM deliveries failed, mostly test traffic): step 1, after two weeks of records |
-| **Production today** | The gaps, read from the api-2 source: one attempt; routing leaves no record; every exception is "500"; one global alert | How many leads they lose, and whether the possible double-post path is live: step 1 |
-| **Integrations** | Which kinds have working builders | That CRM delivery is rare (2.4): enabled destinations and accepted deliveries per CRM in the step 1 report |
+| **Call categories** | 4,390 names reduce to about a dozen categories; 99.8% of active call types are new matters; the F# and Python rules agree on the same reference leads | How calls really split across categories (the simulator's mix is invented): the production feed. Whether firms accept the mapping and value seeing their calls as matters: show five firms their own report. What to do with staff names: a staff directory ([answers](answers.md#call-categories)) |
+| **Delivery model** | Record first, one delivery per destination, retry transient failures, stop on 401/403/410, failure classes, resend under the same lead identity: established webhook practice, exercised on every path by the simulated week | Real failure rates (the copy shows 43% of 476 CRM deliveries failed, mostly test traffic): the production feed, then the first slices' own delivery records |
+| **Production today** | The gaps, read from the api-2 source: one attempt; routing leaves no record; every exception is "500"; one global alert | How many leads they lose, and whether the possible double-post path is live: the production feed |
+| **Integrations** | Which kinds have working builders | That CRM delivery is rare (2.4): enabled destinations and accepted deliveries per CRM in the production feed |
 | **Speed** | Lateness loses clients in law | The starting windows to act: ask firms; measure call-to-first-contact where firms record it |
 | **Routing** | The default rule reproduces today's behaviour | That firms want "new matters to the CRM, the rest by email": ask five firms |
 | **Other verticals** | They are already customers | That they are worth serving: revenue and pipeline from non-legal firms in production data |

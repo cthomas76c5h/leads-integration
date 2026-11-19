@@ -4,36 +4,76 @@
   "title": "Receiver contract",
   "description": "What one destination kind requires of a request, and how it answers when it accepts or refuses one. The behaviours every kind shares are in receivers/modes.json. See README.md in this folder.",
   "type": "object",
-  "required": ["kind", "label", "model", "request", "requires", "accepts", "refusesMissing"],
+  "required": [
+    "kind",
+    "label",
+    "model",
+    "request",
+    "requires",
+    "accepts",
+    "refusesMissing"
+  ],
   "additionalProperties": false,
   "properties": {
-    "$schema": { "type": "string" },
-    "kind": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "description": "The destination kind, as in the catalog" },
-    "label": { "type": "string" },
+    "$schema": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "The destination kind, as in the catalog"
+    },
+    "label": {
+      "type": "string"
+    },
     "model": {
-      "enum": ["lab", "confirmed"],
+      "enum": [
+        "lab",
+        "confirmed"
+      ],
       "description": "lab: what the fake receiver checks today. confirmed: checked against the CRM's sandbox (RFC-006)"
     },
     "request": {
       "type": "object",
-      "required": ["method", "contentType"],
+      "required": [
+        "method",
+        "contentType"
+      ],
       "additionalProperties": false,
       "properties": {
-        "method": { "enum": ["POST", "PUT"] },
-        "contentType": { "enum": ["application/json", "application/x-www-form-urlencoded"] }
+        "method": {
+          "enum": [
+            "POST",
+            "PUT"
+          ]
+        },
+        "contentType": {
+          "enum": [
+            "application/json",
+            "application/x-www-form-urlencoded"
+          ]
+        }
       }
     },
     "requires": {
       "type": "array",
-      "minItems": 1,
-      "description": "Fields that must be present and not blank. A dotted path into a JSON body (inbox_lead.from_first), name[key] for an array of {name, value}, or a form field name",
+      "minItems": 0,
+      "description": "Fields that must be present and not blank. A dotted path into a JSON body (inbox_lead.from_first), name[key] for an array of {name, value}, or a form field name. May be empty (a plain webhook requires nothing by itself); a lab receiver URL's ?require=A,B adds fields on top, and a scenario states those with the answer's 'requires'",
       "items": {
         "type": "object",
-        "required": ["field", "from"],
+        "required": [
+          "field",
+          "from"
+        ],
         "additionalProperties": false,
         "properties": {
-          "field": { "type": "string" },
-          "from": { "type": "string", "description": "Which part of the standard lead fills it" }
+          "field": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "description": "Which part of the standard lead fills it"
+          }
         }
       }
     },
@@ -41,30 +81,61 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["field", "from"],
+        "required": [
+          "field",
+          "from"
+        ],
         "additionalProperties": false,
         "properties": {
-          "field": { "type": "string" },
-          "from": { "type": "string" }
+          "field": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          }
         }
       }
     },
     "accepts": {
       "type": "object",
-      "required": ["status"],
+      "required": [
+        "status"
+      ],
       "additionalProperties": false,
-      "properties": { "status": { "type": "integer", "minimum": 200, "maximum": 299 } }
+      "properties": {
+        "status": {
+          "type": "integer",
+          "minimum": 200,
+          "maximum": 299
+        }
+      }
     },
     "refusesMissing": {
       "description": "The answer when a required field is missing or blank",
       "type": "object",
-      "required": ["status", "body"],
+      "required": [
+        "status",
+        "body"
+      ],
       "additionalProperties": false,
       "properties": {
-        "status": { "type": "integer", "minimum": 400, "maximum": 499 },
-        "body": { "type": "string", "description": "{field} stands for the missing field" }
+        "status": {
+          "type": "integer",
+          "minimum": 400,
+          "maximum": 499
+        },
+        "body": {
+          "type": "string",
+          "description": "{field} stands for the missing field"
+        }
       }
     },
-    "toConfirm": { "type": "array", "items": { "type": "string" }, "description": "What the sandbox must still settle" }
+    "toConfirm": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "What the sandbox must still settle"
+    }
   }
 }

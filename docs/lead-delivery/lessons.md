@@ -12,7 +12,7 @@ domain: billing's rollout in [billing strategy §9](../billing/strategy.md#9-wha
 and terms of service in [terms strategy §1](../terms/strategy.md#1-the-story-so-far-problems-and-what-solved-them).
 
 Each lesson ends with **Needs** (what a 10/10 product needs) and **Where**
-(the roadmap step or document that carries it).
+(the RFC-007 slice, roadmap milestone or document that carries it).
 
 ## 1. We could not see reality
 
@@ -27,7 +27,7 @@ Each lesson ends with **Needs** (what a 10/10 product needs) and **Where**
 
 **Needs:** a read-only, anonymised feed of production into the lab, so the demo
 is reality; and delivery records in production that answer "what happened to
-this lead?". **Where:** roadmap step 1 (measure), which every later step depends on.
+this lead?". **Where:** the production feed (the roadmap's Measure milestone, [RFC-006](../rfc/006_integration_lab.md)), and delivery records in every slice from 1 on.
 
 ## 2. Every system describes things differently
 
@@ -37,7 +37,7 @@ this lead?". **Where:** roadmap step 1 (measure), which every later step depends
 
 **Needs:** one published, versioned lead format, and one owner per piece of
 configuration. Free text is what a firm *sees*, never what a system *decides* on.
-**Where:** roadmap step 3; [answers: call categories and billing](answers.md#call-categories).
+**Where:** slices 0 (the Lead contract) and 9 (classification at intake) of [RFC-007](../rfc/007_domain_model_and_build_order.md); [answers: call categories and billing](answers.md#call-categories).
 
 ## 3. We could not test against the real world
 
@@ -50,7 +50,7 @@ configuration. Free text is what a firm *sees*, never what a system *decides* on
 - test leads sent through every live connection on a schedule, so a stopped connection is caught by us within minutes, not by the firm;
 - where a CRM allows it, checking that the record actually arrived (**verified in CRM**).
 
-**Where:** roadmap step 2 (reliability) and the certified integrations in [strategy §4.2](strategy.md#42-what-it-means).
+**Where:** slices 3 (reliability) and 7 (native CRMs) of [RFC-007](../rfc/007_domain_model_and_build_order.md), and the certified integrations in [strategy §4.2](strategy.md#42-what-it-means).
 
 ## 4. Problems only show up across many leads
 
@@ -103,7 +103,7 @@ alerts and outage grouping are still to build.
 - separate views for operators, firms and executives, each in its own language;
 - someone using the tools every day (the lead delivery owner) and feeding back weekly.
 
-**Where:** roadmap step 2 (the daily operations screens) and the owner in [strategy §6](strategy.md#6-operations-scale-through-product-not-headcount).
+**Where:** slice 3 (the operations screens) and the owner in [strategy §6](strategy.md#6-operations-scale-through-product-not-headcount).
 
 ## 7. Built to explore, not to run at scale
 
@@ -119,7 +119,7 @@ alerts and outage grouping are still to build.
 
 **Needs:** production engineering, not more lab features: queries and indexes
 sized for volume, held deliveries, the audit trail, and counsel's answers.
-**Where:** roadmap steps 2–3; the Proposed rules in [README.md](README.md).
+**Where:** slices 3 to 6 and 10; the Proposed rules in [README.md](README.md).
 
 ## 8. Friction in the build itself
 
@@ -138,7 +138,7 @@ What stands between this and a 10/10 is not features. It is four things:
 
 | | What | First step |
 |---|---|---|
-| 1 | **Real data** flowing in | Roadmap step 1: the production report and delivery records |
+| 1 | **Real data** flowing in | The production feed (RFC-006) and delivery records from slice 1 |
 | 2 | **Real CRMs** to test against | Sandboxes for the six supported CRMs; scheduled test leads |
 | 3 | **One shared language**, in the data and in the words | Call categories at intake; one lead format; the glossary in code |
 | 4 | **Someone using it every day** | Name the lead delivery owner; a weekly feedback review |

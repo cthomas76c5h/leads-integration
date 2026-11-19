@@ -1,0 +1,190 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "redirect",
+  "story": "MyCase moves its endpoint for a day and answers 301, which is never followed: each lead is refused as a configuration problem, and after 5 in a row the destination is switched off. Once the endpoint is fixed, an operator reactivates it and resends the refused leads, which are accepted under the same lead identity.",
+  "slice": 3,
+  "model": "lab",
+  "proves": [
+    "docs/lead-delivery/README.md#retry (3xx is refused: redirects are not followed)",
+    "docs/lead-delivery/README.md#switch-off (5 refused in a row; an operator reactivates after a fix)",
+    "docs/lead-delivery/README.md#6-invariants (invariant 3: a resend sends the same lead)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "mycase",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "crm",
+        "answers": {
+          "status": 301,
+          "body": "moved permanently"
+        }
+      }
+    },
+    {
+      "at": "+1h",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+2h",
+      "lead": {
+        "id": "lead-2",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+3h",
+      "lead": {
+        "id": "lead-3",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+4h",
+      "lead": {
+        "id": "lead-4",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+5h",
+      "lead": {
+        "id": "lead-5",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+24h",
+      "receiver": {
+        "destination": "crm",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    },
+    {
+      "at": "+25h",
+      "action": {
+        "by": "operator",
+        "do": "reactivate",
+        "destination": "crm",
+        "why": "MyCase endpoint fixed"
+      }
+    },
+    {
+      "at": "+25h10m",
+      "action": {
+        "by": "operator",
+        "do": "resend",
+        "destination": "crm",
+        "lead": "lead-1"
+      }
+    },
+    {
+      "at": "+25h10m",
+      "action": {
+        "by": "operator",
+        "do": "resend",
+        "destination": "crm",
+        "lead": "lead-2"
+      }
+    },
+    {
+      "at": "+25h10m",
+      "action": {
+        "by": "operator",
+        "do": "resend",
+        "destination": "crm",
+        "lead": "lead-3"
+      }
+    },
+    {
+      "at": "+25h10m",
+      "action": {
+        "by": "operator",
+        "do": "resend",
+        "destination": "crm",
+        "lead": "lead-4"
+      }
+    },
+    {
+      "at": "+25h10m",
+      "action": {
+        "by": "operator",
+        "do": "resend",
+        "destination": "crm",
+        "lead": "lead-5"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+1h01m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "refused",
+        "failureClass": "configuration",
+        "attempts": 1
+      }
+    },
+    {
+      "at": "+5h01m",
+      "destination": {
+        "id": "crm",
+        "state": "switched-off",
+        "failureStreak": 5
+      }
+    },
+    {
+      "at": "+25h05m",
+      "destination": {
+        "id": "crm",
+        "state": "live",
+        "failureStreak": 0
+      }
+    },
+    {
+      "at": "+25h15m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "accepted",
+        "count": 2
+      }
+    },
+    {
+      "at": "+25h15m",
+      "delivery": {
+        "lead": "lead-5",
+        "destination": "crm",
+        "state": "accepted",
+        "count": 2
+      }
+    }
+  ]
+}

@@ -36,12 +36,17 @@ flowchart LR
 
 ## Order
 
-| When | Start |
-|---|---|
-| Weeks 1–2 | 001 phase 1 (measure), 003 phase 1 (audit), 004 phase 1 (unblock), 006 phase 1 (hygiene), 007 phase 1 (domain types) |
-| Weeks 3–8 | 001 reliability, 002 show and confirm, 003 clean, 004 record, 006 real data |
-| Months 2–5 | 005 contract, setup and one lead; 002 classify at intake; 003 shadow billing |
-| After | 005 self-serve and distribution; 003 switch; 002 benchmarks |
+The build follows RFC-007's slices, grouped into the milestones of the
+[roadmap](../lead-delivery/strategy.md#5-roadmap). Each RFC lands in these:
+
+| Milestone | Slices | RFCs |
+|---|---|---|
+| Measure | Alongside 0 | 006 (the production feed) |
+| 1. Reliable delivery | 0–3 | 007 (foundation, guarantees, contracts), 001 (decisions, retries, destination state), 006 (scenarios) |
+| 2. In time, with approval | 4–6 | 002 (categories, routing), 005 (setup and change), 001 (window, fallback, held) |
+| 3. Proof, CRMs and classification | 7–9 | 005 (native CRMs), 001 and 002 (firm report), 002 (classification at intake) |
+| 4. Billing and terms | 10–11 | 003, 004 |
+| 5. Self-serve and platform | 12 | 005 (self-serve, contract, Zapier), 002 (benchmarks) |
 
 The leadership version of all six is [vision-meeting/](../vision-meeting/README.md),
 with a [one-page summary](../vision-meeting/summary.md).

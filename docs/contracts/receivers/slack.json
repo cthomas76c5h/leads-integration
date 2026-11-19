@@ -1,0 +1,26 @@
+{
+  "$schema": "../receiver.schema.json",
+  "kind": "slack",
+  "label": "Slack",
+  "model": "lab",
+  "request": {
+    "method": "POST",
+    "contentType": "application/json"
+  },
+  "requires": [
+    {
+      "field": "text",
+      "from": "\"New lead\", the caller's full name and phone, and the message with the intake answers appended"
+    }
+  ],
+  "accepts": {
+    "status": 201
+  },
+  "refusesMissing": {
+    "status": 422,
+    "body": "missing {field}"
+  },
+  "toConfirm": [
+    "How a removed incoming-webhook URL is answered, and whether it matches the lab's hook-removed rule (410)"
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "../receiver.schema.json",
+  "kind": "lawmatics-form",
+  "label": "Lawmatics (legacy form)",
+  "model": "lab",
+  "request": {
+    "method": "POST",
+    "contentType": "application/json"
+  },
+  "requires": [
+    {
+      "field": "first_name",
+      "from": "caller first name"
+    },
+    {
+      "field": "last_name",
+      "from": "caller last name"
+    },
+    {
+      "field": "phone",
+      "from": "caller phone"
+    },
+    {
+      "field": "message",
+      "from": "the message, without intake answers"
+    }
+  ],
+  "optional": [
+    {
+      "field": "email",
+      "from": "caller email"
+    },
+    {
+      "field": "custom",
+      "from": "the intake answers, keyed by their label"
+    },
+    {
+      "field": "answer_id",
+      "from": "the lead id"
+    }
+  ],
+  "accepts": {
+    "status": 201
+  },
+  "refusesMissing": {
+    "status": 422,
+    "body": "missing {field}"
+  },
+  "toConfirm": [
+    "The real status for an accepted lead (the fake receiver answers 201)",
+    "How the form id (held as api_key) is addressed in the real request",
+    "Whether intake answers keyed by label reach the form's own fields",
+    "Retired with the legacy forms if no firm uses them (answers.md)"
+  ]
+}

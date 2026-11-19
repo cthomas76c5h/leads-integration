@@ -15,19 +15,21 @@ time.** Today we cannot show that we do it.
 ## What we will do
 
 1. **Name one owner** for every lead, start to finish, judged by one number: the share of leads that reached a person at the firm in time.
-2. **Measure first.** Within two weeks, record what happens to every lead and why, and alert someone the moment a firm's connection stops.
-3. **Never lose a lead silently.** Automatic retries, a backup route each firm agrees in advance (usually a text to its intake team), and leads that missed a stopped connection sent on once it is back.
-4. **Standardise.** A dozen standard kinds of call for every firm (firms keep their own wording), one way to describe a lead from phone and chat, and six supported CRMs with everything else through Zapier.
-5. **Bill on value.** Three packages (Answer, Deliver, Insight), priced per real conversation; sales calls, wrong numbers and instant hang-ups are free; one record behind every invoice; each firm's new bill checked against its old one for two months before anyone pays differently.
-6. **Fix the terms of service.** One version for everyone; people are asked to accept again only when a change concerns them, with notice first; every acceptance recorded.
+2. **Measure first.** Real numbers from today's systems on lost and late leads, before we build.
+3. **Build new, to one standard.** A lead platform built to one model, in steps a firm can use, each proven in our lab first; firms move across one at a time.
+4. **Never lose a lead silently.** Automatic retries, a backup route each firm agrees in advance (usually a text to its intake team), and leads that missed a stopped connection sent on once it is back.
+5. **Standardise.** A dozen standard kinds of call for every firm (firms keep their own wording), one way to describe a lead from phone and chat, and six supported CRMs with everything else through Zapier.
+6. **Bill on value.** Three packages (Answer, Deliver, Insight), priced per real conversation; sales calls, wrong numbers and instant hang-ups are free; one record behind every invoice; each firm's new bill checked against its old one for two months before anyone pays differently.
+7. **Fix the terms of service.** One version for everyone; people are asked to accept again only when a change concerns them, with notice first; every acceptance recorded.
 
 ## When
 
 | Time | What changes |
 |---|---|
-| Weeks 1–2 | Real numbers on lost and late leads; alerts on stopped connections; terms changes ship without locking anyone out |
-| Weeks 3–8 | No lead lost without a trace; late leads counted; every firm receives a weekly report of its calls |
-| Months 3–5 | One standard lead everywhere; firms choose which calls go where; the new bill runs beside the old |
+| From the start | Real numbers on lost and late leads, from today's systems |
+| About two months | No lead lost without a trace; alerts on stopped connections; the daily operations screens |
+| About three months | Every new client reaches a person in time, by a backup route if needed; firms approve every change |
+| Then | Firms see their week; six CRMs tested; one standard lead from phone and chat; the new bill beside the old; terms without lock-outs |
 | After | Packages launched; firms set themselves up; other software can receive our leads; a package for trades businesses |
 
 ## Why it matters for the business
@@ -46,4 +48,4 @@ time.** Today we cannot show that we do it.
 4. Approve counsel's review of the terms-of-service wording for firm admins accepting on the firm's behalf.
 
 *Figures are from a development copy of our systems and a simulated week; firm names
-in the screenshots are fictional. The first two weeks replace the figures with real ones.*
+in the screenshots are fictional. Real numbers from today's systems replace the figures before we build.*

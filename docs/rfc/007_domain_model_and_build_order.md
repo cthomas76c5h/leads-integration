@@ -16,7 +16,7 @@
 RFC-001 to RFC-005 say **what** lead delivery, call categories, billing and terms
 should do. This RFC says **how the product is shaped and in what order its
 features are built**, so that anyone could rebuild it the right way: a new
-team, a successor to api-2, or the lab itself.
+team building the product, or the lab itself as its reference.
 
 The thought experiment behind it: *if the team and every codebase were gone
 tomorrow, what would we need to rebuild every feature correctly, one at a time?*
@@ -80,12 +80,12 @@ None of these are bugs today. All of them are the shape a rebuild must not copy.
 
 ### 2.3 There is no agreed order
 
-The [roadmap](../lead-delivery/strategy.md#5-roadmap) orders **production
-rollout** (measure, reliability, one lead format, routing, self-serve). It does
-not say in what order the **features** depend on each other: fallback needs an
+RFC-001 to RFC-005 each describe their own phases, but nothing says in what
+order the **features** depend on each other across them: fallback needs an
 approved revision; routing by category needs every delivery to end in a recorded
 state; billing needs conversations, not leads. Built in the wrong order, each
-feature is built twice.
+feature is built twice. Section 8 gives that order, and the
+[roadmap](../lead-delivery/strategy.md#5-roadmap) groups it into milestones.
 
 ---
 
@@ -291,11 +291,12 @@ shares (accepts, refuses, flaky, gone, slow, down, expired sign-in) are stated
 once. The fake receivers are generated from these files, and the same files
 drive the contract tests against each CRM's sandbox ([RFC-006](006_integration_lab.md)).
 
-A first draft of both formats, with JSON Schemas and a checker
-(`python tools/check_contracts.py`), is in [docs/contracts/](../contracts/README.md):
-the [auth-expired](../contracts/scenarios/auth-expired.json) scenario and the
-[Clio Grow](../contracts/receivers/clio-grow.json) receiver contract. The
-format is fixed in lab refactor phase 6 (section 10.1).
+Both formats, with JSON Schemas and a checker (`python tools/check_contracts.py`),
+are in [docs/contracts/](../contracts/README.md): 16 scenarios (every simulator
+story, plus each delivery rule that had none; 10 the lab passes today, 6
+proposed) and a receiver contract for every catalog kind, none yet confirmed
+against a CRM's sandbox. Billing and terms have no scenarios yet; the format
+covers delivery only. The format is fixed in lab refactor phase 6 (section 10.1).
 
 **The runner** uses only an implementation's public contract ([api.md](../api.md))
 plus a **test control interface**, available in test mode only, to set the clock
@@ -317,8 +318,8 @@ They are kept, versioned and reviewed like code:
 | What operators do, screen by screen | [operations.md](../lead-delivery/operations.md) |
 | The taxonomy and the reference leads it must classify | [call-categories/](../call-categories/README.md) |
 | The contract | [api.md](../api.md) |
-| The scenarios: each failure mode as a story | [docs/contracts/scenarios/](../contracts/README.md); mostly still in `Simulate.fs` until lab refactor phase 6 |
-| What each CRM requires | [docs/contracts/receivers/](../contracts/README.md); mostly still in the fake receivers (`FakeCrm.fs`) until phase 6 |
+| The scenarios: each failure mode as a story | [docs/contracts/scenarios/](../contracts/README.md); the lab's simulator still has its own copy until lab refactor phase 6 |
+| What each CRM requires | [docs/contracts/receivers/](../contracts/README.md); the fake receivers (`FakeCrm.fs`) still have their own copy until phase 6 |
 | What building it taught us | [lessons.md](../lead-delivery/lessons.md) |
 
 The code is the cheapest thing to replace. These assets are the expensive part.
@@ -346,7 +347,7 @@ flowchart LR
 
 | # | Slice: what someone can now do | Adds to the model | Proven by | Lab today |
 |---|---|---|---|---|
-| **0** | *Foundation:* nothing a firm sees yet | Glossary; Lead contract v1; event and outbox store; **Firm**; **test vs production** from the first line; operator action audit; one clock the scenarios control; the scenario runner and test control interface (section 6.3); the guarantees of section 6.1 | "A test lead never appears in a total, a streak or a report" | Test separation built; scenario and receiver formats drafted ([docs/contracts/](../contracts/README.md)); one clock and the runner missing |
+| **0** | *Foundation:* nothing a firm sees yet | Glossary; Lead contract v1; event and outbox store; **Firm**; **test vs production** from the first line; operator action audit; one clock the scenarios control; the scenario runner and test control interface (section 6.3); the guarantees of section 6.1 | "A test lead never appears in a total, a streak or a report" | Test separation built; scenarios and receiver contracts written ([docs/contracts/](../contracts/README.md)); one clock and the runner missing |
 | **1** | **A caller's details reach the firm by email** | Minimal intake (chat or web form) → **lead** → one **delivery** with **attempts** → **accepted** | "Recorded before sent"; "the lead never changes" | Delivery side built; leads enter through the API and the simulator, not a real intake |
 | **2** | **A firm has several destinations, and each gets a decision** | **Destination** with state; routing rule (everything, or no chat leads); **not sent** with a reason; deliveries independent; **lead outcome** | "One destination down never delays another"; "every destination of the firm has a delivery for every lead" | Built (routing by call-type text) |
 | **3** | **Failures say what happened, and operators fix them where they find them** | Failure classes; retry policy; **retrying**, **refused**, **gave up**; **failure streak**; **switched off**; **needs reconnection**; **resend** under the same lead identity; operator and senior operator; the Delivery Center and Destinations screens | platform-outage, relay-timeouts, dead-endpoint, auth-expired, hook-gone, redirect, incident-now, mapping gap fixed and resent | Built; needs reconnection and lead-problem handling Proposed |
@@ -447,10 +448,11 @@ Done when the scenario passes, the invariants are tested, and the glossary,
 
 ## 10. Scope and Rollout
 
-This RFC sets the target model and order. It does not choose which production
-system hosts each context; that is the question "Do we build a new delivery
-system?" in [answers.md](../lead-delivery/answers.md#routing-and-integrations).
-Whichever system it is follows the same slices, scenarios and invariants.
+This RFC sets the model and the order the product is built in. The product is
+built new, to this model ([answers: do we build a new delivery system?](../lead-delivery/answers.md#routing-and-integrations));
+api-2 is not extended. The [roadmap](../lead-delivery/strategy.md#5-roadmap)
+groups the slices into milestones. Whatever language or infrastructure the build
+uses, it follows the same slices, guarantees, scenarios and invariants.
 
 ### 10.1 The lab as reference implementation
 
@@ -465,13 +467,13 @@ passing.
 | **3** | The **hand-off** aggregate and its events; held deliveries | Hand-off inferred |
 | **4** | Classification stored on the lead with its taxonomy version | Category derived when read |
 | **5** | Conversations as their own record; billing rated from them | Billing built from leads |
-| **6** | Scenarios and receiver contracts become language-neutral data files (section 6.3): fix the formats, write each existing scenario and each fake receiver as a file, generate the fake receivers from their contracts, and add the test control interface | Checks only the lab can run |
+| **6** | Scenarios and receiver contracts become language-neutral data files (section 6.3): fix the formats (the files are written), generate the fake receivers from their contracts, add billing and terms scenarios, and add the test control interface | Checks only the lab can run |
 | **7** | The simulator drives the real commands on one controlled clock, reading the scenario files; they become the documented library | The simulator re-implements the rules |
 | **8** | Tables owned per context; contexts read each other only through events and read models | One store for every context |
 
 ### Out of scope
 
-- Choosing or migrating production systems.
+- The plan for moving each firm from today's systems onto the new build (one firm at a time, behind a flag, exactly one sender; the detail is its own plan).
 - New features beyond RFC-001 to RFC-005.
 - Real CRMs, real credentials or caller details in the lab.
 
@@ -538,7 +540,7 @@ with their reasons, and the model in section 5 moves into
 1. Move section 5 into the domain model and the new terms into the glossary.
 2. Lab refactor phase 1: domain types separate from API shapes.
 3. Write the scenario library index: each scenario, its story, its slice and the rule it proves.
-4. Review the drafted scenario and receiver contract formats in [docs/contracts/](../contracts/README.md) (`auth-expired` and Clio Grow), then write the remaining scenarios and kinds in them, ahead of phase 6.
+4. Review the scenarios and receiver contracts in [docs/contracts/](../contracts/README.md), and build the runner that checks an implementation against them.
 
 ---
 

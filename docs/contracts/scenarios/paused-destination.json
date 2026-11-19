@@ -1,0 +1,120 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "paused-destination",
+  "story": "An operator pauses a firm's email destination. A new matter arrives while it is paused: its delivery is held for the record, and its hand-off goes to the firm's SMS fallback at once. When the operator resumes the destination, the held delivery is sent with the lead's original time and marked late.",
+  "slice": 6,
+  "model": "proposed",
+  "proves": [
+    "docs/lead-delivery/README.md#3-a-leads-journey (planning step 1: paused is held, hand-off to the fallback at once)",
+    "docs/lead-delivery/answers.md#speed-window-to-act-fallback-holding (held records sent with the original time, marked late)"
+  ],
+  "today": "The lab gives a paused destination no delivery at all (a missed lead), so the fallback waits a third of the window (20 minutes) instead of going at once; on resume an operator sends the missed leads.",
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      },
+      {
+        "id": "sms",
+        "firm": "firm-a",
+        "kind": "sms",
+        "role": "fallback"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "action": {
+        "by": "operator",
+        "do": "pause",
+        "destination": "email",
+        "why": "firm moving to a new inbox"
+      }
+    },
+    {
+      "at": "+30m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "estate-planning"
+      }
+    },
+    {
+      "at": "+2h",
+      "action": {
+        "by": "operator",
+        "do": "resume",
+        "destination": "email"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+31m",
+      "destination": {
+        "id": "email",
+        "state": "paused"
+      }
+    },
+    {
+      "at": "+31m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "held",
+        "attempts": 0
+      }
+    },
+    {
+      "at": "+35m",
+      "handOff": {
+        "lead": "lead-1",
+        "state": "reached-by-fallback",
+        "by": "sms"
+      }
+    },
+    {
+      "at": "+35m",
+      "outcome": {
+        "lead": "lead-1",
+        "is": "held"
+      }
+    },
+    {
+      "at": "+2h05m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "accepted",
+        "late": true
+      }
+    },
+    {
+      "at": "+2h05m",
+      "handOff": {
+        "lead": "lead-1",
+        "state": "reached-by-fallback",
+        "by": "sms"
+      }
+    },
+    {
+      "at": "+2h05m",
+      "outcome": {
+        "lead": "lead-1",
+        "is": "accepted"
+      }
+    }
+  ]
+}

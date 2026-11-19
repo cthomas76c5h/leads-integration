@@ -1,0 +1,187 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "switch-off",
+  "story": "A firm's CRM refuses every lead. An accepted lead resets the failure streak; after 5 refused in a row the destination is switched off.",
+  "slice": 3,
+  "model": "lab",
+  "proves": [
+    "docs/lead-delivery/README.md#switch-off (5 in a row; an accepted delivery resets the streak)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "mycase",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "crm",
+        "answers": {
+          "mode": "reject"
+        }
+      }
+    },
+    {
+      "at": "+1m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+2m",
+      "lead": {
+        "id": "lead-2",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+3m",
+      "lead": {
+        "id": "lead-3",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+4m",
+      "lead": {
+        "id": "lead-4",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+5m",
+      "receiver": {
+        "destination": "crm",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    },
+    {
+      "at": "+6m",
+      "lead": {
+        "id": "lead-6",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+10m",
+      "receiver": {
+        "destination": "crm",
+        "answers": {
+          "mode": "reject"
+        }
+      }
+    },
+    {
+      "at": "+11m",
+      "lead": {
+        "id": "lead-11",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+12m",
+      "lead": {
+        "id": "lead-12",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+13m",
+      "lead": {
+        "id": "lead-13",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+14m",
+      "lead": {
+        "id": "lead-14",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+15m",
+      "lead": {
+        "id": "lead-15",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+5m",
+      "delivery": {
+        "lead": "lead-4",
+        "destination": "crm",
+        "state": "refused",
+        "failureClass": "configuration"
+      }
+    },
+    {
+      "at": "+5m",
+      "destination": {
+        "id": "crm",
+        "state": "live",
+        "failureStreak": 4
+      }
+    },
+    {
+      "at": "+7m",
+      "delivery": {
+        "lead": "lead-6",
+        "destination": "crm",
+        "state": "accepted"
+      }
+    },
+    {
+      "at": "+7m",
+      "destination": {
+        "id": "crm",
+        "state": "live",
+        "failureStreak": 0
+      }
+    },
+    {
+      "at": "+14m30s",
+      "destination": {
+        "id": "crm",
+        "state": "live",
+        "failureStreak": 4
+      }
+    },
+    {
+      "at": "+16m",
+      "destination": {
+        "id": "crm",
+        "state": "switched-off",
+        "failureStreak": 5
+      }
+    }
+  ]
+}

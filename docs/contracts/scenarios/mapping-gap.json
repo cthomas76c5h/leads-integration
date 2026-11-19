@@ -1,0 +1,163 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "mapping-gap",
+  "story": "A firm's webhook went live on a mapping without Phone, and its receiver requires Phone, so every lead is refused as a configuration problem. An operator prepares a revision that adds Phone, the firm contact approves it, and the operator resends the refused leads, which are accepted.",
+  "slice": 5,
+  "model": "lab",
+  "proves": [
+    "docs/lead-delivery/README.md#2-aggregates (a revision goes live only through approval)",
+    "docs/lead-delivery/README.md#retry (other 4xx is refused)",
+    "docs/lead-delivery/operations.md#diagnose-a-delivery (configuration problem: edit mapping, then resend)"
+  ],
+  "today": "In the lab a revision also needs a test lead and the firm's confirmation before it goes live; this scenario folds those into approve.",
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "hook",
+        "firm": "firm-a",
+        "kind": "webhook",
+        "role": "usual",
+        "mapping": [
+          "First name",
+          "Last name",
+          "Email",
+          "Note"
+        ]
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "hook",
+        "answers": {
+          "mode": "ok",
+          "requires": [
+            "Phone"
+          ]
+        }
+      }
+    },
+    {
+      "at": "+10m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+20m",
+      "lead": {
+        "id": "lead-2",
+        "firm": "firm-a",
+        "category": "general"
+      }
+    },
+    {
+      "at": "+1h",
+      "action": {
+        "by": "operator",
+        "do": "change-mapping",
+        "destination": "hook",
+        "mapping": [
+          "First name",
+          "Last name",
+          "Email",
+          "Phone",
+          "Note"
+        ]
+      }
+    },
+    {
+      "at": "+2h",
+      "action": {
+        "by": "firm-contact",
+        "do": "approve",
+        "destination": "hook"
+      }
+    },
+    {
+      "at": "+2h05m",
+      "action": {
+        "by": "operator",
+        "do": "resend",
+        "destination": "hook",
+        "lead": "lead-1"
+      }
+    },
+    {
+      "at": "+2h05m",
+      "action": {
+        "by": "operator",
+        "do": "resend",
+        "destination": "hook",
+        "lead": "lead-2"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+30m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "hook",
+        "state": "refused",
+        "failureClass": "configuration",
+        "attempts": 1
+      }
+    },
+    {
+      "at": "+30m",
+      "delivery": {
+        "lead": "lead-2",
+        "destination": "hook",
+        "state": "refused",
+        "failureClass": "configuration",
+        "attempts": 1
+      }
+    },
+    {
+      "at": "+30m",
+      "destination": {
+        "id": "hook",
+        "state": "live",
+        "failureStreak": 2
+      }
+    },
+    {
+      "at": "+2h10m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "hook",
+        "state": "accepted",
+        "count": 2
+      }
+    },
+    {
+      "at": "+2h10m",
+      "delivery": {
+        "lead": "lead-2",
+        "destination": "hook",
+        "state": "accepted",
+        "count": 2
+      }
+    },
+    {
+      "at": "+2h10m",
+      "destination": {
+        "id": "hook",
+        "state": "live",
+        "failureStreak": 0
+      }
+    }
+  ]
+}

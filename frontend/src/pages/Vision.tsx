@@ -92,9 +92,9 @@ export function Vision() {
           <div className="card"><strong>1. Name an owner for the lead, start to finish</strong>
             <span>Judged by one number: the share of leads that reached a person at the firm in time. A decision for leadership; no software needed.</span></div>
           <div className="card"><strong>2. Measure before building</strong>
-            <span>Record what happens to every lead and why, and alert someone when a firm's connection stops. Days of work; it replaces guesses with facts within weeks.</span></div>
-          <div className="card"><strong>3. Standardise, then simplify</strong>
-            <span>Standard call categories instead of free text, one way to describe a lead from phone and chat, and a short list of supported CRMs. Each removes a whole class of problems.</span></div>
+            <span>Real numbers from today's systems: what is lost, what is late, which CRMs are used, the mix of calls. Nothing in production changes; it replaces guesses with facts before we build.</span></div>
+          <div className="card"><strong>3. Build to one standard</strong>
+            <span>A new lead platform built to one model, in small steps a firm can use: standard call categories instead of free text, one way to describe a lead from phone and chat, and a short list of supported CRMs. Each step removes a whole class of problems.</span></div>
         </div>
       </section>
 
@@ -108,11 +108,11 @@ export function Vision() {
         </ol>
         <h3 className="section-title">Roadmap</h3>
         <ol className="vision-steps roadmap">
-          <li><strong>1. Measure</strong><span>weeks · record what happens to every lead</span></li>
-          <li><strong>2. Reliability</strong><span>a month · automatic retries, a backup route, alerts</span></li>
-          <li><strong>3. One lead format</strong><span>a quarter · phone and chat alike, sorted by kind of call</span></li>
-          <li><strong>4. Route by kind of call</strong><span>each firm chooses which calls go where</span></li>
-          <li><strong>5. Self-serve and proof</strong><span>firms connect, approve and see their week</span></li>
+          <li><strong>1. Reliable delivery</strong><span>about two months · every lead recorded, retried and accounted for; real numbers from today's systems alongside</span></li>
+          <li><strong>2. In time, with approval</strong><span>about a month more · sorted by kind of call, a backup route, nothing changes without the firm's approval</span></li>
+          <li><strong>3. Proof and CRMs</strong><span>firms see their week; six CRMs; calls sorted as they come in</span></li>
+          <li><strong>4. Billing and terms</strong><span>priced per real conversation; terms without lock-outs</span></li>
+          <li><strong>5. Self-serve</strong><span>firms connect and approve themselves; other software receives our leads</span></li>
         </ol>
       </section>
 
@@ -124,7 +124,7 @@ export function Vision() {
             <tbody>
               <tr><td>Who owns the lead from start to finish?</td><td>One owner in Operations, judged by the share of leads that reached a person in time; engineering on call for faults on our side</td></tr>
               <tr><td>How fast must a lead reach the firm?</td><td>Emergencies and people in custody: 15 minutes. New clients: 1 hour. Existing clients, courts and insurers: the same business day. Everything else: the next business day</td></tr>
-              <tr><td>What if the usual route fails?</td><td>A backup the firm agreed (a text to its intake team, or email) takes over once a third of that time has passed. The firm always sees it; the CRM copy follows later, marked late</td></tr>
+              <tr><td>What if the usual route fails?</td><td>A backup the firm agreed (a text to its intake team, or email) takes over at once if the usual route is stopped, otherwise once a third of that time has passed. The firm always sees it; the CRM copy follows later, marked late</td></tr>
               <tr><td>Hang-ups?</td><td>Not sent to CRMs, which refuse them; the firm still sees them by email and in its portal; free if under 20 seconds</td></tr>
               <tr><td>Which CRMs do we support directly?</td><td>Six: Clio Grow, Lawmatics, MyCase, Lead Docket, PracticePanther and Smokeball. Two little-used ones retire. Everything else connects through Zapier</td></tr>
               <tr><td>Where does each call go?</td><td>By kind of call: new clients to the CRM, everything to email and the portal, emergencies also by text message</td></tr>
@@ -133,11 +133,11 @@ export function Vision() {
               <tr><td>Terms of service?</td><td>One version for everyone. Ask people to accept again only when a change concerns them (price changes: firm admins; changes to what users may do: everyone), with notice first. Every acceptance is recorded</td></tr>
               <tr><td>Charging per new client delivered?</td><td>Not now: revisit after six months of data and a legal review</td></tr>
               <tr><td>Beyond law firms?</td><td>Yes: almost everything already works for other businesses; a package for trades once the legal core is stable</td></tr>
-              <tr><td>A new system?</td><td>Not yet: improve the current lead system step by step, as the integration design already agreed recommends; one standard lead format next quarter</td></tr>
+              <tr><td>A new system?</td><td>Yes: built to one model, in small steps a firm can use, each proven in this lab first. The current lead system is not extended; firms move across one at a time</td></tr>
             </tbody>
           </table>
         </div>
-        <p className="small muted">Figures come from a development copy of our systems, mostly test traffic, and firm names are fictional. The first two weeks replace the figures with real ones; any answer they overturn, we revise and say so.</p>
+        <p className="small muted">Figures come from a development copy of our systems, mostly test traffic, and firm names are fictional. Real numbers from today's systems replace the figures before we build; any answer they overturn, we revise and say so.</p>
       </section>
     </div>
   );

@@ -5,7 +5,7 @@ see, say what we will do, and when. The one-page version is [summary.md](summary
 
 **About what you are looking at.** The lab runs a simulated week on a development
 copy of our systems. **Firm names are fictional.** Figures show patterns, not
-totals; the first two weeks of the plan replace them with real numbers.
+totals; real numbers from today's systems replace them before we build.
 
 ## Ten words used on the screens
 
@@ -39,7 +39,7 @@ totals; the first two weeks of the plan replace them with real numbers.
 | 11 | [Billing operations](23-billing-operations.png) | Every account's bill worked out both ways. Accounts whose old billing data cannot be read come first; they are a work list, not a blocker. | Run the bills side by side for two months, then switch in groups. |
 | 12 | [Terms of service: versions](25-terms-versions-and-coverage.png) | Our real history: the first terms, a grammar fix, a promotions clause, a price change. Each says who had to accept it, and how many have. | Ask people to accept again only when a change concerns them. |
 | 13 | [A new user's first sign-in](27-portal-first-sign-in.png) | A new team member sees the terms before anything else; acceptance is recorded with the version and time. | Accept once at the start; every acceptance kept on record. |
-| 14 | [Three moves, direction, roadmap](03-vision-moves-direction-roadmap.png) | Name an owner; measure before building; standardise, then simplify. Then: trust, self-serve, a platform, and reaching firms inside the CRMs they already use. | Start with measurement in the first two weeks; no rewrite. |
+| 14 | [Three moves, direction, roadmap](03-vision-moves-direction-roadmap.png) | Name an owner; measure before building; build to one standard. Then: trust, self-serve, a platform, and reaching firms inside the CRMs they already use. | A new platform built to one model, in steps a firm can use; the current system is not extended. |
 | 15 | [Our answers](28-vision-our-answers.png) | Every open question, answered. | The reasons, and what would change each: [answers](../lead-delivery/answers.md). |
 
 ## Backup screens: for detailed questions
@@ -62,20 +62,26 @@ totals; the first two weeks of the plan replace them with real numbers.
 
 ## What we will deliver
 
+A new lead platform, built to one model in steps a firm can use, each proven in
+this lab first. The current lead system is not extended; firms move across one
+at a time. The engineering detail is the build order in
+[RFC-007](../rfc/007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices).
+
 | When | We deliver | You will see |
 |---|---|---|
-| **Weeks 1–2** | A report on real lead delivery (what is lost, which CRMs are used, the mix of calls, billing accounts on unusual terms); a record of what happens to every lead and why; an alert whenever a firm's connection stops; reconnecting firms whose CRM sign-in expired; the terms change that lets the promotions clause ship; past months locked | Real numbers instead of the lab's; problems found by us, not reported by firms |
-| **Weeks 3–8** | Automatic retries, the backup route and missed-lead recovery in our current lead system; the daily operations screens; the weekly report to every firm; the price list and free-call rules written down; billing data cleaned (numbers, not text) | No lead lost without a trace; late leads counted; firms seeing their week |
-| **Months 3–5** | One standard lead from phone and chat, sorted by kind of call as it comes in; each firm choosing which calls go where; the record of every call that billing reads; the new bill run beside the old for two months | One way of describing a call everywhere; every firm's new bill checked against its old one |
+| **From the start** | Real numbers from today's systems: what is lost, what is late, which CRMs are used, the mix of calls | Real numbers instead of the lab's |
+| **About two months** | Reliable delivery: every lead recorded before it is sent, retried, and accounted for; the daily operations screens; an alert whenever a firm's connection stops | No lead lost without a trace; problems found by us, not reported by firms |
+| **About three months** | Delivery in time: calls sorted by kind; the backup route; held leads sent on when a connection returns; nothing a firm receives changes without its approval | Every new client reaching a person at the firm in time |
+| **Then** | The six CRMs tested against their own test accounts; firms seeing their week and proof of delivery; calls sorted as they come in; the new bill beside the old for two months; terms without lock-outs | Firms seeing what they get; every firm's new bill checked against its old one |
 | **After that** | The three packages, launched in groups; firms setting up their own connections; a published way for other software to receive leads; a package for trades businesses | A product suite with predictable revenue, and firms onboarding themselves |
 
 ## Questions we expect, and our answers
 
 | Question | Answer |
 |---|---|
-| **How sure are these numbers?** | They come from a development copy and a simulated week, so they show patterns, not totals. The first two weeks replace them with real ones; we will revise any answer they overturn. |
-| **Why not rebuild from scratch?** | A rebuild takes months while leads keep getting lost. We improve the current system step by step and prove each step in this lab first. |
-| **What does it take?** | The first two weeks are a few days of one engineer's work. The reliability work is about a month for one or two engineers. Billing buys its invoicing software and builds the call record alongside the lead-format work. These are estimates; the first report firms them up. |
+| **How sure are these numbers?** | They come from a development copy and a simulated week, so they show patterns, not totals. Real numbers from today's systems replace them before we build; we will revise any answer they overturn. |
+| **Why build new instead of fixing the current system?** | The current system makes one attempt per lead, keeps no record of what it skips and has no tests; retrofitting that costs more than building to the model we already have. We build in steps a firm can use, prove each in this lab first, and move firms across one at a time, so nothing waits for a big switch. |
+| **What does it take?** | About three months for three engineers to delivery firms can rely on: reliable, in time, changed only with the firm's approval. The full product in five to seven months with four. Billing buys its invoicing software and builds the call record. These are estimates; the real numbers firm them up. |
 | **Will firms lose their own names for kinds of call?** | No. They keep their wording; the standard kind sits underneath, for reports, routing and billing. |
 | **Does the backup route send client information somewhere new?** | Only somewhere the firm agreed in advance, and the firm sees every time it is used. |
 | **What happens at night?** | Retries and the backup route work around the clock, and urgent calls have a 15-minute limit with a text message. Late leads are the first thing the owner sees the next morning. |

@@ -1,0 +1,94 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "routing-by-category",
+  "story": "A firm's CRM takes new matters only; its email takes everything. A billing question is not sent to the CRM, with the reason recorded, and still reaches the firm by email.",
+  "slice": 4,
+  "model": "proposed",
+  "proves": [
+    "docs/lead-delivery/README.md#routing (proposed: per destination, by call category)",
+    "docs/lead-delivery/README.md#6-invariants (invariant 2: every destination gets a decision)",
+    "docs/lead-delivery/answers.md#routing-and-integrations"
+  ],
+  "today": "The lab routes CRM destinations by the firm's active call types (free text), not by call category.",
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "mycase",
+        "role": "usual",
+        "routing": {
+          "categories": [
+            "new-matter"
+          ]
+        }
+      },
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+5m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "personal-injury"
+      }
+    },
+    {
+      "at": "+10m",
+      "lead": {
+        "id": "lead-2",
+        "firm": "firm-a",
+        "category": "billing"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+15m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "accepted"
+      }
+    },
+    {
+      "at": "+15m",
+      "delivery": {
+        "lead": "lead-2",
+        "destination": "crm",
+        "state": "not-sent",
+        "attempts": 0
+      }
+    },
+    {
+      "at": "+15m",
+      "delivery": {
+        "lead": "lead-2",
+        "destination": "email",
+        "state": "accepted"
+      }
+    },
+    {
+      "at": "+15m",
+      "outcome": {
+        "lead": "lead-2",
+        "is": "accepted"
+      }
+    }
+  ]
+}

@@ -32,7 +32,7 @@ Approve:
 3. **A published, versioned contract**: the lead schema and signed webhooks with retries and resend.
 4. **Setup and change by revision and approval**: operators prepare, firms approve, nothing live changes until then.
 5. **Integrations verified continuously**: CRM sandboxes, scheduled test leads, and confirming the record arrived where a CRM allows it.
-6. **Gradual replacement**, never a rewrite.
+6. **Built from the domain model, slice by slice** ([RFC-007](007_domain_model_and_build_order.md)), with firms moved onto it one at a time.
 
 ---
 
@@ -112,7 +112,7 @@ the platform makes marketplace distribution cheap.
 | **Email, text, portal** | Every firm | Notifications and fallback (RFC-001) |
 | **Retired** | Lawruler (handler already off), legacy Lawmatics forms (none enabled) | Firms moved to a supported path first |
 
-The list is confirmed against production usage in the first two weeks (RFC-001
+The list is confirmed against production usage from the production feed (RFC-001
 phase 1): a retired kind in real use, or a kept one unused, changes it.
 
 ### Verification
@@ -177,13 +177,16 @@ These records are append-only.
 
 ## 7. Technical Approach
 
-**Replace gradually, never rewrite.**
+**Build from the domain model, slice by slice**, as the
+[strategy](../lead-delivery/strategy.md#42-what-it-means) sets out and
+[RFC-007](007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices)
+orders. For this RFC that means:
 
-1. **Agree the contract first:** the lead schema and delivery states.
-2. **Add the delivery worker and visibility inside api-2** (RFC-001).
-3. **Move channels one at a time** onto the standard lead and delivery service, behind feature flags: phone first, then chat (giving each chat firm its own key).
-4. **Retire each old path** once its traffic has moved.
-5. **Prove every step in the lab first** (RFC-006).
+1. **Agree the contract first:** the lead schema and delivery states (slice 0).
+2. **Setup and change by approval** (slice 5), then **the native CRMs** (slice 7), each with its receiver contract and sandbox test.
+3. **Move channels one at a time** onto the standard lead, behind a flag per firm: phone first, then chat (giving each chat firm its own key).
+4. **Retire each old path** once its firms have moved.
+5. **Prove every slice against its scenarios first** (RFC-006, [contracts](../contracts/README.md)).
 
 ### Security and privacy
 
@@ -198,13 +201,14 @@ These records are append-only.
 
 ## 8. Scope and Rollout
 
-| Phase | When | Deliver |
+| Phase | RFC-007 slices | Deliver |
 |---|---|---|
-| **1. Contract** | Months 1–2 | The lead schema v1; the integration list confirmed from production; sandbox accounts for the six CRMs |
-| **2. Setup and change** | Months 2–4 | Setup states, revisions and approvals; the firm's review screen; recipes for the six CRMs, email, text and webhook |
-| **3. One lead** | Months 3–5 | Phone and chat produce the standard lead with its category; chat keys per firm; usage record for billing (RFC-003) |
-| **4. Self-serve** | After | Firms connect and change destinations themselves, with the same approval; the published Zapier app |
-| **5. Distribution** | Later | Listings in CRM marketplaces; a trades pack |
+| **1. Contract** | 0 | The lead schema v1; the integration list confirmed from the production feed; sandbox accounts for the six CRMs |
+| **2. Setup and change** | 5 | Setup states, revisions and approvals; the firm's review screen; recipes for email, text and webhook |
+| **3. Native CRMs** | 7 | The six CRMs, each with its receiver contract and sandbox test |
+| **4. One lead** | 9, with the conversation engine | Phone and chat produce the standard lead with its category; chat keys per firm; the conversation record billing reads (RFC-003) |
+| **5. Self-serve** | 12 | Firms connect and change destinations themselves, with the same approval; the published Zapier app |
+| **6. Distribution** | Later | Listings in CRM marketplaces; a trades pack |
 
 ### Out of scope
 
@@ -222,9 +226,9 @@ These records are append-only.
 | Routine setups needing engineering | Zero for supported recipes |
 | Setups completed without escalation | 90% |
 | Business changes with a recorded firm approval | 100% |
-| Channels on the standard lead | Phone and chat by month 5 |
+| Channels on the standard lead | Phone and chat once phase 4 ships |
 | Time from signup to first delivered lead | Measured from phase 1; falling |
-| Share of setups done self-serve | Measured from phase 4 |
+| Share of setups done self-serve | Measured from phase 5 |
 | Stopped connections found by scheduled tests before a firm reports them | 100% |
 
 ---
@@ -237,7 +241,7 @@ These records are append-only.
 
 **False confidence in delivery.** *Mitigation:* stages reported as observed; "verified in the CRM" only when confirmed.
 
-**Migration disrupts live integrations.** *Mitigation:* additive changes, feature flags, both lead versions during migration, existing integrations kept working.
+**Moving firms disrupts live integrations.** *Mitigation:* firms moved one at a time behind a flag, exactly one system sending each firm's leads, both lead versions during the move, existing integrations kept working until a firm has moved.
 
 **Drift outside our control** (a firm edits its own zap). *Mitigation:* externally managed settings shown as unverified; approval covers what we send.
 
@@ -252,7 +256,7 @@ These records are append-only.
 | D3 | The long tail | Zapier and signed webhooks on a published contract |
 | D4 | Setup | Operator-prepared from recipes; the firm connects, approves and confirms; test before live |
 | D5 | Changes | Revisions with the firm's approval for business changes; repairs logged |
-| D6 | Architecture | Replace gradually inside existing systems; no rewrite |
+| D6 | Architecture | Built from the domain model in RFC-007's slices; firms moved one at a time |
 | D7 | Verification | CRM sandboxes, scheduled test leads, honest delivery stages |
 | D8 | Other businesses | A business-neutral core with vertical packs |
 
@@ -261,7 +265,7 @@ The reasoning, and what would change each: [answers.md](../lead-delivery/answers
 ### Approval requested
 
 1. The standard lead and the published contract.
-2. The integration list, confirmed against production in two weeks.
+2. The integration list, confirmed against the production feed.
 3. The setup and change workflow and approval policy.
 
 ### Specialist sign-off

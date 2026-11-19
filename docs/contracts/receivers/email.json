@@ -1,0 +1,31 @@
+{
+  "$schema": "../receiver.schema.json",
+  "kind": "email",
+  "label": "Email",
+  "model": "lab",
+  "request": {
+    "method": "POST",
+    "contentType": "application/json"
+  },
+  "requires": [
+    {
+      "field": "to",
+      "from": "the destination's recipients setting"
+    },
+    {
+      "field": "subject",
+      "from": "\"New lead:\", the caller's full name and the call type"
+    },
+    {
+      "field": "text",
+      "from": "the message with the intake answers appended"
+    }
+  ],
+  "accepts": {
+    "status": 201
+  },
+  "refusesMissing": {
+    "status": 422,
+    "body": "missing {field}"
+  }
+}

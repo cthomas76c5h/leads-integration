@@ -69,8 +69,9 @@ def scenario_problems(s: dict, modes: set[str], categories: set[str], areas: set
         refs = []
         if "destination" in e:
             refs.append(("destination", e["destination"]["id"]))
-        if "delivery" in e:
-            refs += [("lead", e["delivery"]["lead"]), ("destination", e["delivery"]["destination"])]
+        for key in ("delivery", "noDelivery"):
+            if key in e:
+                refs += [("lead", e[key]["lead"]), ("destination", e[key]["destination"])]
         if "handOff" in e:
             refs.append(("lead", e["handOff"]["lead"]))
             if "by" in e["handOff"]:

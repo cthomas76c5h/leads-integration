@@ -1,0 +1,24 @@
+{
+  "$schema": "../receiver.schema.json",
+  "kind": "webhook",
+  "label": "Webhook (firm's own system)",
+  "model": "lab",
+  "request": {
+    "method": "POST",
+    "contentType": "application/json"
+  },
+  "requires": [],
+  "optional": [
+    {
+      "field": "(the approved mapping)",
+      "from": "the destination's live revision: each row maps a lead field to a body field; with no revision, the standard body (as zapier-webhook)"
+    }
+  ],
+  "accepts": {
+    "status": 201
+  },
+  "refusesMissing": {
+    "status": 422,
+    "body": "missing {field}"
+  }
+}

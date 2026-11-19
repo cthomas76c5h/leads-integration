@@ -2,11 +2,12 @@
 
 The questions this work raised, answered: what we will do, why, and what would
 make us change it. Leadership asked for answers, not options; these are ours,
-and we own them. The one input we do not have yet is production data: week one
-of the plan produces it, and any answer it overturns we revise here and say so.
+and we own them. The one input we do not have yet is production data: the
+read-only production feed ([RFC-006](../rfc/006_integration_lab.md)) produces
+it, and any answer it overturns we revise here and say so.
 
 Status of each answer: **Decided** (we proceed), or **Decided, to confirm with data**
-(we proceed and check it in week one).
+(we proceed and check it against the production feed).
 
 The [RFCs](../rfc/README.md) ask stakeholders to approve these decisions. This is the only place they are stated with their reasons. Other documents give the reasoning
 in depth ([strategy](strategy.md), [why categories matter](../call-categories/why-it-matters.md),
@@ -37,7 +38,7 @@ for the answer.
 | How are leads routed? | **By call category, per destination.** Default: CRMs take new matters; email and the portal take everything; emergencies and custody also go by SMS. Changes go through the RFC-001 approval workflow. *Decided.* | 99.8% of today's active call types already mean "new matter"; the default reproduces today's behaviour explicitly | — |
 | Which integrations do we keep? | **Native: Clio Grow, Lawmatics (API), MyCase, Lead Docket, PracticePanther, Smokeball.** Retire Lawruler (handler already off) and the legacy Lawmatics forms (none enabled). Everything else through Zapier or webhooks with the public contract. *Decided, to confirm with data.* | These are the kinds with working builders and real use in the data; the rest is cheaper to reach through Zapier | Production usage showing a retired kind in real use, or a kept one unused |
 | Who may resend a lead that was already accepted? | **A senior operator, after the firm confirms the record is missing.** Any operator may resend one that was not accepted. *Decided.* | Resending an accepted lead can create a duplicate in the CRM | — |
-| Do we build a new delivery system? | **Not yet.** Extend api-2 step by step (a worker, retries, destination state, fallback), as RFC-001 recommends; one lead format for every channel next quarter. *Decided.* | Gradual replacement keeps production safe; a rewrite stalls for months | Step 2 proving api-2 cannot carry it |
+| Do we build a new delivery system? | **Yes: built from the domain model, slice by slice, in the order of [RFC-007](../rfc/007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices).** api-2 is not extended; it remains a source the lab reads (read-only) and the record of today's gaps ([production-today](production-today.md)). *Decided.* | api-2's delivery has no tests, no record of what it skips and one attempt per lead; the model, decisions and scenarios already exist, so building to them is cheaper than retrofitting them. Each slice is usable on its own and proven by its scenarios, which keeps a new build from stalling | A slice running far over its estimate, or the production feed showing a need the model does not cover |
 
 ## Call categories
 
