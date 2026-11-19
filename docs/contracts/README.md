@@ -29,10 +29,42 @@ categories and new routing rules, is in
 [taxonomy.json](../call-categories/taxonomy.json).
 
 **Checked is not run.** The checker proves the files are well formed and
-consistent. Running a scenario against an implementation needs the scenario
-runner and its test control interface (clock, receiver modes, faults), which
-come with [RFC-007](../rfc/007_domain_model_and_build_order.md) slice 0 and are
-not built yet.
+consistent. The [scenario runner](#running-the-scenarios) proves an
+implementation behaves as they say.
+
+## Running the scenarios
+
+```sh
+python tools/run_scenarios.py                   # every scenario against the lab
+python tools/run_scenarios.py auth-expired      # by name
+python tools/run_scenarios.py --model lab       # the ones the lab must pass
+python tools/run_scenarios.py --report out.json # results as JSON too
+```
+
+Each scenario gets a fresh API process with its own temporary database and
+[test control](../api.md#test-control-test_controltrue-only) on: the clock is
+set to the scenario's start, firms and destinations are created through the
+public routes, the `when` steps are played in time order (the clock advanced
+between them, with the worker run at every due retry and at least once a
+minute), and each `then` expectation is checked from what the API reports.
+
+| Result | Means |
+|---|---|
+| `PASS` | Every expectation held |
+| `FAIL` | At least one expectation did not hold; each is listed |
+| `UNSUPPORTED` | The scenario needs a step or expectation the lab cannot do or report (a fault, an access check, an event, evidence beyond accepted); listed, never skipped |
+| `ERROR` | The runner or the API failed; not a verdict on the scenario |
+
+A `lab` scenario must pass: the run exits 1 if one does not. A `proposed`
+scenario is expected to fail or be unsupported until its rule is built; one that
+passes is reported for promotion, after checking that it asserts what makes it
+proposed (two did not, and were tightened).
+
+The scenarios are neutral; `LabAdapter` in the runner is the one place
+lab-specific translation lives: a category becomes a reference lead's call type,
+category routing becomes the firm's active call types, lab statuses become the
+model's states, and email and SMS destinations get fictional recipients.
+Another implementation would get its own adapter.
 
 ## A scenario
 
@@ -110,8 +142,9 @@ Every scenario the lab's simulator runs, a scenario for each delivery rule that
 had none, RFC-008's ten failure-injection scenarios, and a receiver contract for
 every kind in the catalog: 26 scenarios (10 `lab`, 16 `proposed`) and 16
 receivers. A `proposed` scenario fails on the lab today; its `today` field says
-how the lab differs. None is runnable yet: that needs the scenario runner
-(RFC-007 slice 0).
+how the lab differs. All of them run (see above): every `lab` scenario passes,
+and every `proposed` one fails or is unsupported, for the reason its `today`
+field gives.
 
 ### Scenarios
 

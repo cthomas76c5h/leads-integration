@@ -574,6 +574,12 @@ let claimDue (s: Session) (nowMs: int64) (limit: int) : string[] =
         s.Execute "UPDATE deliveries SET status='delivering' WHERE id=$1" [ id ] |> ignore
     ids
 
+/// When the next waiting delivery falls due, if any: where test control's advance stops next.
+let nextDueAt (s: Session) : int64 option =
+    s.Query "SELECT MIN(next_attempt_at) FROM deliveries WHERE status='pending' AND next_attempt_at IS NOT NULL" [] (fun r -> Read.int64N r 0)
+    |> Array.tryHead
+    |> Option.bind (fun v -> if v.HasValue then Some v.Value else None)
+
 let setDeliveryState (s: Session) (id: string) (status: string) (reason: string) (nextAttemptAt: Nullable<int64>) =
     s.Execute
         "UPDATE deliveries SET status=$2, reason=$3, next_attempt_at=$4 WHERE id=$1"

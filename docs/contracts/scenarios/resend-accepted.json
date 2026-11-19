@@ -8,7 +8,7 @@
     "docs/lead-delivery/answers.md#routing-and-integrations (who may resend an accepted lead)",
     "docs/lead-delivery/README.md#6-invariants (invariants 3 and 10: same lead; every operator action recorded)"
   ],
-  "today": "The lab lets anyone resend any delivery, accepted ones included, and does not record who or why.",
+  "today": "The lab lets anyone resend any delivery, accepted ones included, and does not record who or why. Its deliveries pass; the resend's record (who, why) does not exist, so the LeadResent expectation fails.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [
@@ -64,6 +64,15 @@
         "destination": "crm",
         "state": "accepted",
         "count": 2
+      }
+    },
+    {
+      "at": "+1h05m",
+      "event": {
+        "name": "LeadResent",
+        "lead": "lead-1",
+        "destination": "crm",
+        "count": 1
       }
     }
   ]

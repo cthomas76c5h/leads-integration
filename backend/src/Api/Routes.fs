@@ -51,4 +51,6 @@ let endpoints (c: Ctx) : Endpoint list =
       PATCH
           [ routef "/api/connections/{%s}" (fun id -> g (patchConnection c id))
             routef "/api/setups/{%s}" (fun id -> g (patchSetup c id)) ]
-      yield! Receivers.endpoints c.Db ]
+      yield! Receivers.endpoints c.Db
+      // Scenario runs only (docs/api.md, "Test control"); Config refuses it against the lab's database.
+      if c.Cfg.TestControl then yield! TestControl.endpoints c ]

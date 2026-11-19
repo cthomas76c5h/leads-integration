@@ -464,3 +464,19 @@ non-alphanumerics turned into `_` and trimmed ("Date of accident?" →
 
 Errors the UI should show as-is: 404 `no such …`, 409 state conflicts
 (`not ready: Draft`), 422 validation.
+
+## Test control (`TEST_CONTROL=true` only)
+
+What the [scenario runner](contracts/README.md#running-the-scenarios) needs beyond the
+routes above: the clock, the worker, and how a fake receiver answers. These
+routes exist only when the API starts with `TEST_CONTROL=true`, and the API
+refuses to start that way against the lab's own database (`DB_PATH` must point
+elsewhere). Without it they answer 404. Never enabled outside a test run.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `/api/test/clock` | `{ at: number }` | `{ now }`. Sets the one clock every rule reads (`Domain.now`); from then on it moves only when set or advanced |
+| POST | `/api/test/advance` | `{ to: number }` | `{ now, passes }`. Moves the clock to `to`, stopping at every due retry and at least once a minute to run the worker: fallbacks, then every due delivery. Retry jitter is zero, so runs repeat exactly |
+| PUT | `/api/test/receivers/{key}` | `{ mode? } \| { status, body?, retryAfter? } \| { noAnswer: true }`, plus `requires?: string[]` | `{ ok: true }`. How the fake receiver answers requests whose URL carries `?dest={key}`, until set again. `mode` is one of the [receiver modes](contracts/receivers/modes.json) the lab implements; `noAnswer` waits past the delivery timeout |
+| PUT | `/api/test/connections/{id}` | `{ settings?: Record<string, string>, mapping?: string[] }` | `Connection`. Settings the public routes do not expose (`role: 'fallback'`, `sendWebchats: 'false'`); `mapping` sets a webhook's live mapping from field labels (First name, Last name, Email, Phone, Note) |
+| PUT | `/api/test/firms/{id}/contact-types` | `{ name: string, active: boolean }[]` | `FirmDetail`. The firm's call types, which the lab routes CRMs by |

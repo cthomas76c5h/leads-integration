@@ -143,7 +143,15 @@ every other kind's body is fixed in `Payloads.build`.
 | [BillingTests.fs](../../backend/tests/Tests/BillingTests.fs) | Cycles, free-by-rule, proration, locked closed cycles, legacy data problems, and every terms gate case |
 | [HandOffTests.fs](../../backend/tests/Tests/HandOffTests.fs) | Windows to act, fallback once and only when late, expired leads, the firm report, the outage scenario with and without a fallback |
 | [OnboardingTests.fs](../../backend/tests/Tests/OnboardingTests.fs) | Versions, approvals, draft revisions |
-| [ApiTests.fs](../../backend/tests/Tests/ApiTests.fs) | Routes end to end against a running app |
+| [ApiTests.fs](../../backend/tests/Tests/ApiTests.fs) | Routes end to end against a running app; test control exists only when switched on, and sets one destination's receiver |
+
+**The contract scenarios** ([docs/contracts/](../contracts/README.md)) run against
+the lab with [tools/run_scenarios.py](../../tools/run_scenarios.py): a fresh API
+per scenario, driven through the public routes and
+[TestControl.fs](../../backend/src/Api/TestControl.fs) (the clock in
+`Domain.now`, a worker pass on demand, and per-destination receiver answers in
+`Receivers.overrides`). Test control is mounted only with `TEST_CONTROL=true`,
+which `Config.load` refuses against the lab's own database.
 
 ## Reading order
 

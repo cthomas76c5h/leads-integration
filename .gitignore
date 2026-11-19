@@ -17,3 +17,6 @@ frontend/dist/
 
 .env
 .env.*
+
+# Scenario runner build (tools/run_scenarios.py)
+.scenariobuild/

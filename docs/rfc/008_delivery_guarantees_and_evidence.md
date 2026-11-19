@@ -447,7 +447,7 @@ D2, D9 and the conditional CRM list are recorded in
 
 ## 15. Next Steps
 
-1. Build the scenario runner and test control interface (RFC-007 slice 0), and run all [contract scenarios](../contracts/README.md) against the lab: the `lab` ones must pass, the `proposed` ones fail for the reasons their `today` field gives. The ten failure-injection scenarios and every receiver's `duplicates` field are written.
+1. Done: the [scenario runner](../contracts/README.md#running-the-scenarios) and test control run every contract scenario against the lab. All ten `lab` scenarios pass; the sixteen `proposed` ones, the ten failure-injection scenarios among them, fail or are unsupported for the reasons their `today` fields give. Each becomes a passing test as its slice is built.
 2. Choose the first CRM to certify end to end, from the production feed and sandbox access.
 3. Fold sections 3, 5 and 7 into the [domain model](../lead-delivery/README.md) once approved.
 

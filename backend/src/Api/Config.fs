@@ -13,7 +13,9 @@ type Config =
       AllowLocalTargets: bool
       WorkerEnabled: bool
       /// frontend/dist, served at / when present (production-like single process).
-      FrontendDist: string }
+      FrontendDist: string
+      /// The test-control routes (docs/api.md): only for scenario runs, never against the lab's own database.
+      TestControl: bool }
 
 let private env (name: string) (fallback: string) =
     match Environment.GetEnvironmentVariable name with
@@ -34,24 +36,30 @@ let load () : Result<Config, string> =
     let timeout = parse "DELIVERY_TIMEOUT_MS" "10000" Int32.TryParse
     let allowLocal = parse "ALLOW_LOCAL_TARGETS" "true" Boolean.TryParse
     let worker = parse "WORKER_ENABLED" "true" Boolean.TryParse
-    match port, scale, timeout, allowLocal, worker with
-    | Ok port, Ok scale, Ok timeout, Ok allowLocal, Ok worker ->
+    let testControl = parse "TEST_CONTROL" "false" Boolean.TryParse
+    match port, scale, timeout, allowLocal, worker, testControl with
+    | Ok port, Ok scale, Ok timeout, Ok allowLocal, Ok worker, Ok testControl ->
+        let dbPath = env "DB_PATH" LeadIntegrations.Db.defaultPath
         if scale <= 0.0 then Error "TIME_SCALE must be positive"
+        elif testControl && IO.Path.GetFullPath dbPath = IO.Path.GetFullPath LeadIntegrations.Db.defaultPath then
+            Error "TEST_CONTROL needs its own DB_PATH: it must never run against the lab's database"
         else
             Ok
                 { Port = port
-                  DbPath = env "DB_PATH" LeadIntegrations.Db.defaultPath
+                  DbPath = dbPath
                   Origin = env "ORIGIN" $"http://localhost:{port}"
                   TimeScale = scale
                   DeliveryTimeoutMs = timeout
                   AllowLocalTargets = allowLocal
                   WorkerEnabled = worker
-                  FrontendDist = env "FRONTEND_DIST" (IO.Path.Combine(LeadIntegrations.Db.repoRoot, "frontend", "dist")) }
-    | Error e, _, _, _, _
-    | _, Error e, _, _, _
-    | _, _, Error e, _, _
-    | _, _, _, Error e, _
-    | _, _, _, _, Error e -> Error e
+                  FrontendDist = env "FRONTEND_DIST" (IO.Path.Combine(LeadIntegrations.Db.repoRoot, "frontend", "dist"))
+                  TestControl = testControl }
+    | Error e, _, _, _, _, _
+    | _, Error e, _, _, _, _
+    | _, _, Error e, _, _, _
+    | _, _, _, Error e, _, _
+    | _, _, _, _, Error e, _
+    | _, _, _, _, _, Error e -> Error e
 
 let addressPolicy (cfg: Config) : LeadIntegrations.Address.Policy = { AllowLocal = cfg.AllowLocalTargets }
 

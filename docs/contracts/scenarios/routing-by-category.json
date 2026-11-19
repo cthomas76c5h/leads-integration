@@ -1,7 +1,7 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "routing-by-category",
-  "story": "A firm's CRM takes new matters only; its email takes everything. A billing question is not sent to the CRM, with the reason recorded, and still reaches the firm by email.",
+  "story": "A firm's main CRM takes new matters only, a second CRM takes existing clients only, and its email takes everything. Each destination decides by call category: a billing question goes to neither CRM, with the reason recorded, and still reaches the firm by email.",
   "slice": 4,
   "model": "proposed",
   "proves": [
@@ -9,7 +9,7 @@
     "docs/lead-delivery/README.md#6-invariants (invariant 2: every destination gets a decision)",
     "docs/lead-delivery/answers.md#routing-and-integrations"
   ],
-  "today": "The lab routes CRM destinations by the firm's active call types (free text), not by call category.",
+  "today": "The lab routes every CRM of a firm alike, by the firm's active call types (free text), so two CRMs that take different kinds of call cannot be set up. With a single CRM the lab's call types reproduce category routing.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [
@@ -27,6 +27,17 @@
         "routing": {
           "categories": [
             "new-matter"
+          ]
+        }
+      },
+      {
+        "id": "crm-2",
+        "firm": "firm-a",
+        "kind": "lead-docket",
+        "role": "usual",
+        "routing": {
+          "categories": [
+            "existing-client"
           ]
         }
       },
@@ -71,6 +82,24 @@
       "delivery": {
         "lead": "lead-2",
         "destination": "crm",
+        "state": "not-sent",
+        "attempts": 0
+      }
+    },
+    {
+      "at": "+15m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm-2",
+        "state": "not-sent",
+        "attempts": 0
+      }
+    },
+    {
+      "at": "+15m",
+      "delivery": {
+        "lead": "lead-2",
+        "destination": "crm-2",
         "state": "not-sent",
         "attempts": 0
       }

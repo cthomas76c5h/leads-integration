@@ -17,6 +17,8 @@ TypeScript frontend (`frontend/`). Design: RFC-001 in
   Expecto tests, `TreatWarningsAsErrors`. F# compiles in file order.
 - Backend: `cd backend && dotnet run --project src/Api` (port 5080) ·
   tests: `dotnet run --project tests/Tests --artifacts-path ../.testbuild` (the running API locks `bin/`) · import: `dotnet run --project src/Import -- all`
+- Contracts: `python tools/check_contracts.py` (files consistent) · `python tools/run_scenarios.py`
+  (every scenario against a fresh lab; `lab` ones must pass). A rule change updates its scenario first.
 - Frontend: `cd frontend && npm run dev` (proxies to 5080) · `npm run build`
 - **Credentials are never stored or shown.** Importers reduce every secret to
   present + fingerprint the moment they read it. Imported connections deliver

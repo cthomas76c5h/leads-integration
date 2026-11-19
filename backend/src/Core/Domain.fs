@@ -5,7 +5,17 @@ module LeadIntegrations.Domain
 
 open System
 
-let now () = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+/// The lab's one clock. A scenario run sets it (test control, docs/api.md);
+/// otherwise it is the system clock.
+let mutable private fixedNow: int64 voption = ValueNone
+
+/// Fix the clock at `t` (Unix ms). Only test control calls this.
+let setClock (t: int64) = fixedNow <- ValueSome t
+
+let now () =
+    match fixedNow with
+    | ValueSome t -> t
+    | ValueNone -> DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
 
 module Source =
     let api2 = "api2"

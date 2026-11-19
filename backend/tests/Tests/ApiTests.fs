@@ -22,14 +22,17 @@ let private cfg (db: Db.Database) : Api.Config.Config =
       DeliveryTimeoutMs = 5000
       AllowLocalTargets = true
       WorkerEnabled = false
-      FrontendDist = "does-not-exist" }
+      FrontendDist = "does-not-exist"
+      TestControl = false }
 
-let private server (db: Db.Database) =
+let private serverWith (config: Api.Config.Config) (db: Db.Database) =
     let builder = WebApplication.CreateBuilder()
     builder.WebHost.UseTestServer() |> ignore
-    let app = Api.App.build builder (cfg db) db
+    let app = Api.App.build builder config db
     app.StartAsync().Wait()
     app, app.GetTestClient()
+
+let private server (db: Db.Database) = serverWith (cfg db) db
 
 let private json (res: HttpResponseMessage) =
     let text = res.Content.ReadAsStringAsync().Result
@@ -78,6 +81,35 @@ let tests =
                   let skipped = res.GetProperty("deliveries").EnumerateArray() |> Seq.map (fun d -> d.GetProperty("status").GetString()) |> Seq.toList
                   Expect.equal skipped [ "skipped"; "skipped" ] "skipped like api-2"
               finally
+                  app.StopAsync().Wait()
+          }
+
+          test "test control does not exist unless the API starts with it" {
+              use t = new TempDb()
+              let app, client = server t.Db
+              try
+                  let res = post client "/api/test/clock" """{"at":1}"""
+                  Expect.equal (int res.StatusCode) 404 "no test control in a normal run"
+              finally
+                  app.StopAsync().Wait()
+          }
+
+          test "test control sets how one destination's receiver answers, and only that one" {
+              use t = new TempDb()
+              let app, client = serverWith { cfg t.Db with TestControl = true } t.Db
+              let key = "dest-" + Guid.NewGuid().ToString("N")
+              try
+                  let put = client.PutAsync($"/api/test/receivers/{key}", new StringContent("""{"status":503,"body":"down for the test","retryAfter":"30"}""", Encoding.UTF8, "application/json")).Result
+                  Expect.equal (int put.StatusCode) 200 "set"
+                  let hit = post client $"/receiver/crm/email?dest={key}" "{}"
+                  Expect.equal (int hit.StatusCode) 503 "answers exactly as set, without checking the body"
+                  Expect.equal (hit.Headers.RetryAfter.ToString()) "30" "with its Retry-After"
+                  let other = post client "/receiver/crm/email?dest=someone-else" """{"subject":"s","to":"a@example.com","body":"b"}"""
+                  Expect.notEqual (int other.StatusCode) 503 "another destination is untouched"
+                  let bad = client.PutAsync($"/api/test/receivers/{key}", new StringContent("""{"mode":"lost-record"}""", Encoding.UTF8, "application/json")).Result
+                  Expect.equal (int bad.StatusCode) 422 "a mode the lab does not implement is refused, not ignored"
+              finally
+                  Api.Receivers.overrides.TryRemove key |> ignore
                   app.StopAsync().Wait()
           }
 

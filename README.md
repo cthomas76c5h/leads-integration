@@ -22,7 +22,7 @@ slice; the rest are for when you need them.
 | Agreed: build on it | Draft: expect it to change |
 |---|---|
 | The glossary, and the decisions in [answers.md](docs/lead-delivery/answers.md) (each marked *Decided*) | [RFC-001 to RFC-008](docs/rfc/README.md): proposed, awaiting approval. RFC-007 (the model and build order) and RFC-008 (the guarantees and evidence, which revises RFC-007) are the newest |
-| The product is **built new, to the domain model**, in RFC-007's slices; api-2 is not extended ([answers](docs/lead-delivery/answers.md#routing-and-integrations)); the milestones are the [roadmap](docs/lead-delivery/strategy.md#5-roadmap) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a draft, with 26 scenarios (including RFC-008's ten failure-injection scenarios) and a receiver contract for every catalog kind; no runner yet, and no CRM contract confirmed against its sandbox |
+| The product is **built new, to the domain model**, in RFC-007's slices; api-2 is not extended ([answers](docs/lead-delivery/answers.md#routing-and-integrations)); the milestones are the [roadmap](docs/lead-delivery/strategy.md#5-roadmap) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a draft, with 26 scenarios (including RFC-008's ten failure-injection scenarios) and a receiver contract for every catalog kind; the runner plays them against the lab (`python tools/run_scenarios.py`); no CRM contract confirmed against its sandbox |
 | Every rule in the [domain model](docs/lead-delivery/README.md) marked *Lab* or *Production* | Every rule marked *Proposed*: agreed direction, not built |
 
 A scenario marked `"model": "proposed"` is expected to fail against the lab
@@ -54,6 +54,7 @@ cd backend
 dotnet run --project src/Import -- all      # api-2 (read-only), chatbot dump, airi dev db
 dotnet run --project src/Api                 # http://localhost:5080
 dotnet run --project tests/Tests --artifacts-path ../.testbuild   # tests; safe while the API runs
+python ../tools/run_scenarios.py            # every contract scenario against a fresh lab
 dotnet run --project src/Import -- seed --leads 200   # synthetic traffic; the API's worker delivers it
 cd ../frontend && npm install && npm run dev # http://localhost:5173, proxies to 5080
 ```
