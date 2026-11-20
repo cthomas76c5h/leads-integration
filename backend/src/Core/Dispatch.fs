@@ -253,6 +253,16 @@ let replay (db: Database) (deliveryId: string) (resend: Resend) =
                     [ old.Delivery.EventId; old.Delivery.ConnectionId ]
                     (fun _ -> true)
                 |> Option.isSome
+            // The lead is still on its way there: a resend now would send it twice (concurrency.md, known limits).
+            let inFlight =
+                s.TryOne
+                    "SELECT status FROM deliveries WHERE event_id=$1 AND connection_id=$2 AND status IN ('pending', 'delivering') LIMIT 1"
+                    [ old.Delivery.EventId; old.Delivery.ConnectionId ]
+                    (fun r -> Read.str r 0)
+            match inFlight with
+            | Some "delivering" -> fail 409 "this lead is being sent to that destination right now: wait for its answer"
+            | Some _ -> fail 409 "this lead is still waiting to go to that destination (queued, retrying or held): resend only once it has settled"
+            | None -> ()
             match resendAllowed accepted old.Delivery.Test resend with
             | Error reason -> fail 403 reason
             | Ok() -> ()
@@ -695,67 +705,78 @@ let lookupUrl (deliveryUrl: string) (reference: string) =
 /// How often an accepted record not yet found is looked up again.
 let lookupEveryMs = 60_000L
 
+/// How many lookups one sweep makes at most: they run at once, so a sweep takes at most one request timeout.
+let lookupBatch = 20
+
 /// Verification by lookup (RFC-008 §3.1): each accepted delivery to a destination that can be looked
 /// up is checked until its record is found (verified, DeliveryVerified). Not found within the time to
 /// verify, it is flagged once (VerificationOverdue), and still looked up for a day, in case it appears.
-/// A lookup that fails says nothing either way. Returns how many deliveries changed.
+/// A lookup that fails says nothing either way. At most `lookupBatch` per sweep, the longest unchecked
+/// first, sent at once and outside any transaction; each result is then written only if no other sweep
+/// already did (conditional updates), so the events are emitted once. Returns how many deliveries changed.
 let runVerifications (db: Database) (http: HttpClient) (opts: Options) (nowMs: int64) : Task<int> =
     task {
         let due =
             read db (fun s ->
                 s.Query
-                    """SELECT d.id, d.event_id, d.connection_id, d.verify_overdue_at, c.delivery_url, c.firm_id,
+                    """SELECT d.id, d.event_id, d.connection_id, c.delivery_url, c.firm_id,
                               (SELECT MIN(a.at) FROM attempts a WHERE a.delivery_id = d.id AND a.outcome = 'delivered')
                        FROM deliveries d JOIN connections c ON c.id = d.connection_id
                        WHERE d.status = 'delivered' AND d.test = 0 AND d.verified_at IS NULL
                          AND c.settings LIKE '%"duplicates":"lookup"%'
-                         AND (d.verify_checked_at IS NULL OR d.verify_checked_at <= $1)"""
-                    [ nowMs - lookupEveryMs ]
-                    (fun r -> Read.str r 0, Read.str r 1, Read.str r 2, Read.int64N r 3, Read.str r 4, Read.str r 5, Read.int64N r 6))
-        let mutable changed = 0
-        for id, eventId, connectionId, overdueAt, url, firmId, acceptedAt in due do
-            let acceptedAt = if acceptedAt.HasValue then acceptedAt.Value else nowMs
-            if nowMs - acceptedAt <= 86_400_000L then
-                let! found =
-                    task {
-                        let target = lookupUrl url eventId
-                        match Address.checkShape opts.Address target with
-                        | Error _ -> return None
-                        | Ok uri ->
-                            match! Address.checkResolves opts.Address uri with
-                            | Error _ -> return None
-                            | Ok uri ->
-                                try
-                                    use cts = new CancellationTokenSource(opts.TimeoutMs)
-                                    use req = new HttpRequestMessage(HttpMethod.Get, uri)
-                                    req.Headers.TryAddWithoutValidation("user-agent", opts.UserAgent) |> ignore
-                                    use! res = http.SendAsync(req, cts.Token)
-                                    return
-                                        match int res.StatusCode with
-                                        | 200 -> Some true
-                                        | 404 -> Some false
-                                        | _ -> None
-                                with
-                                | :? OperationCanceledException
-                                | :? HttpRequestException -> return None
-                    }
-                let n =
-                    write db (fun s ->
-                        let at = now ()
-                        match found with
+                         AND (d.verify_checked_at IS NULL OR d.verify_checked_at <= $1)
+                         AND EXISTS (SELECT 1 FROM attempts a WHERE a.delivery_id = d.id AND a.outcome = 'delivered' AND a.at >= $2)
+                       ORDER BY COALESCE(d.verify_checked_at, 0), d.id
+                       LIMIT $3"""
+                    [ nowMs - lookupEveryMs; nowMs - 86_400_000L; lookupBatch ]
+                    (fun r -> Read.str r 0, Read.str r 1, Read.str r 2, Read.str r 3, Read.str r 4, Read.int64 r 5))
+        let lookup (url: string) (eventId: string) =
+            task {
+                match Address.checkShape opts.Address (lookupUrl url eventId) with
+                | Error _ -> return None
+                | Ok uri ->
+                    match! Address.checkResolves opts.Address uri with
+                    | Error _ -> return None
+                    | Ok uri ->
+                        try
+                            use cts = new CancellationTokenSource(opts.TimeoutMs)
+                            use req = new HttpRequestMessage(HttpMethod.Get, uri)
+                            req.Headers.TryAddWithoutValidation("user-agent", opts.UserAgent) |> ignore
+                            use! res = http.SendAsync(req, cts.Token)
+                            return
+                                match int res.StatusCode with
+                                | 200 -> Some true
+                                | 404 -> Some false
+                                | _ -> None
+                        with
+                        | :? OperationCanceledException
+                        | :? HttpRequestException -> return None
+            }
+        let! found = Task.WhenAll(due |> Array.map (fun (_, eventId, _, url, _, _) -> lookup url eventId))
+        if due.Length = 0 then return 0
+        else
+            return
+                write db (fun s ->
+                    let at = now ()
+                    let mutable changed = 0
+                    for (id, eventId, connectionId, _, firmId, acceptedAt), result in Array.zip due found do
+                        match result with
                         | Some true ->
-                            s.Execute "UPDATE deliveries SET verified_at=$2, verify_checked_at=$2 WHERE id=$1" [ id; at ] |> ignore
-                            Store.emit s "DeliveryVerified" firmId eventId connectionId
-                            1
+                            let n = s.Execute "UPDATE deliveries SET verified_at=$2, verify_checked_at=$2 WHERE id=$1 AND verified_at IS NULL" [ id; at ]
+                            if n = 1 then
+                                Store.emit s "DeliveryVerified" firmId eventId connectionId
+                                changed <- changed + 1
                         | _ ->
                             s.Execute "UPDATE deliveries SET verify_checked_at=$2 WHERE id=$1" [ id; at ] |> ignore
-                            if not overdueAt.HasValue && at - acceptedAt > Timing.verifyWithinMs () then
-                                s.Execute "UPDATE deliveries SET verify_overdue_at=$2 WHERE id=$1" [ id; at ] |> ignore
-                                Store.emit s "VerificationOverdue" firmId eventId connectionId
-                                1
-                            else 0)
-                changed <- changed + n
-        return changed
+                            if at - acceptedAt > Timing.verifyWithinMs () then
+                                let n =
+                                    s.Execute
+                                        "UPDATE deliveries SET verify_overdue_at=$2 WHERE id=$1 AND verified_at IS NULL AND verify_overdue_at IS NULL"
+                                        [ id; at ]
+                                if n = 1 then
+                                    Store.emit s "VerificationOverdue" firmId eventId connectionId
+                                    changed <- changed + 1
+                    changed)
     }
 
 /// Test control: a stalled worker wakes and tries to start with the lease version it still holds.

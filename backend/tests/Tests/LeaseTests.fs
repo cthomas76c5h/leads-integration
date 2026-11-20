@@ -84,4 +84,22 @@ let tests =
         test "the time to verify is set with the other delivery timings" {
             Expect.equal (Timing.verifyWithinMs ()) (2L * 3_600_000L) "2 hours, to confirm with data"
         }
+
+        test "a resend is refused while the lead is still waiting or being sent to that destination" {
+            let t, firmId = firmWithEmail ()
+            use _ = t
+            let _, ds = Dispatch.publish t.Db firmId (lead "*New Client Calls") false None None
+            let id = ds[0].Id
+            let refused () =
+                try
+                    Dispatch.replay t.Db id Unchecked.defaultof<Resend> |> ignore
+                    None
+                with Fail(status, message) -> Some(status, message)
+            Expect.equal (refused () |> Option.map fst) (Some 409) "queued: refused"
+            Db.write t.Db (fun s -> Store.tryClaim s "wkr_a" (later ()) Dispatch.leaseMs id) |> ignore
+            Expect.stringContains (refused () |> Option.map snd |> Option.defaultValue "") "right now" "being sent: refused"
+            Db.write t.Db (fun s -> Store.setDeliveryState s id "failed" "HTTP 503" (System.Nullable()))
+            Expect.isNone (refused ()) "settled: a resend is allowed"
+            Expect.equal (refused () |> Option.map fst) (Some 409) "and the resend itself now waits, so a second is refused"
+        }
     ]

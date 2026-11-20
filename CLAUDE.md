@@ -9,7 +9,8 @@ TypeScript frontend (`frontend/`). Design: RFC-001 in
 - Domain words are in `GLOSSARY.md` (model and operator workflows in
   `docs/lead-delivery/`). Use them in code, UI and docs; update the glossary
   when a term changes, and mark rules Lab / Production / Proposed. When a
-  delivery flow or operator screen changes, update `docs/lead-delivery/code-map.md`,
+  delivery flow or operator screen changes, update `docs/lead-delivery/code-map.md`
+  (and `concurrency.md` with its explorer when the worker, a lease or a transaction boundary changes),
   and regenerate `docs/vision-meeting/` with `python tools/capture_vision_deck.py`
   if a screen in it changed. Decisions live only in `docs/lead-delivery/answers.md`,
   direction and roadmap in `strategy.md`, proposals for approval in `docs/rfc/`; state each fact in one place and link to it.

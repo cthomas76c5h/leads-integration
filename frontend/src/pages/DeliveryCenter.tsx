@@ -22,7 +22,7 @@ const asStatus = (s: string | null): StatusFilter => STATUS_FILTERS.find(([k]) =
 
 export function DeliveryCenter({ query }: { query: URLSearchParams }) {
   useTick();
-  const { act } = useToast();
+  const { act, say } = useToast();
   const [tab, setTabState] = useState<Tab>(asTab(query.get('tab')));
   const [firm, setFirm] = useState(query.get('firm') ?? 'all');
   const [status, setStatus] = useState<StatusFilter>(asStatus(query.get('status')));
@@ -87,7 +87,14 @@ export function DeliveryCenter({ query }: { query: URLSearchParams }) {
   const show = (s: StatusFilter) => { if (tab === 'received') setTab('production'); setStatus(s); setOffsetState(0); sync({ status: s, offset: 0 }); };
 
   const replay = async (ids: string[]) => {
-    await act(async () => { for (const id of ids) await api.replay(id); }, ids.length > 1 ? `Resent ${ids.length} deliveries` : 'Resent with the same lead identity');
+    if (ids.length === 1) {
+      await act(() => api.replay(ids[0]!), 'Resent with the same lead identity');
+    } else {
+      // A bulk resend goes on past one refused (say, a lead whose resend is already waiting), and says how many.
+      let sent = 0;
+      for (const id of ids) { try { await api.replay(id); sent++; } catch { /* refused: counted below */ } }
+      say(sent === ids.length ? `Resent ${sent} deliveries` : `Resent ${sent} of ${ids.length}: the others are still waiting or being sent`, sent < ids.length);
+    }
     reload();
   };
 

@@ -382,9 +382,9 @@ const TX = [
   ['Dispatch.complete', 'one write', 'Lease version', 'the answer; delivery state; connection streak or status; others held on reconnection', 'AttemptMade, DeliveryAccepted / Refused / GaveUp, Held, DeliveryUnknown'],
   ['Dispatch.runFallbacks', 'one write', 'No accepted attempt, past the fallback delay (or all held), no fallback delivery yet', 'a fallback delivery', 'FallbackUsed'],
   ['Dispatch.runHandOffs', 'one write', 'acknowledged_at, escalated_at, expired_at still empty', 'escalated_at / expired_at', 'HandOffEscalated, HandOffExpired'],
-  ['Dispatch.runVerifications', 'read, network, then one write per delivery', 'Accepted, lookup destination, not verified', 'verified_at / verify_overdue_at', 'DeliveryVerified, VerificationOverdue'],
+  ['Dispatch.runVerifications', 'read, up to 20 lookups at once, then one write', 'Accepted in the last day, lookup destination; each write only if not already verified or flagged', 'verified_at / verify_overdue_at', 'DeliveryVerified, VerificationOverdue (once each)'],
   ['Handlers.patchConnection', 'one write', '—', 'enabled, pausedAt; releaseHeld on resume', 'DesiredStateChanged'],
-  ['Dispatch.replay', 'one write', 'Destination active; accepted ⇒ senior operator with a reason', 'a new delivery, replayOf, resend', 'LeadResent'],
+  ['Dispatch.replay', 'one write', 'Destination active; nothing of the lead still waiting or sending there; accepted ⇒ senior operator with a reason', 'a new delivery, replayOf, resend', 'LeadResent'],
   ['Dispatch.approveRouting', 'one write', 'A draft waits; with applyToWaiting, each pending delivery decided again', 'the rule, revision; cancelled deliveries', 'RevisionWentLive, DeliveryCancelled'],
   ['Corrections.correct', 'one write', 'Category exists and changes; cycle closed?', 'a classification record; a credit', 'ClassificationCorrected, UsageCredited'],
   ['Access.leadFor', 'read, then one write if refused', "The lead is the user's firm's", 'access_audit', 'AccessRefused'],
@@ -397,13 +397,12 @@ const TIMINGS = [
   ['Idle wait', '200 ms', 'When nothing was due'],
   ['Sweeps', 'every 5 s', 'Fallbacks, hand-offs, verification lookups'],
   ['Lookup interval', '≤ 1 per minute', 'Per unverified record'],
+  ['Lookups per sweep', '≤ 20, at once', 'The longest unchecked first; a sweep takes at most one timeout'],
   ['Other process\'s write', 'wait ≤ 5 s', 'SQLite busy_timeout'],
 ];
 
 const LIMITS = [
   ['A slow receiver delays the next batch.', 'Dispatch.runDue waits for every send in its batch before claiming more, so one receiver that never answers holds up newly due deliveries by up to 10 s.'],
-  ['Verification lookups run one at a time, in the worker loop.', 'Many unverified records delay sending; the write does not re-check verified_at, so it assumes one worker runs it.'],
-  ['A resend does not check for a delivery still in flight.', 'The screens hide Resend for pending and sending deliveries; the API does not refuse it.'],
   ['One process is the supported deployment.', 'Leases stay correct across processes, but SQLite\'s deferred transactions can fail a pass when another process writes in between. PostgreSQL would need beginAttempt to lock the destination row (SELECT … FOR UPDATE).'],
 ];
 

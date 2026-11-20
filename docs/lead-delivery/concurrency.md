@@ -116,7 +116,8 @@ routine records is sent first. It reads four times the batch size and sorts it.
 | A fallback is due as the usual destination accepts | `Dispatch.runFallbacks` checks for an accepted attempt and an existing fallback delivery in its transaction | The fallback goes at most once; an acceptance after the check does not recall it (the firm gets both) | `both-routes-down`, `HandOffTests` |
 | An emergency is acknowledged as its escalation falls due | `Dispatch.runHandOffs` checks `acknowledged_at` and `escalated_at` in its transaction | Escalated at most once; an acknowledgement committed first prevents it | `all-routes-down`, `HandOffTests` |
 | A routing change is approved while deliveries wait or send | `Dispatch.approveRouting` decides again only `pending` deliveries, and only when asked | Waiting ones keep their revision unless the firm applies the change; one being sent is never touched | `routing-change-during-outage`, `RoutingTests` |
-| An operator resends while the original still waits | Nothing (see Known limits) | Two deliveries of the lead to the destination | — |
+| An operator resends while the original still waits | `Dispatch.replay` checks, in its transaction, for a delivery of the lead to that destination still `pending` or `delivering` | Refused (409) until it settles; a bulk resend skips it and says so | `LeaseTests` |
+| Two sweeps look up the same record | Conditional updates in `Dispatch.runVerifications` (`WHERE verified_at IS NULL`, `… AND verify_overdue_at IS NULL`) | Verified or flagged once; the event is emitted once | — |
 
 ## 6. Timings
 
@@ -128,16 +129,17 @@ routine records is sent first. It reads four times the batch size and sorts it.
 | Idle wait when nothing was due | 200 ms | `Worker.fs` |
 | Sweeps (fallbacks, hand-offs, lookups) | Every 5 s | `Worker.fs` |
 | Lookup of an unverified record | At most once a minute | `Dispatch.lookupEveryMs` |
+| Lookups per sweep | At most 20, sent at once; the longest unchecked first | `Dispatch.lookupBatch` |
 | Waiting for another process's write | Up to 5 s | `busy_timeout`, `Db.fs` |
 
 ## 7. Known limits
 
-Found while writing this down; none is covered by a scenario yet.
+Found while writing this down; none is covered by a scenario yet. Two more found then are fixed: verification
+lookups are bounded (20 per sweep, sent at once, so a sweep takes at most one timeout) and written
+conditionally; and a resend is refused while the lead still waits or is being sent to that destination.
 
 1. **A slow receiver delays the next batch.** `Dispatch.runDue` waits for every send in its batch before claiming more, so one receiver that does not answer holds up newly due deliveries by up to the 10 s timeout. Other sends in the same batch are not delayed. Fix: claim again as each send finishes, or run destinations on separate tasks.
-2. **Verification lookups run one at a time inside the worker loop.** `Dispatch.runVerifications` awaits each lookup (up to 10 s), so many unverified records delay sending. It also writes without re-checking `verified_at`, which is safe only while one worker runs it. Fix: bound the lookups per pass and make the write conditional.
-3. **A resend does not check for a delivery still in flight.** `Dispatch.replay` refuses an accepted lead without a senior operator, but not one that is still `pending` or `delivering`; the screens hide Resend for those, the API does not. Fix: refuse a resend while the newest delivery to that destination is waiting or leased.
-4. **One process is the supported deployment.** Leases stay correct across processes (the claim is one conditional write), but SQLite transactions are deferred: a transaction that reads and then writes can fail if another process wrote in between, and the worker pass is retried. A database with concurrent writers (PostgreSQL) would need `beginAttempt` to lock the destination's row (`SELECT … FOR UPDATE`) so a pause cannot commit between its check and its write.
+2. **One process is the supported deployment.** Leases stay correct across processes (the claim is one conditional write), but SQLite transactions are deferred: a transaction that reads and then writes can fail if another process wrote in between, and the worker pass is retried. A database with concurrent writers (PostgreSQL) would need `beginAttempt` to lock the destination's row (`SELECT … FOR UPDATE`) so a pause cannot commit between its check and its write.
 
 ## 8. Where it is tested
 
