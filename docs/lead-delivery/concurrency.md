@@ -26,7 +26,7 @@ written in the same transaction as the change they describe.
 | Actor | Where | Does | Concurrent with |
 |---|---|---|---|
 | **HTTP requests** | `Api/Handlers.fs`, `Api/Portal.fs`, `Api/Receivers.fs` | Intake, operator actions (pause, resend, routing approval, corrections), firm portal reads, the fake receivers | Each other and the worker. ASP.NET serves requests in parallel |
-| **Delivery worker** | `Api/Worker.fs` → `Dispatch.runDue` | One loop per process: every 5 s the sweeps (fallbacks, hand-offs, verification lookups), then claims up to 20 due deliveries and sends them in parallel | Requests. With several processes, other workers |
+| **Delivery worker** | `Api/Worker.fs` → `Dispatch.work` | One loop per process: keeps up to 20 sends running and claims again as each finishes; every 5 s the sweeps (fallbacks, hand-offs), with the verification lookups as a task of their own | Requests. With several processes, other workers |
 | **Sends in flight** | `Dispatch.startAndSend` | Up to 20 requests to receivers at once, each with a 10 s timeout, outside any transaction | Everything, including a pause of their own destination |
 | **Test control** | `Api/TestControl.fs` | Scenario runs only: moves a virtual clock and runs the same worker pass, injects faults | Disabled outside scenario runs |
 | **Simulator** | `Core/Simulate.fs` | Rewrites a week of history in one write transaction, single-threaded | Run from the importer, not alongside the worker |
@@ -36,6 +36,7 @@ written in the same transaction as the change they describe.
 - **SQLite in WAL mode** (`Db.openDatabase`). Readers never block the writer and see the last committed state.
 - **One writer at a time.** `Db.write` takes the database's `WriteLock` (a semaphore), opens a transaction, runs the function, commits. Every write in the process goes through it, so two writes never interleave.
 - **Other processes** are kept out by SQLite's own file lock; `busy_timeout = 5000` makes a writer wait up to 5 s for it before failing.
+- **Every write transaction begins `IMMEDIATE`** (the default of Microsoft.Data.Sqlite's `BeginTransaction`): it takes the file's write lock at its start, so a second writer waits for it rather than reading a snapshot and failing at its first write. `WorkerTests` shows it with six writers, each with its own lock, sending 400 leads through one file: no write failed, every lead was sent once, none was lost.
 - **Reads** (`Db.read`) take no lock and no transaction.
 - **A failed write commits nothing.** `Db.Unavailable` (or any database error) aborts the whole transaction; intake answers 503 "not recorded" (`Handlers.sendLead`).
 
@@ -109,11 +110,17 @@ while it is unsettled and unresolved; otherwise it is kept on its attempt as evi
 and flagged with `LateAcceptance`, because the destination may now hold a second copy
 ([answers.md](answers.md)).
 
-### 4.3 Order of work
+### 4.3 Order of work, and fairness
 
-`Store.claimDue` takes what is due nearest **hand-off deadline** first (the lead's
-creation time plus its window to act), so an emergency waiting behind a backlog of
-routine records is sent first. It reads four times the batch size and sorts it.
+`Store.claimDue` decides, in one SQL query over everything due:
+
+1. **Nearest hand-off deadline first**: the lead's hand-off due time, fixed at intake, so an emergency waiting behind a backlog of routine records is sent first.
+2. **No destination holds more than `Store.inFlightPerDestination` (4) leases at once**, counting leases still running from earlier claims. A destination that answers slowly, or not at all, ties up at most four send slots; everything else keeps moving (destination isolation).
+3. **One firm takes at most a quarter of a claim while others have work due**; the slots left over go to whatever is due next, so nothing waits when no one else is busy.
+
+Because it ranks everything due in SQL (window functions per destination and per firm), a firm with a large backlog cannot hide another firm's lead, which the earlier version (the first 80 due, sorted in memory) could.
+
+The worker (`Dispatch.work`) keeps up to `Dispatch.maxInFlight` (20) sends running and claims again as soon as one finishes, so a slow send delays only itself. The verification lookups run as a task of their own, one sweep at a time, never on the send path.
 
 ## 5. Every race, and what decides it
 
@@ -136,6 +143,9 @@ routine records is sent first. It reads four times the batch size and sorts it.
 | A fallback is due as the usual destination accepts | `Dispatch.runFallbacks` checks for an accepted attempt and an existing fallback delivery in its transaction | The fallback goes at most once; an acceptance after the check does not recall it (the firm gets both) | `both-routes-down`, `HandOffTests` |
 | An emergency is acknowledged as its escalation falls due | `Dispatch.runHandOffs` checks `acknowledged_at` and `escalated_at` in its transaction | Escalated at most once; an acknowledgement committed first prevents it | `all-routes-down`, `HandOffTests` |
 | A routing change is approved while deliveries wait or send | `Dispatch.approveRouting` decides again only `pending` deliveries, and only when asked | Waiting ones keep their revision unless the firm applies the change; one being sent is never touched | `routing-change-during-outage`, `RoutingTests` |
+| A destination answers slowly while other leads fall due | `Dispatch.work` claims again as each send finishes; `Store.claimDue` gives one destination at most four leases at once | Only that destination's deliveries wait | `WorkerTests` (fails under the old batch-at-a-time loop) |
+| One firm has a large backlog of urgent leads | `Store.claimDue` ranks everything due in SQL, caps each destination's leases and each firm's share of a claim | Another firm's lead is claimed in the same pass | `WorkerTests` |
+| Several processes write to one database file | Each write transaction begins `IMMEDIATE`; a claim is one conditional write | Writers wait for each other; every lead sent once | `WorkerTests` (six writers, 400 leads) |
 | An operator resends while the original still waits | `Dispatch.replay` checks, in its transaction, for a delivery of the lead to that destination still `pending` or `delivering` | Refused (409) until it settles; a bulk resend skips it and says so | `LeaseTests` |
 | A lookup finds the record of an unknown outcome as an operator resolves it | Both write conditionally (`… AND status='unknown' AND resolution IS NULL`) | Whichever commits first settles it; the other changes nothing | `emergency-under-pressure` |
 | Two sweeps look up the same record | Conditional updates in `Dispatch.runVerifications` (`WHERE verified_at IS NULL`, `… AND verify_overdue_at IS NULL`) | Verified or flagged once; the event is emitted once | — |
@@ -146,7 +156,10 @@ routine records is sent first. It reads four times the batch size and sorts it.
 |---|---|---|
 | Lease | 5 min | `Dispatch.leaseMs` |
 | Request timeout | 10 s | `DELIVERY_TIMEOUT_MS`, `Config.fs` |
-| Batch claimed per pass | 20 (worker), 50 (test control) | `Worker.fs`, `TestControl.fs` |
+| Sends in flight per worker | 20, refilled as each finishes | `Dispatch.maxInFlight`, `Dispatch.work` |
+| Leases at once per destination | 4 | `Store.inFlightPerDestination` |
+| One firm's share of a claim | A quarter, while others have work due | `Store.claimDue` |
+| Claimed per test-control pass | 50, then waits for all of them (a virtual clock) | `TestControl.fs`, `Dispatch.runDue` |
 | Idle wait when nothing was due | 200 ms | `Worker.fs` |
 | Sweeps (fallbacks, hand-offs, lookups) | Every 5 s | `Worker.fs` |
 | Lookup of an unverified record | First a minute after its last attempt, then at most once a minute | `Dispatch.lookupEveryMs` |
@@ -155,17 +168,19 @@ routine records is sent first. It reads four times the batch size and sorts it.
 
 ## 7. Known limits
 
-Found while writing this down; none is covered by a scenario yet. Two more found then are fixed: verification
-lookups are bounded (20 per sweep, sent at once, so a sweep takes at most one timeout) and written
-conditionally; and a resend is refused while the lead still waits or is being sent to that destination.
+Fixed since this list was first written: verification lookups bounded and conditional; a resend refused
+while the lead is in flight; a slow receiver no longer delays newly due deliveries (`Dispatch.work`); a
+destination and a firm each limited to their share of the send slots (`Store.claimDue`); and the claim
+that SQLite transactions here are deferred, which was wrong (section 3).
 
-1. **A slow receiver delays the next batch.** `Dispatch.runDue` waits for every send in its batch before claiming more, so one receiver that does not answer holds up newly due deliveries by up to the 10 s timeout. Other sends in the same batch are not delayed. Fix: claim again as each send finishes, or run destinations on separate tasks.
-2. **One process is the supported deployment.** Leases stay correct across processes (the claim is one conditional write), but SQLite transactions are deferred: a transaction that reads and then writes can fail if another process wrote in between, and the worker pass is retried. A database with concurrent writers (PostgreSQL) would need `beginAttempt` to lock the destination's row (`SELECT … FOR UPDATE`) so a pause cannot commit between its check and its write.
+1. **Several processes are shown on one machine, not across machines.** The multi-writer test uses separate connections and locks in one process, which meet at SQLite's file lock as separate processes do; no run used separate processes or a network file system (where SQLite's locking is not reliable). Under heavy contention a write that waits more than 5 s fails: the worker retries its pass, and intake answers 503 so the channel sends again.
+2. **PostgreSQL, if adopted, needs one change.** With concurrent writers, `beginAttempt` would lock the destination's row (`SELECT … FOR UPDATE`) so a pause cannot commit between its check and its write; SQLite's single writer gives that for free.
+3. **Fairness is per claim, not over time.** A firm with many destinations gets four leases on each; shares are not weighted by firm size or plan.
 
 ## 8. Where it is tested
 
 - **Scenarios** (`python tools/run_scenarios.py`): `double-claim`, `pause-during-send`, `crash-after-send`, `crm-timeout`, `relay-timeouts`, `duplicate-intake`, `database-down-at-intake`, `routing-change-during-outage`, `all-routes-down`, `unknown-resolved`, `stall-after-start`, `emergency-under-pressure`. Faults are injected through `POST /api/test/faults` (`Dispatch.Faults`, `Db.WritesFail`).
-- **F# tests**: `LeaseTests` (exclusive claim, deadline order, the policy after unknown), `IntakeTests`, `HandOffTests`, `RoutingTests`, `ContractTests` (each delivery contract against the code), and `InterleavingTests` (section 9).
+- **F# tests**: `LeaseTests` (exclusive claim, deadline order, the policy after unknown), `IntakeTests`, `HandOffTests`, `RoutingTests`, `ContractTests` (each delivery contract against the code), and `InterleavingTests` (section 9), `WorkerTests` (a slow destination, a busy firm, several writers on one file).
 
 ## 9. The model, checked exhaustively
 

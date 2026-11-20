@@ -146,7 +146,7 @@ footer { font-size: 0.86rem; color: var(--muted) }
     <div class="eyebrow">Lead Lab · delivery concurrency</div>
     <h1>Many things at once, one lead, never lost or sent twice by mistake</h1>
     <p class="lede">Intake, operators, the firm portal and the delivery worker all touch the same leads at the same time,
-      and the worker has up to 20 requests on the wire. Four rules keep that safe. Step through each race below to see
+      and the worker keeps up to 20 requests on the wire, at most four to any one destination. Four rules keep that safe. Step through each race below to see
       which transaction decides it. The reference is <code>docs/lead-delivery/concurrency.md</code>.</p>
   </header>
 
@@ -413,7 +413,7 @@ const EDGES = [
 
 const TX = [
   ['Dispatch.intake', 'one write', 'A lead for (firm, conversation)? Routing per destination', 'events, classifications, deliveries', 'ConversationHandled, LeadRecorded, DeliveryPlanned, NotSent, Held'],
-  ['Store.claimDue / tryClaim', 'one write (per pass)', 'Claimable: due, or leased and expired', 'lease fields', '—'],
+  ['Store.claimDue / tryClaim', 'one write', 'Claimable (due, or leased and expired), ranked in SQL by deadline; ≤ 4 leases per destination; ≤ ¼ of the claim per firm while others are due', 'lease fields', '—'],
   ['Dispatch.recover', 'one write', 'Its lease still holds; the latest attempt sent without a definitive answer (started, or no HTTP answer)', 'attempt unknown; delivery unknown if not harmless', 'LeaseRecovered, AttemptMade, DeliveryUnknown'],
   ['Dispatch.beginAttempt', 'one write', 'Lease version; destination exists, active, enabled, not reconnecting; body builds', "attempt 'started', or the delivery held / cancelled / failed", 'Held, DeliveryCancelled'],
   ['Dispatch.send', 'none (network)', 'Address policy', '—', '—'],
@@ -431,7 +431,9 @@ const TX = [
 const TIMINGS = [
   ['Lease', '5 min', 'Far longer than one attempt, so a live worker never loses it mid-send'],
   ['Request timeout', '10 s', 'DELIVERY_TIMEOUT_MS; then unknown or retry by duplicate handling'],
-  ['Batch per pass', '20 (worker), 50 (test control)', 'Sent in parallel'],
+  ['Sends in flight', '20 per worker', 'A slot is claimed again as soon as a send finishes'],
+  ['Leases per destination', '4 at once', 'A slow destination holds at most four slots'],
+  ['A firm\'s share', '¼ of a claim', 'While others have work due; spare slots go to whatever is due next'],
   ['Idle wait', '200 ms', 'When nothing was due'],
   ['Sweeps', 'every 5 s', 'Fallbacks, hand-offs, verification lookups'],
   ['Lookup interval', '≤ 1 per minute', 'Per unverified record'],
@@ -440,8 +442,9 @@ const TIMINGS = [
 ];
 
 const LIMITS = [
-  ['A slow receiver delays the next batch.', 'Dispatch.runDue waits for every send in its batch before claiming more, so one receiver that never answers holds up newly due deliveries by up to 10 s.'],
-  ['One process is the supported deployment.', 'Leases stay correct across processes, but SQLite\'s deferred transactions can fail a pass when another process writes in between. PostgreSQL would need beginAttempt to lock the destination row (SELECT … FOR UPDATE).'],
+  ['Several processes are shown on one machine.', 'Separate writers with separate locks share one file without a lost or doubled send; separate processes on separate machines, or a network file system, were not tested. A write that waits more than 5 s fails and is retried.'],
+  ['PostgreSQL, if adopted, needs one change.', 'With concurrent writers, beginAttempt would lock the destination row (SELECT … FOR UPDATE) so a pause cannot slip between its check and its write.'],
+  ['Fairness is per claim, not over time.', 'A firm with many destinations gets four leases on each; shares are not weighted by firm size or plan.'],
 ];
 
 // ----- Rendering -----
