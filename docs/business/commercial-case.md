@@ -9,10 +9,12 @@ in [strategy.md](../lead-delivery/strategy.md).
 
 ## The proposition
 
-> **Your firm's receptionist, even when everyone is busy.**
->
-> We answer calls, capture accurate information, route urgent matters, and make sure
-> the right person has what they need to respond, without adding administrative work.
+> **A dependable receptionist that follows your firm's instructions, knows when to
+> involve a person, and makes sure every call reaches its next action.**
+
+Three promises to prove: **consistency** (instructions followed), **accuracy** (the
+caller's details right) and **continuity** (someone owns every unfinished call). How we
+measure them, and the plan for the year, are in [the next 12 months](next-12-months.md).
 
 - **Customer:** small and growing law firms that cannot take every call while they work.
 - **Problem:** calls come in during the working day while attorneys are in court or with clients; when we try to put a caller through, usually nobody picks up; and the firm judges us by the message we leave.
