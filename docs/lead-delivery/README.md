@@ -14,6 +14,7 @@ Each fact lives in one document; the others link to it.
 | [operations.md](operations.md) | What operators do, day to day and when something breaks; the console's screens and principles | You run or design the operator console |
 | [production-today.md](production-today.md) | How api-2 delivers today, and its gaps against this model (evidence, not a plan) | You need to know what today's system does |
 | [code-map.md](code-map.md) | Where each flow and screen lives in the code, in the order it runs | You are reading or changing the lab's code |
+| [concurrency.md](concurrency.md) | How the worker, intake and operators act at once safely: transactions, leases, every race and what decides it, known limits ([explorer](concurrency-explorer.html)) | You are changing the worker, a lease, or anything that writes while a delivery may be sending |
 
 Elsewhere:
 

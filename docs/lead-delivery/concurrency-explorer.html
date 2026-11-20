@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lead Lab Concurrency</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<!--
+  How the lab's delivery code behaves when things happen at once: leases, the three transactions of an
+  attempt, and every race the scenarios prove. One self-contained file: open it in a browser.
+  docs/lead-delivery/concurrency.md is the reference kept current with the code; this explains it
+  step by step. It describes backend/src as of November 2026 (Store.fs, Dispatch.fs, Worker.fs).
+-->
+<style>
+:root {
+  --bg: #f6f7fb; --surface: #ffffff; --ink: #1b1f2e; --muted: #5b6275; --line: #dfe3ee;
+  --accent: #4b45d6; --accent-soft: #ebeafd; --accent-ink: #2d28a8; --on-accent: #ffffff;
+  --ok: #1f7a4d; --ok-soft: #e3f4ea; --warn: #9a5b00; --warn-soft: #fbefd9; --bad: #b42335; --bad-soft: #fbe4e7;
+  --tx: #0f7c8c; --tx-soft: #def3f5; --net: #9a5b00; --net-soft: #fbefd9;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12141c; --surface: #1a1d28; --ink: #e8eaf3; --muted: #9aa1b5; --line: #2c3142;
+  --accent: #8f8bff; --accent-soft: #26264a; --accent-ink: #c4c2ff; --on-accent: #11121a;
+  --ok: #5fd39a; --ok-soft: #173326; --warn: #f0b252; --warn-soft: #3a2c12; --bad: #ff7a8a; --bad-soft: #3d1a20;
+  --tx: #4fc7d6; --tx-soft: #12313a; --net: #f0b252; --net-soft: #3a2c12; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12141c; --surface: #1a1d28; --ink: #e8eaf3; --muted: #9aa1b5; --line: #2c3142;
+  --accent: #8f8bff; --accent-soft: #26264a; --accent-ink: #c4c2ff; --on-accent: #11121a;
+  --ok: #5fd39a; --ok-soft: #173326; --warn: #f0b252; --warn-soft: #3a2c12; --bad: #ff7a8a; --bad-soft: #3d1a20;
+  --tx: #4fc7d6; --tx-soft: #12313a; --net: #f0b252; --net-soft: #3a2c12; color-scheme: dark }
+
+* { box-sizing: border-box }
+html, body { margin: 0 }
+body { background: var(--bg); color: var(--ink); font: 16px/1.55 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 64px }
+.wrap { max-width: 1160px; margin: 0 auto; display: grid; gap: 44px }
+h1, h2, h3 { text-wrap: balance; margin: 0; line-height: 1.2 }
+h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 700; letter-spacing: -0.01em }
+h2 { font-size: 1.45rem; font-weight: 650 }
+h3 { font-size: 1.05rem; font-weight: 650 }
+p { margin: 0; max-width: 72ch }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em }
+code { background: var(--accent-soft); color: var(--accent-ink); padding: 1px 5px; border-radius: 4px }
+.eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.74rem; font-weight: 600; color: var(--muted) }
+.lede { color: var(--muted); font-size: 1.06rem; max-width: 76ch }
+.note { font-size: 0.88rem; color: var(--muted) }
+section { display: grid; gap: 16px }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; min-width: 0 }
+.scroll { overflow-x: auto }
+button { font: inherit; color: inherit }
+button:focus-visible, .state:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+
+/* Rules strip */
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px }
+.rule { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px }
+.rule b { font-size: 0.98rem }
+.rule span { font-size: 0.9rem; color: var(--muted) }
+
+/* Pickers and navigation */
+.picker { display: flex; flex-wrap: wrap; gap: 8px }
+.picker button { font-size: 0.9rem; border: 1px solid var(--line); background: var(--surface); padding: 7px 12px; border-radius: 999px; cursor: pointer }
+.picker button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent) }
+.nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
+.nav button { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 12px; cursor: pointer }
+.nav button:disabled { opacity: .45; cursor: default }
+
+/* Sequence diagram */
+.race { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; align-items: start }
+@media (max-width: 900px) { .race { grid-template-columns: 1fr } }
+svg.seq { width: 100%; min-width: 560px; height: auto; display: block }
+svg.seq .lane-head rect { fill: var(--surface); stroke: var(--line) }
+svg.seq .lane-head text { fill: var(--ink); font-family: var(--font-body); font-size: 12.5px; font-weight: 600 }
+svg.seq .lifeline { stroke: var(--line); stroke-dasharray: 3 4 }
+svg.seq .msg line { stroke: var(--muted); stroke-width: 1.4 }
+svg.seq .msg text { fill: var(--muted); font-family: var(--font-mono); font-size: 11px }
+svg.seq .msg .num { fill: var(--muted); font-family: var(--font-mono); font-size: 10.5px; font-weight: 600 }
+svg.seq .msg.tx line { stroke: var(--tx) }
+svg.seq .msg.net line { stroke: var(--net); stroke-dasharray: 6 4 }
+svg.seq .msg.bad line { stroke: var(--bad) }
+svg.seq .msg.future { opacity: .28 }
+svg.seq .msg.now line { stroke-width: 2.6 }
+svg.seq .msg.now text { fill: var(--ink); font-weight: 600 }
+svg.seq .msg.now .num { fill: var(--accent-ink) }
+svg.seq .msg rect.self { fill: none; stroke: var(--muted); stroke-width: 1.2; rx: 4 }
+svg.seq .msg.tx rect.self { stroke: var(--tx) }
+svg.seq .msg.bad rect.self { stroke: var(--bad) }
+svg.seq .msg.now rect.self { stroke-width: 2.4 }
+svg.seq .arrowhead { fill: var(--muted) }
+svg.seq .msg.tx .arrowhead { fill: var(--tx) }
+svg.seq .msg.net .arrowhead { fill: var(--net) }
+svg.seq .msg.bad .arrowhead { fill: var(--bad) }
+svg.seq .msg { cursor: pointer }
+.key { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.82rem; color: var(--muted) }
+.key i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; margin-right: 6px; vertical-align: 3px }
+.step-head { display: grid; gap: 4px }
+.fn { font-family: var(--font-mono); font-size: 0.88rem; font-weight: 600; color: var(--accent-ink); overflow-wrap: anywhere }
+.badge { display: inline-block; font-size: 0.74rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-right: 6px; vertical-align: 1px }
+.badge.tx { background: var(--tx-soft); color: var(--tx) }
+.badge.net { background: var(--net-soft); color: var(--net) }
+.badge.none { background: var(--accent-soft); color: var(--accent-ink) }
+.badge.bad { background: var(--bad-soft); color: var(--bad) }
+.badge.ok { background: var(--ok-soft); color: var(--ok) }
+dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: 0.92rem }
+dl.facts dt { color: var(--muted) }
+dl.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere }
+.outcome { border-left: 3px solid var(--ok); background: var(--ok-soft); padding: 10px 12px; border-radius: 0 8px 8px 0; font-size: 0.92rem }
+.outcome.bad { border-color: var(--bad); background: var(--bad-soft) }
+
+/* States */
+.states { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; align-items: start }
+@media (max-width: 900px) { .states { grid-template-columns: 1fr } }
+svg.sm { width: 100%; min-width: 560px; height: auto; display: block }
+svg.sm .edge { stroke: var(--line); stroke-width: 1.6; fill: none }
+svg.sm .edge.on { stroke: var(--accent); stroke-width: 2.2 }
+svg.sm .edge-label { fill: var(--muted); font-family: var(--font-mono); font-size: 10.5px; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round }
+svg.sm .edge-label.on { fill: var(--accent-ink); font-weight: 600 }
+svg.sm .state rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.4 }
+svg.sm .state.final rect { stroke-width: 2.4 }
+svg.sm .state text { fill: var(--ink); font-family: var(--font-mono); font-size: 12.5px; font-weight: 600 }
+svg.sm .state text.sub { fill: var(--muted); font-family: var(--font-body); font-size: 10.5px; font-weight: 400 }
+svg.sm .state { cursor: pointer }
+svg.sm .state:hover rect { stroke: var(--accent) }
+svg.sm .state.on rect { stroke: var(--accent); stroke-width: 2.6; fill: var(--accent-soft) }
+svg.sm marker path { fill: var(--line) }
+
+/* Tables */
+table.grid { width: 100%; border-collapse: collapse; font-size: 0.9rem }
+table.grid th, table.grid td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top }
+table.grid th { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600 }
+table.grid td:first-child { font-family: var(--font-mono); font-size: 0.84rem; color: var(--accent-ink); white-space: nowrap }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start }
+@media (max-width: 900px) { .two { grid-template-columns: 1fr } }
+ol.limits { margin: 0; padding-left: 20px; display: grid; gap: 12px }
+ol.limits li { font-size: 0.94rem }
+ol.limits b { display: block }
+footer { font-size: 0.86rem; color: var(--muted) }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header style="display:grid;gap:12px">
+    <div class="eyebrow">Lead Lab · delivery concurrency</div>
+    <h1>Many things at once, one lead, never lost or sent twice by mistake</h1>
+    <p class="lede">Intake, operators, the firm portal and the delivery worker all touch the same leads at the same time,
+      and the worker has up to 20 requests on the wire. Four rules keep that safe. Step through each race below to see
+      which transaction decides it. The reference is <code>docs/lead-delivery/concurrency.md</code>.</p>
+  </header>
+
+  <section aria-labelledby="rules-h">
+    <div><div class="eyebrow">The model</div><h2 id="rules-h">Four rules</h2></div>
+    <div class="rules">
+      <div class="rule"><b>One write at a time</b><span>Every change is one short transaction through <code>Db.write</code>, behind one lock. A check and its write cannot be overtaken.</span></div>
+      <div class="rule"><b>Never call out inside a transaction</b><span>Requests to receivers and CRM lookups happen between transactions, never during one.</span></div>
+      <div class="rule"><b>A lease with a version</b><span>A worker claims a delivery (owner, 5-minute expiry, version +1). Every later write checks the version still holds.</span></div>
+      <div class="rule"><b>Record the start before sending</b><span>The attempt is written as <code>started</code> first, so a lost answer is known to be <em>unknown</em>, never assumed unsent.</span></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="race-h">
+    <div><div class="eyebrow">Step through it</div><h2 id="race-h">Every race, and what decides it</h2></div>
+    <div class="picker" id="racePicker" role="group" aria-label="Races"></div>
+    <div class="race">
+      <div class="panel" style="display:grid;gap:12px">
+        <p class="note" id="raceStory"></p>
+        <div class="scroll"><svg class="seq" id="seq" role="img" aria-label="Sequence of steps between the actors"></svg></div>
+        <div class="key">
+          <span><i style="border-color:var(--tx)"></i>write transaction</span>
+          <span><i style="border-color:var(--net);border-top-style:dashed"></i>network, no transaction</span>
+          <span><i style="border-color:var(--muted)"></i>no state change</span>
+          <span><i style="border-color:var(--bad)"></i>refused or stopped</span>
+        </div>
+        <div class="nav"><button type="button" id="prev">← Previous</button><button type="button" id="next">Next →</button><span class="note" id="stepCount"></span></div>
+      </div>
+      <div class="panel" style="display:grid;gap:14px" id="stepView" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="states-h">
+    <div><div class="eyebrow">The delivery record</div><h2 id="states-h">States, and who moves a delivery between them</h2></div>
+    <p class="note">Click a state. A leased delivery is <code>delivering</code>; everything a worker does to it checks its lease version first.</p>
+    <div class="states">
+      <div class="panel scroll"><svg class="sm" id="sm" viewBox="0 0 920 480" role="img" aria-label="Delivery states and transitions"></svg></div>
+      <div class="panel" style="display:grid;gap:10px" id="stateView" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="tx-h">
+    <div><div class="eyebrow">Transaction boundaries</div><h2 id="tx-h">What each function checks and writes, in one transaction</h2></div>
+    <div class="panel scroll">
+      <table class="grid"><thead><tr><th>Function</th><th>Transaction</th><th>Checks</th><th>Writes</th><th>Events</th></tr></thead><tbody id="txRows"></tbody></table>
+    </div>
+  </section>
+
+  <section class="two">
+    <div style="display:grid;gap:12px">
+      <div><div class="eyebrow">Numbers</div><h2>Timings</h2></div>
+      <div class="panel scroll"><table class="grid"><thead><tr><th>Constant</th><th>Value</th><th>Why</th></tr></thead><tbody id="timings"></tbody></table></div>
+    </div>
+    <div style="display:grid;gap:12px">
+      <div><div class="eyebrow">Honest gaps</div><h2>Known limits</h2></div>
+      <div class="panel"><ol class="limits" id="limits"></ol></div>
+    </div>
+  </section>
+
+  <footer>Generated from the code in <code>backend/src</code>, November 2026. Each race names the scenario in
+    <code>docs/contracts/scenarios</code> that proves it; run them with <code>python tools/run_scenarios.py</code>.</footer>
+</div>
+
+<script>
+// ----- Data: actors, races, states, transactions. Kept in step with docs/lead-delivery/concurrency.md -----
+const LANES = { A: 'Worker A', B: 'Worker B', O: 'Operator / channel', D: 'Database', R: 'Receiver' };
+
+// kind: tx (write transaction) | net (network, no transaction) | none (no state change) | bad (refused/stopped)
+const RACES = [
+  { id: 'normal', label: 'One send, no race', proof: 'every lab scenario',
+    story: 'The baseline: three short transactions around one request. The request itself is never inside a transaction.',
+    lanes: ['A', 'D', 'R'],
+    steps: [
+      { from: 'A', to: 'D', kind: 'tx', label: 'claim', fn: 'Store.claimDue → Store.tryClaim',
+        checks: 'Still claimable: pending and due (or delivering with its lease run out)',
+        writes: "deliveries: status='delivering', lease_owner, lease_until = now + 5 min, lease_version + 1",
+        why: 'One conditional UPDATE … WHERE claimable. It changes one row or none, so the claim is all-or-nothing.' },
+      { from: 'A', to: 'D', kind: 'tx', label: 'beginAttempt', fn: 'Dispatch.beginAttempt',
+        checks: 'The lease version still holds; the destination is active, enabled, not waiting for reconnection; the body builds',
+        writes: "attempts: n, outcome='started', the request body", events: '—',
+        why: 'The attempt is on record before anything leaves. From here on, a lost answer means unknown, not unsent.' },
+      { from: 'A', to: 'R', kind: 'net', label: 'POST the lead', fn: 'Dispatch.send',
+        checks: 'Address policy: no private addresses unless the lab allows them', writes: '—',
+        why: 'Up to 10 s, outside any transaction. Other writes carry on meanwhile.' },
+      { from: 'R', to: 'A', kind: 'net', label: '201 accepted', fn: 'Dispatch.send', writes: '—', why: 'The answer, timed.' },
+      { from: 'A', to: 'D', kind: 'tx', label: 'complete', fn: 'Dispatch.complete',
+        checks: 'The lease version still holds', writes: "attempts: the answer; deliveries: status='delivered', lease cleared",
+        events: 'AttemptMade, DeliveryAccepted', why: 'The answer decides the delivery only for the worker that still holds it.' },
+    ],
+    outcome: { ok: true, text: 'Delivered. Three transactions, one request, no lock held while waiting on the receiver.' } },
+
+  { id: 'double', label: 'Two workers claim', proof: 'double-claim · LeaseTests',
+    story: 'Two workers (two processes, or the lab\'s test fault) reach for the same due delivery.',
+    lanes: ['A', 'B', 'D', 'R'],
+    steps: [
+      { from: 'A', to: 'D', kind: 'tx', label: 'claim → version 1', fn: 'Store.tryClaim',
+        checks: 'Claimable: pending and due', writes: "status='delivering', lease_version = 1",
+        why: 'Worker A\'s conditional UPDATE matches one row.' },
+      { from: 'B', to: 'D', kind: 'bad', label: 'claim → 0 rows', fn: 'Store.tryClaim',
+        checks: 'Claimable? No: delivering, and the lease runs until +5 min', writes: '—',
+        why: 'The same UPDATE now matches nothing. B gets no claim, so it has nothing to send.' },
+      { from: 'A', to: 'D', kind: 'tx', label: 'beginAttempt', fn: 'Dispatch.beginAttempt', checks: 'Version 1 holds', writes: "attempt 'started'", why: 'Only the winner starts an attempt.' },
+      { from: 'A', to: 'R', kind: 'net', label: 'POST', fn: 'Dispatch.send', writes: '—', why: 'One request reaches the receiver.' },
+      { from: 'R', to: 'A', kind: 'net', label: '201', fn: 'Dispatch.send', writes: '—', why: '' },
+      { from: 'A', to: 'D', kind: 'tx', label: 'complete', fn: 'Dispatch.complete', checks: 'Version 1 holds', writes: "status='delivered'", events: 'DeliveryAccepted', why: '' },
+    ],
+    outcome: { ok: true, text: 'Exactly one attempt. The loser never knew the delivery existed as its own.' } },
+
+  { id: 'stale', label: 'A stalled worker wakes', proof: 'double-claim',
+    story: 'Worker A claims, then stalls (a long garbage-collection pause, a hung thread) before starting. Its lease runs out and B takes over. Then A wakes up and carries on as if nothing happened.',
+    lanes: ['A', 'B', 'D', 'R'],
+    steps: [
+      { from: 'A', to: 'D', kind: 'tx', label: 'claim → version 1', fn: 'Store.tryClaim', writes: 'lease_version = 1', why: '' },
+      { from: 'A', to: 'A', kind: 'none', label: 'stalls > 5 min', fn: '(test fault: worker-stalls-before-send)', writes: '—', why: 'A holds version 1 in memory and has started nothing.' },
+      { from: 'B', to: 'D', kind: 'tx', label: 'claim → version 2', fn: 'Store.tryClaim', checks: 'Claimable: delivering with lease_until ≤ now', writes: 'lease_version = 2 (Recovered)', why: 'An expired lease is claimable again, and the version moves on.' },
+      { from: 'B', to: 'D', kind: 'tx', label: 'recover', fn: 'Dispatch.recover', checks: 'Any attempt started without an answer? None', writes: '—', events: 'LeaseRecovered', why: 'Nothing started, so nothing can have been sent: carry on.' },
+      { from: 'B', to: 'D', kind: 'tx', label: 'beginAttempt', fn: 'Dispatch.beginAttempt', checks: 'Version 2 holds', writes: "attempt 'started'", why: '' },
+      { from: 'B', to: 'R', kind: 'net', label: 'POST', fn: 'Dispatch.send', writes: '—', why: '' },
+      { from: 'R', to: 'B', kind: 'net', label: '201', fn: 'Dispatch.send', writes: '—', why: '' },
+      { from: 'B', to: 'D', kind: 'tx', label: 'complete', fn: 'Dispatch.complete', checks: 'Version 2 holds', writes: "status='delivered'", events: 'DeliveryAccepted', why: '' },
+      { from: 'A', to: 'D', kind: 'bad', label: 'beginAttempt (v1) → stop', fn: 'Dispatch.beginAttempt', checks: 'Version 1 holds? No (Store.holdsLease)', writes: '—', why: 'The version check is what makes an expired lease harmless: A\'s view is out of date and it is told so.' },
+    ],
+    outcome: { ok: true, text: 'One request. The stale worker sends nothing, because every write checks the version, not just who the owner is.' } },
+
+  { id: 'pause-before', label: 'Pause before the send', proof: 'pause-during-send · paused-destination',
+    story: 'An operator pauses the destination after the worker claimed a delivery but before it started the attempt.',
+    lanes: ['A', 'O', 'D', 'R'],
+    steps: [
+      { from: 'A', to: 'D', kind: 'tx', label: 'claim', fn: 'Store.tryClaim', writes: 'lease, version v', why: '' },
+      { from: 'O', to: 'D', kind: 'tx', label: 'pause', fn: 'Handlers.patchConnection', writes: 'connections: enabled = 0, settings.pausedAt', events: 'DesiredStateChanged', why: 'The pause commits. Writes are serialised, so it is either wholly before or wholly after beginAttempt.' },
+      { from: 'A', to: 'D', kind: 'bad', label: 'beginAttempt → held', fn: 'Dispatch.beginAttempt', checks: 'Destination enabled? No', writes: "deliveries: status='pending', next_attempt_at = NULL (held), lease cleared", events: 'Held', why: 'Nothing recorded as started, so nothing sent. Held is not failed: it waits for the destination, and the hand-off goes to the fallback at once.' },
+      { from: 'O', to: 'D', kind: 'tx', label: 'resume', fn: 'Handlers.patchConnection → Store.releaseHeld', writes: 'next_attempt_at = now for every held delivery', events: 'DesiredStateChanged', why: 'Held deliveries fall due and are claimed like any other.' },
+    ],
+    outcome: { ok: true, text: 'A pause committed before the attempt starts always wins: the lead is held, never sent to a paused destination.' } },
+
+  { id: 'pause-during', label: 'Pause during the send', proof: 'pause-during-send',
+    story: 'The same pause, a moment later: the request is already on the wire.',
+    lanes: ['A', 'O', 'D', 'R'],
+    steps: [
+      { from: 'A', to: 'D', kind: 'tx', label: 'claim', fn: 'Store.tryClaim', writes: 'lease, version v', why: '' },
+      { from: 'A', to: 'D', kind: 'tx', label: 'beginAttempt', fn: 'Dispatch.beginAttempt', checks: 'Enabled: yes', writes: "attempt 'started'", why: 'Committed before the pause.' },
+      { from: 'A', to: 'R', kind: 'net', label: 'POST (in flight)', fn: 'Dispatch.send', writes: '—', why: '' },
+      { from: 'O', to: 'D', kind: 'tx', label: 'pause', fn: 'Handlers.patchConnection', writes: 'enabled = 0', events: 'DesiredStateChanged', why: 'Commits while the request is travelling. Nothing can recall a request already sent.' },
+      { from: 'R', to: 'A', kind: 'net', label: '201', fn: 'Dispatch.send', writes: '—', why: '' },
+      { from: 'A', to: 'D', kind: 'tx', label: 'complete', fn: 'Dispatch.complete', checks: 'Version v holds (a pause does not touch leases)', writes: "status='delivered'", events: 'DeliveryAccepted', why: 'The answer is recorded honestly. The pause applies to every later lead.' },
+    ],
+    outcome: { ok: true, text: 'The boundary is the started attempt: before it, the pause wins; after it, the send completes and is recorded.' } },
+
+  { id: 'crash', label: 'Worker dies after sending', proof: 'crash-after-send',
+    story: 'Worker A sends the lead to a CRM and to email, then the process dies before recording either answer. Both receivers got the request.',
+    lanes: ['A', 'B', 'D', 'R'],
+    steps: [
+      { from: 'A', to: 'D', kind: 'tx', label: 'claim + beginAttempt', fn: 'Store.tryClaim, Dispatch.beginAttempt', writes: "lease v1; attempt 1 'started'", why: '' },
+      { from: 'A', to: 'R', kind: 'net', label: 'POST', fn: 'Dispatch.send', writes: '—', why: 'The receiver takes it.' },
+      { from: 'A', to: 'A', kind: 'bad', label: 'process dies', fn: '(test fault: worker-crash-after-send)', writes: '—', why: 'No answer recorded. Nothing is requeued on restart; the lease simply runs out.' },
+      { from: 'B', to: 'D', kind: 'tx', label: 'claim → v2 (recovered)', fn: 'Store.tryClaim', checks: 'lease_until ≤ now', writes: 'lease v2', why: '' },
+      { from: 'B', to: 'D', kind: 'tx', label: 'recover → unknown', fn: 'Dispatch.recover', checks: 'Attempt 1 started, no answer (Store.openAttempt)', writes: 'attempt 1 marked unknown', events: 'LeaseRecovered, AttemptMade, DeliveryUnknown', why: 'The receiver may or may not have the lead. Which is safe depends on how it handles a second copy (Dispatch.duplicatesOf).' },
+      { from: 'B', to: 'D', kind: 'bad', label: "CRM: status 'unknown'", fn: 'Dispatch.recover', checks: "duplicates = 'unknown' (a CRM cannot tell a repeat)", writes: "deliveries: status='unknown'", why: 'Not sent again. An operator checks the CRM, then resends or closes it.' },
+      { from: 'B', to: 'R', kind: 'net', label: 'email: POST again', fn: 'Dispatch.beginAttempt, Dispatch.send', checks: "duplicates = 'harmless'", writes: "attempt 2 'started'", why: 'A second email does no harm, so it is safe to resend.' },
+      { from: 'R', to: 'B', kind: 'net', label: '201', fn: 'Dispatch.send', writes: '—', why: '' },
+      { from: 'B', to: 'D', kind: 'tx', label: 'complete', fn: 'Dispatch.complete', checks: 'v2 holds', writes: "email: status='delivered'", events: 'DeliveryAccepted', why: '' },
+    ],
+    outcome: { ok: true, text: 'Nothing is resent blindly. Email goes again; the CRM waits as "Outcome unknown" for a person to check.' } },
+
+  { id: 'late', label: 'An answer arrives late', proof: 'LeaseTests · pause-during-send',
+    story: 'A\'s request is answered only after its lease ran out and B took over. Two workers, two attempts, one delivery.',
+    lanes: ['A', 'B', 'D', 'R'],
+    steps: [
+      { from: 'A', to: 'D', kind: 'tx', label: 'claim + begin (v1)', fn: 'Store.tryClaim, Dispatch.beginAttempt', writes: "attempt 1 'started'", why: '' },
+      { from: 'A', to: 'R', kind: 'net', label: 'POST', fn: 'Dispatch.send', writes: '—', why: 'The answer is held up (test fault: answer-held).' },
+      { from: 'B', to: 'D', kind: 'tx', label: 'claim (v2) + recover', fn: 'Store.tryClaim, Dispatch.recover', writes: 'attempt 1 unknown; email resent as attempt 2', events: 'LeaseRecovered, DeliveryUnknown', why: '' },
+      { from: 'R', to: 'A', kind: 'net', label: '201 (late)', fn: 'Dispatch.send', writes: '—', why: '' },
+      { from: 'A', to: 'D', kind: 'tx', label: 'complete (v1)', fn: 'Dispatch.complete', checks: 'v1 holds? No', writes: "attempt 1: 'unknown, then a late answer: delivered'", why: 'Kept as evidence on its own attempt. The delivery belongs to v2 and is not touched, except that an accepted late answer settles a delivery left unknown.' },
+    ],
+    outcome: { ok: true, text: 'Nothing is thrown away and nothing is overwritten: every answer lands on the attempt that asked.' } },
+
+  { id: 'timeout', label: 'The receiver times out', proof: 'crm-timeout · relay-timeouts',
+    story: 'No answer within 10 seconds. The request may have arrived, so a timeout is treated like a lost answer, not like a refusal.',
+    lanes: ['A', 'D', 'R'],
+    steps: [
+      { from: 'A', to: 'D', kind: 'tx', label: 'claim + beginAttempt', fn: 'Store.tryClaim, Dispatch.beginAttempt', writes: "attempt 'started'", why: '' },
+      { from: 'A', to: 'R', kind: 'net', label: 'POST … no answer in 10 s', fn: 'Dispatch.send', writes: '—', why: 'TimedOut = true. (A refused connection or DNS failure sent nothing, and stays an ordinary retry.)' },
+      { from: 'A', to: 'D', kind: 'tx', label: 'complete', fn: 'Dispatch.complete → Dispatch.outcomeOf', checks: 'Duplicate handling of the destination', writes: "email: pending, next try per the schedule · CRM: status='unknown'", events: 'AttemptMade; DeliveryUnknown for the CRM', why: 'Same rule as a lost lease: resend only where a second copy is harmless. The failure streak is untouched.' },
+    ],
+    outcome: { ok: true, text: 'Email retries. The CRM is never sent the lead a second time without a person checking first.' } },
+
+  { id: 'intake', label: 'A channel repeats a call', proof: 'duplicate-intake · IntakeTests',
+    story: 'The voice channel sends a call\'s completion event twice, possibly at the same moment.',
+    lanes: ['O', 'D', 'A'],
+    steps: [
+      { from: 'O', to: 'D', kind: 'tx', label: 'intake call-7001', fn: 'Dispatch.intake', checks: 'A lead for (firm, call-7001)? None', writes: 'events (conversation_id), classifications, deliveries', events: 'ConversationHandled, LeadRecorded, DeliveryPlanned', why: 'Lookup and insert in one transaction: the lock means a second intake cannot slip between them.' },
+      { from: 'O', to: 'D', kind: 'none', label: 'intake call-7001 again', fn: 'Dispatch.intake', checks: 'A lead for (firm, call-7001)? Yes', writes: '—', why: 'Answered 200 with the lead already recorded and duplicate: true. A unique index on (firm_id, conversation_id) backs the check.' },
+      { from: 'A', to: 'D', kind: 'tx', label: 'one delivery sent', fn: 'Dispatch.runDue', writes: 'one attempt', events: 'AttemptMade (once)', why: '' },
+    ],
+    outcome: { ok: true, text: 'One conversation, one lead, one delivery, however many times the channel says so.' } },
+
+  { id: 'dbdown', label: 'The database is down at intake', proof: 'database-down-at-intake',
+    story: 'The database stops taking writes just as a call completes.',
+    lanes: ['O', 'D', 'A'],
+    steps: [
+      { from: 'O', to: 'D', kind: 'bad', label: 'intake → write fails', fn: 'Db.write raises Db.Unavailable', checks: 'Before the transaction begins', writes: 'nothing', why: 'Intake answers 503 "not recorded" with Retry-After. It never reports a lead it did not commit.' },
+      { from: 'A', to: 'D', kind: 'bad', label: 'worker pass fails', fn: 'Worker.fs (caught, logged)', writes: 'nothing', why: 'Nothing claimed, nothing sent.' },
+      { from: 'O', to: 'D', kind: 'tx', label: 'channel sends again', fn: 'Dispatch.intake', writes: 'the lead, its deliveries', events: 'ConversationHandled, LeadRecorded', why: 'The channel kept its copy. With the conversation id, the resend is one lead.' },
+    ],
+    outcome: { ok: true, text: 'All or nothing: the lead is recorded once, when the database can take it.' } },
+];
+
+const STATES = {
+  due: { x: 30, y: 190, label: 'pending', sub: 'due: next_attempt_at set', text: 'Waiting to be sent, due at next_attempt_at. Claimable by any worker once due.', in: 'Planned at intake (Dispatch.record); a retry after a transient answer (Dispatch.complete); released from held (Store.releaseHeld); a resend (Dispatch.replay).', out: 'Store.tryClaim → delivering.' },
+  held: { x: 30, y: 400, label: 'pending', sub: 'held: no next_attempt_at', text: 'Waiting for its destination: paused, or waiting for reconnection. Not retrying, not failed, and the hand-off goes to the fallback at once.', in: 'Planned while the destination is paused (Dispatch.decided); stopped at beginAttempt; held with the others when a destination needs reconnection (Store.holdPendingFor).', out: 'Resume or reactivate: Store.releaseHeld sets next_attempt_at = now.' },
+  delivering: { x: 330, y: 190, label: 'delivering', sub: 'leased: owner, until, version', text: 'Leased by one worker. lease_until is 5 minutes ahead; lease_version went up by one with this claim. Every write about it checks that version.', in: 'Store.tryClaim, from due, or from delivering whose lease ran out (a recovery).', out: 'Dispatch.beginAttempt can stop it (held, cancelled, failed); Dispatch.complete settles it; Dispatch.recover may leave it unknown.' },
+  delivered: { x: 700, y: 30, label: 'delivered', sub: 'accepted', final: true, text: 'The destination accepted it. Final; a resend is a new delivery, and of an accepted lead only a senior operator may.', in: 'Dispatch.complete with a 2xx; an accepted late answer to an unknown delivery.', out: '—' },
+  failed: { x: 700, y: 150, label: 'failed', sub: 'refused or gave up', final: true, text: 'Refused, or retried for about 69 hours. Needs attention. Five in a row switch the destination off.', in: 'Dispatch.complete; Dispatch.beginAttempt when the body cannot be built.', out: 'Resend (Dispatch.replay) makes a new delivery.' },
+  unknown: { x: 700, y: 270, label: 'unknown', sub: 'sent, no answer', final: true, text: 'Sent, never answered, and a second copy is not safe here. An operator checks the destination, then resends or closes it.', in: 'Dispatch.recover after a lost lease; Dispatch.complete after a timeout (Dispatch.outcomeOf).', out: 'A resend; or an accepted late answer settles it as delivered.' },
+  cancelled: { x: 700, y: 400, label: 'cancelled', sub: 'destination gone or rule changed', final: true, text: 'Will not be sent: its destination was removed or switched off, or a routing change applied to waiting deliveries excludes it.', in: 'Dispatch.beginAttempt; Dispatch.approveRouting with applyToWaiting.', out: '—' },
+  skipped: { x: 30, y: 30, label: 'skipped', sub: 'not sent: the routing decision', final: true, text: 'Never planned: the destination\'s rule excludes the call, or the lead lacks what it requires. The routing decision is kept on the record.', in: 'Dispatch.record at intake (Routing.decide).', out: 'Send to destinations a correction now matches is offered, never automatic.' },
+};
+// [from, to, label, where along the edge the label sits (0..1), label offset in px]
+const EDGES = [
+  ['due', 'delivering', 'tryClaim', 0.5, -8], ['delivering', 'delivering', 'lease expired → recover'],
+  ['delivering', 'delivered', 'complete: 2xx', 0.66, -8], ['delivering', 'failed', 'complete: refused, gave up', 0.5, -8],
+  ['delivering', 'unknown', 'recover, or timeout', 0.66, -8], ['delivering', 'cancelled', 'beginAttempt: removed', 0.66, -8],
+  ['delivering', 'held', 'beginAttempt: paused', 0.45, -8], ['delivering', 'due', 'complete: retry', 0.5, 16],
+  ['held', 'due', 'releaseHeld', 0.5, 0], ['held', 'cancelled', 'approveRouting (pending ones)', 0.5, -8],
+];
+
+const TX = [
+  ['Dispatch.intake', 'one write', 'A lead for (firm, conversation)? Routing per destination', 'events, classifications, deliveries', 'ConversationHandled, LeadRecorded, DeliveryPlanned, NotSent, Held'],
+  ['Store.claimDue / tryClaim', 'one write (per pass)', 'Claimable: due, or leased and expired', 'lease fields', '—'],
+  ['Dispatch.recover', 'one write', 'An attempt started without an answer', 'attempt unknown; delivery unknown if not harmless', 'LeaseRecovered, AttemptMade, DeliveryUnknown'],
+  ['Dispatch.beginAttempt', 'one write', 'Lease version; destination exists, active, enabled, not reconnecting; body builds', "attempt 'started', or the delivery held / cancelled / failed", 'Held, DeliveryCancelled'],
+  ['Dispatch.send', 'none (network)', 'Address policy', '—', '—'],
+  ['Dispatch.complete', 'one write', 'Lease version', 'the answer; delivery state; connection streak or status; others held on reconnection', 'AttemptMade, DeliveryAccepted / Refused / GaveUp, Held, DeliveryUnknown'],
+  ['Dispatch.runFallbacks', 'one write', 'No accepted attempt, past the fallback delay (or all held), no fallback delivery yet', 'a fallback delivery', 'FallbackUsed'],
+  ['Dispatch.runHandOffs', 'one write', 'acknowledged_at, escalated_at, expired_at still empty', 'escalated_at / expired_at', 'HandOffEscalated, HandOffExpired'],
+  ['Dispatch.runVerifications', 'read, network, then one write per delivery', 'Accepted, lookup destination, not verified', 'verified_at / verify_overdue_at', 'DeliveryVerified, VerificationOverdue'],
+  ['Handlers.patchConnection', 'one write', '—', 'enabled, pausedAt; releaseHeld on resume', 'DesiredStateChanged'],
+  ['Dispatch.replay', 'one write', 'Destination active; accepted ⇒ senior operator with a reason', 'a new delivery, replayOf, resend', 'LeadResent'],
+  ['Dispatch.approveRouting', 'one write', 'A draft waits; with applyToWaiting, each pending delivery decided again', 'the rule, revision; cancelled deliveries', 'RevisionWentLive, DeliveryCancelled'],
+  ['Corrections.correct', 'one write', 'Category exists and changes; cycle closed?', 'a classification record; a credit', 'ClassificationCorrected, UsageCredited'],
+  ['Access.leadFor', 'read, then one write if refused', "The lead is the user's firm's", 'access_audit', 'AccessRefused'],
+];
+
+const TIMINGS = [
+  ['Lease', '5 min', 'Far longer than one attempt, so a live worker never loses it mid-send'],
+  ['Request timeout', '10 s', 'DELIVERY_TIMEOUT_MS; then unknown or retry by duplicate handling'],
+  ['Batch per pass', '20 (worker), 50 (test control)', 'Sent in parallel'],
+  ['Idle wait', '200 ms', 'When nothing was due'],
+  ['Sweeps', 'every 5 s', 'Fallbacks, hand-offs, verification lookups'],
+  ['Lookup interval', '≤ 1 per minute', 'Per unverified record'],
+  ['Other process\'s write', 'wait ≤ 5 s', 'SQLite busy_timeout'],
+];
+
+const LIMITS = [
+  ['A slow receiver delays the next batch.', 'Dispatch.runDue waits for every send in its batch before claiming more, so one receiver that never answers holds up newly due deliveries by up to 10 s.'],
+  ['Verification lookups run one at a time, in the worker loop.', 'Many unverified records delay sending; the write does not re-check verified_at, so it assumes one worker runs it.'],
+  ['A resend does not check for a delivery still in flight.', 'The screens hide Resend for pending and sending deliveries; the API does not refuse it.'],
+  ['One process is the supported deployment.', 'Leases stay correct across processes, but SQLite\'s deferred transactions can fail a pass when another process writes in between. PostgreSQL would need beginAttempt to lock the destination row (SELECT … FOR UPDATE).'],
+];
+
+// ----- Rendering -----
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const NS = 'http://www.w3.org/2000/svg';
+const el = (name, attrs = {}, text) => { const n = document.createElementNS(NS, name); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (text != null) n.textContent = text; return n; };
+
+let race = RACES[0], step = 0;
+
+function drawSequence() {
+  const svg = $('seq'); svg.replaceChildren();
+  const lanes = race.lanes, colW = 170, left = 30, top = 46, rowH = 46;
+  const width = left * 2 + colW * (lanes.length - 1) + 120;
+  const height = top + 26 + rowH * race.steps.length + 10;
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  const x = (lane) => left + 60 + colW * lanes.indexOf(lane);
+  const defs = el('defs');
+  svg.append(defs);
+  lanes.forEach((l) => {
+    const g = el('g', { class: 'lane-head' });
+    g.append(el('rect', { x: x(l) - 62, y: 6, width: 124, height: 28, rx: 6 }), el('text', { x: x(l), y: 25, 'text-anchor': 'middle' }, LANES[l]));
+    svg.append(el('line', { class: 'lifeline', x1: x(l), x2: x(l), y1: 34, y2: height - 4 }), g);
+  });
+  race.steps.forEach((s, i) => {
+    const y = top + 26 + rowH * i;
+    const cls = `msg ${s.kind}${i === step ? ' now' : ''}${i > step ? ' future' : ''}`;
+    const g = el('g', { class: cls, tabindex: 0, role: 'button', 'aria-label': `Step ${i + 1}: ${s.label}` });
+    g.addEventListener('click', () => { step = i; render(); });
+    g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); step = i; render(); } });
+    if (s.from === s.to) {
+      const cx = x(s.from);
+      g.append(el('rect', { class: 'self', x: cx - 8, y: y - 14, width: 16, height: 22 }));
+      g.append(el('text', { x: cx + 14, y: y + 1 }, s.label));
+    } else {
+      const x1 = x(s.from), x2 = x(s.to), dir = Math.sign(x2 - x1);
+      g.append(el('line', { x1, x2: x2 - dir * 7, y1: y, y2: y }));
+      g.append(el('path', { class: 'arrowhead', d: `M ${x2} ${y} l ${-dir * 8} -4.5 l 0 9 z` }));
+      const mid = (x1 + x2) / 2;
+      g.append(el('text', { x: mid, y: y - 7, 'text-anchor': 'middle' }, s.label));
+    }
+    g.append(el('text', { class: 'num', x: 6, y: y + 4 }, String(i + 1)));
+    svg.append(g);
+  });
+}
+
+function drawStep() {
+  const s = race.steps[step];
+  const kindBadge = { tx: ['tx', 'write transaction'], net: ['net', 'network, no transaction'], none: ['none', 'no state change'], bad: ['bad', 'refused or stopped'] }[s.kind];
+  const last = step === race.steps.length - 1;
+  $('stepView').innerHTML = `
+    <div class="step-head">
+      <div class="eyebrow">Step ${step + 1} of ${race.steps.length} · ${esc(LANES[s.from])}${s.from !== s.to ? ' → ' + esc(LANES[s.to]) : ''}</div>
+      <h3>${esc(s.label)}</h3>
+      <div><span class="badge ${kindBadge[0]}">${kindBadge[1]}</span></div>
+    </div>
+    <dl class="facts">
+      <dt>Code</dt><dd class="fn">${esc(s.fn)}</dd>
+      ${s.checks ? `<dt>Checks</dt><dd>${esc(s.checks)}</dd>` : ''}
+      <dt>Writes</dt><dd>${esc(s.writes || '—')}</dd>
+      ${s.events ? `<dt>Events</dt><dd class="mono">${esc(s.events)}</dd>` : ''}
+    </dl>
+    ${s.why ? `<p>${esc(s.why)}</p>` : ''}
+    ${last ? `<div class="outcome${race.outcome.ok ? '' : ' bad'}"><b>Outcome.</b> ${esc(race.outcome.text)}</div>` : ''}
+    <p class="note">Proved by: <span class="mono">${esc(race.proof)}</span></p>`;
+  $('prev').disabled = step === 0;
+  $('next').disabled = last;
+  $('stepCount').textContent = `${step + 1} / ${race.steps.length}`;
+}
+
+function render() {
+  $('raceStory').textContent = race.story;
+  [...$('racePicker').children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === race.id)));
+  drawSequence(); drawStep();
+}
+
+RACES.forEach((r) => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = r.label; b.dataset.id = r.id;
+  b.addEventListener('click', () => { race = r; step = 0; render(); });
+  $('racePicker').append(b);
+});
+$('prev').addEventListener('click', () => { if (step > 0) { step--; render(); } });
+$('next').addEventListener('click', () => { if (step < race.steps.length - 1) { step++; render(); } });
+document.addEventListener('keydown', (e) => {
+  if (e.target.closest && e.target.closest('input, textarea')) return;
+  if (e.key === 'ArrowRight') $('next').click();
+  if (e.key === 'ArrowLeft') $('prev').click();
+});
+
+// ----- State machine -----
+let current = 'delivering';
+function drawStates() {
+  const svg = $('sm'); svg.replaceChildren();
+  const W = 190, H = 54;
+  const defs = el('defs');
+  const m = el('marker', { id: 'arr', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' });
+  m.append(el('path', { d: 'M 0 0 L 10 5 L 0 10 z' }));
+  const mOn = el('marker', { id: 'arrOn', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' });
+  mOn.append(el('path', { d: 'M 0 0 L 10 5 L 0 10 z', style: 'fill:var(--accent)' }));
+  defs.append(m, mOn); svg.append(defs);
+  const c = (id) => ({ x: STATES[id].x + W / 2, y: STATES[id].y + H / 2 });
+  const edgeLayer = el('g'), labelLayer = el('g');
+  EDGES.forEach(([a, b, label, at = 0.5, dy = -6]) => {
+    const on = a === current || b === current;
+    if (a === b) {
+      const p = STATES[a];
+      const d = `M ${p.x + 60} ${p.y} C ${p.x + 60} ${p.y - 46}, ${p.x + 130} ${p.y - 46}, ${p.x + 130} ${p.y}`;
+      edgeLayer.append(el('path', { class: `edge${on ? ' on' : ''}`, d, 'marker-end': `url(#${on ? 'arrOn' : 'arr'})` }));
+      labelLayer.append(el('text', { class: `edge-label${on ? ' on' : ''}`, x: p.x + 95, y: p.y - 40, 'text-anchor': 'middle' }, label));
+      return;
+    }
+    const s = c(a), t = c(b);
+    // Leave and enter at box edges.
+    const clip = (from, to) => {
+      const dx = to.x - from.x, dy = to.y - from.y;
+      const k = Math.min(Math.abs((W / 2 + 4) / (dx || 1e-6)), Math.abs((H / 2 + 4) / (dy || 1e-6)));
+      return { x: from.x + dx * k, y: from.y + dy * k };
+    };
+    const offset = (a === 'delivering' && b === 'due') ? 14 : (a === 'due' && b === 'delivering') ? -14 : 0;
+    const p1 = clip({ x: s.x, y: s.y + offset }, { x: t.x, y: t.y + offset }), p2 = clip({ x: t.x, y: t.y + offset }, { x: s.x, y: s.y + offset });
+    edgeLayer.append(el('line', { class: `edge${on ? ' on' : ''}`, x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, 'marker-end': `url(#${on ? 'arrOn' : 'arr'})` }));
+    const mx = p1.x + (p2.x - p1.x) * at, my = p1.y + (p2.y - p1.y) * at + dy;
+    const vertical = Math.abs(p2.x - p1.x) < 4;
+    labelLayer.append(el('text', { class: `edge-label${on ? ' on' : ''}`, x: vertical ? mx + 8 : mx, y: my, 'text-anchor': vertical ? 'start' : 'middle' }, label));
+  });
+  svg.append(edgeLayer);
+  for (const [id, st] of Object.entries(STATES)) {
+    const g = el('g', { class: `state${st.final ? ' final' : ''}${id === current ? ' on' : ''}`, tabindex: 0, role: 'button', 'aria-label': `${st.label}: ${st.sub}` });
+    g.append(el('rect', { x: st.x, y: st.y, width: W, height: H, rx: 8 }));
+    g.append(el('text', { x: st.x + 12, y: st.y + 22 }, st.label));
+    g.append(el('text', { class: 'sub', x: st.x + 12, y: st.y + 40 }, st.sub));
+    const pick = () => { current = id; drawStates(); drawState(); };
+    g.addEventListener('click', pick);
+    g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+    svg.append(g);
+  }
+  svg.append(labelLayer);
+}
+function drawState() {
+  const st = STATES[current];
+  $('stateView').innerHTML = `
+    <div class="eyebrow">${st.final ? 'Settled' : 'In progress'}</div>
+    <h3><code>${esc(st.label)}</code> · ${esc(st.sub)}</h3>
+    <p>${esc(st.text)}</p>
+    <dl class="facts"><dt>Comes from</dt><dd>${esc(st.in)}</dd><dt>Goes on by</dt><dd>${esc(st.out)}</dd></dl>`;
+}
+
+// ----- Tables -----
+$('txRows').innerHTML = TX.map((r) => `<tr>${r.map((c, i) => `<td${i === 4 ? ' class="mono" style="font-size:.8rem"' : ''}>${esc(c)}</td>`).join('')}</tr>`).join('');
+$('timings').innerHTML = TIMINGS.map((r) => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('');
+$('limits').innerHTML = LIMITS.map(([b, t]) => `<li><b>${esc(b)}</b>${esc(t)}</li>`).join('');
+
+render(); drawStates(); drawState();
+</script>
+</body>
+</html>

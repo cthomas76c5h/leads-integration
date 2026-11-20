@@ -7,7 +7,9 @@ root. Words in **bold** are in [GLOSSARY.md](../../GLOSSARY.md).
 
 For a first look, open [code-explorer.html](code-explorer.html) in a browser: the data model,
 each flow from input to the rows it writes, and one example lead followed step by step through
-four stories. It is a snapshot; this file is the reference.
+four stories. It is a snapshot; this file is the reference. How the worker, intake and operators
+stay safe when they act at once (leases, transaction boundaries, every race) is in
+[concurrency.md](concurrency.md), with a step-by-step [concurrency-explorer.html](concurrency-explorer.html).
 
 When you change a flow below, update this file in the same change, and the explorer if the
 flow's steps changed.
@@ -53,6 +55,8 @@ is also a reading order: each file uses only those above it.
 6. On import, `Import.apply` seeds a CRM's rule with `Routing.seed` from the firm's active call types, unless the destination already has one.
 
 ## 2. A delivery is sent, retried and settles
+
+The concurrency model behind these steps (one writer, no network call inside a transaction, a versioned lease) is in [concurrency.md](concurrency.md).
 
 1. `DeliveryWorker` ([Worker.fs](../../backend/src/Api/Worker.fs)) loops on `Dispatch.runDue`.
 2. `Store.claimDue` leases what is due, nearest hand-off deadline first: `delivering` with `lease_owner`, `lease_until` (`Dispatch.leaseMs`) and a `lease_version` every claim increases (`Store.tryClaim`, one conditional write). A lease that ran out is claimed again; nothing is requeued on a restart.
