@@ -211,6 +211,7 @@ export interface RoutingDecision {
   taxonomyVersion: number;
   matchedOn: string | null;
   reason: string | null;
+  revision: number;
 }
 
 /** GLOSSARY.md failure classes, plus 'routing' (not sent on purpose) and 'stopped' (destination stopped first). */

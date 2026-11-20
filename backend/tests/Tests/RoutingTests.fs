@@ -94,4 +94,46 @@ let tests =
             let hook = { dest "webhook" [] with Connection = { (dest "webhook" []).Connection with DeliveryUrl = "http://localhost/receiver/crm/webhook?require=Nope" } }
             Expect.equal (Routing.decide (firm []) hook (hangUp "*New Client Calls")).Outcome "planned" "left for the send"
         }
+
+        test "a routing change goes live only when approved; waiting deliveries keep their revision unless the firm applies it to them" {
+            let setup applyToWaiting =
+                let t = new Support.TempDb()
+                Import.apply t.Db Support.origin (Support.batch Source.api2 [ Support.firm "1" "Revision Firm" "k" [ Support.conn "10" "mycase" [] ] ]) |> ignore
+                let firmId, c = Db.read t.Db (fun s -> let f = Store.allFirms s |> Array.head in f.Id, (Store.connectionsOf s f.Id |> Array.head).Connection)
+                let settings = Dictionary<string, string>(c.Settings)
+                settings[Routing.categoriesKey] <- "new-matter,existing-client"
+                Db.write t.Db (fun s -> Store.updateConnection s { c with Settings = settings })
+                let existing = lead "*Existing Client Calls"
+                Expect.equal (Categories.classify existing.CallType).Category "existing-client" "an existing-client call"
+                let _, waiting = Dispatch.publish t.Db firmId existing false None None
+                Expect.equal (Dispatch.proposeRouting t.Db c.Id [| "new-matter" |] [||] "operator") 2 "the draft would be revision 2"
+                let _, beforeApproval = Dispatch.publish t.Db firmId existing false None None
+                Expect.equal beforeApproval[0].Decision.Revision 1 "a draft changes nothing"
+                Expect.equal beforeApproval[0].Status "pending" "still taken by the live rule"
+                let r = Dispatch.approveRouting t.Db c.Id "firm contact" applyToWaiting
+                Expect.equal r.revision 2 "revision 2 is live"
+                let after id = (Db.read t.Db (fun s -> Store.deliveryOrFail s id)).Delivery
+                let _, next = Dispatch.publish t.Db firmId existing false None None
+                Expect.equal next[0].Status "skipped" "the next lead uses the new rule"
+                Expect.equal next[0].Decision.Revision 2 "and says which revision"
+                Expect.throws (fun () -> Dispatch.approveRouting t.Db c.Id "firm contact" false |> ignore) "nothing left to approve"
+                t, after waiting[0].Id, r.cancelled
+            let t, kept, cancelled = setup false
+            use _ = t
+            Expect.equal kept.Status "pending" "kept on its revision"
+            Expect.equal kept.Decision.Revision 1 "revision 1"
+            Expect.equal cancelled 0 "nothing cancelled"
+            let t2, applied, cancelled2 = setup true
+            use _ = t2
+            Expect.equal applied.Status "cancelled" "the new rule excludes it"
+            Expect.stringContains applied.Reason "revision 2" "and says why"
+            Expect.equal applied.Decision.Revision 2 "decided again under revision 2"
+            Expect.equal cancelled2 2 "both waiting deliveries"
+        }
+
+        test "a routing change names real categories" {
+            use t = new Support.TempDb()
+            Expect.throws (fun () -> Dispatch.proposeRouting t.Db "con_x" [| "new-matters" |] [||] "operator" |> ignore) "a typo is refused"
+            Expect.throws (fun () -> Dispatch.proposeRouting t.Db "con_x" [||] [||] "operator" |> ignore) "and an empty rule"
+        }
     ]

@@ -94,7 +94,7 @@ How a lead's fields become the fields the destination expects.
 _Avoid_: template, field map
 
 **Revision**:
-An unchangeable version of a destination's routing rule and mapping. Exactly one revision is live.
+An unchangeable version of a destination's routing rule and mapping. Exactly one revision is live. Every routing decision names the revision that made it; a delivery keeps it while it waits, unless the firm applies a new revision to waiting deliveries when approving it. *Lab for the routing rule (numbered on the destination); a mapping's revisions are still numbered by its setup.*
 
 **Setup**:
 Bringing a destination from first contact to live: connect, approve, test, go live.

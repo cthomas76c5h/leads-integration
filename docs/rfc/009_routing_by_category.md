@@ -160,7 +160,7 @@ the receiver refuses is a delivery failure of class *configuration*.
 |---|---|---|
 | 1 | Each destination's rule is evaluated on its own: no order, no first match, no destination's result changes another's | Proposed |
 | 2 | Every usual destination of the firm gets a routing decision for every production lead | Lab (as `skipped`); Proposed as its own record |
-| 3 | A decision is reproducible from the lead's classification, the revision and the taxonomy version it records | Proposed |
+| 3 | A decision is reproducible from the lead's classification, the revision and the taxonomy version it records | Lab |
 | 4 | Uncertainty widens within the firm's own usual destinations only: a destination is planned if its rule matches **any** plausible category (RFC-008 §6.1). It never reaches the fallback or another firm | Proposed |
 | 5 | Free text never decides. A label routes only through the firm's confirmed mapping to a category | Proposed |
 | 6 | A lead excluded at every destination owes no hand-off and never goes to the fallback | Lab |

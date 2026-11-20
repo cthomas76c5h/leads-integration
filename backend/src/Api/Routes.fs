@@ -42,6 +42,8 @@ let endpoints (c: Ctx) : Endpoint list =
             routef "/api/firms/{%s}/connections" (fun id -> g (createConnection c id))
             routef "/api/connections/{%s}/test" (fun id -> g (testConnection c id))
             routef "/api/connections/{%s}/send-missed" (fun id -> g (sendMissed c id))
+            routef "/api/connections/{%s}/routing" (fun id -> g (proposeRouting c id))
+            routef "/api/connections/{%s}/routing/approve" (fun id -> g (approveRouting c id))
             routef "/api/firms/{%s}/plan" (fun id -> g (changePlan c id))
             route "/api/terms" (g (publishTerms c))
             route "/api/portal/terms/accept" (g (acceptTerms c))

@@ -403,6 +403,26 @@ let delivery (c: Ctx) (id: string) : EndpointHandler =
         ctx.Response.ContentType <- "application/json; charset=utf-8"
         ctx.Response.WriteAsync(o.ToJsonString())
 
+[<CLIMutable>]
+type RoutingChange = { Categories: string[]; PracticeAreas: string[]; By: string }
+
+[<CLIMutable>]
+type RoutingApproval = { By: string; ApplyToWaiting: bool }
+
+let proposeRouting (c: Ctx) (id: string) : EndpointHandler =
+    fun ctx ->
+        task {
+            let! b = body { Categories = null; PracticeAreas = null; By = null } ctx
+            return! ok {| draftRevision = Dispatch.proposeRouting c.Db id b.Categories b.PracticeAreas b.By |} ctx
+        }
+
+let approveRouting (c: Ctx) (id: string) : EndpointHandler =
+    fun ctx ->
+        task {
+            let! b = body { By = null; ApplyToWaiting = false } ctx
+            return! ok (Dispatch.approveRouting c.Db id b.By b.ApplyToWaiting) ctx
+        }
+
 let replay (c: Ctx) (id: string) : EndpointHandler =
     fun ctx ->
         task {

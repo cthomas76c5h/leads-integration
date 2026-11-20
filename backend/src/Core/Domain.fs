@@ -117,7 +117,9 @@ type RoutingDecision =
       /// What the rule matched: a category, "call type" (the legacy rule) or "every call". Null when not planned.
       MatchedOn: string
       /// Why not sent, in the firm's words. Null when planned.
-      Reason: string }
+      Reason: string
+      /// The destination's approved revision whose rule decided it (RFC-008 §5.2): 1 until a change is approved.
+      Revision: int }
 
 /// An operator's resend (docs/lead-delivery/operations.md#resend). Role: operator | senior-operator.
 /// The lab has no sign-in, so the role is declared with the request; with sign-in it comes from the session.

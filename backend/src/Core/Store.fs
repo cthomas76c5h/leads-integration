@@ -790,6 +790,10 @@ let nextDueAt (s: Session) : int64 option =
     |> Array.tryHead
     |> Option.bind (fun v -> if v.HasValue then Some v.Value else None)
 
+/// A waiting delivery decided again under a newer revision (Dispatch.approveRouting, applyToWaiting).
+let setDecision (s: Session) (id: string) (decision: RoutingDecision) =
+    s.Execute "UPDATE deliveries SET decision=$2 WHERE id=$1" [ id; Json.serialize decision ] |> ignore
+
 let setDeliveryState (s: Session) (id: string) (status: string) (reason: string) (nextAttemptAt: Nullable<int64>) =
     s.Execute
         "UPDATE deliveries SET status=$2, reason=$3, next_attempt_at=$4, lease_owner=NULL, lease_until=NULL WHERE id=$1"

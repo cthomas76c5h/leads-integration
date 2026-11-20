@@ -69,6 +69,10 @@
       "source": "RFC-008 §5.1",
       "meaning": "Delivery changed a destination's observed health"
     },
+    "RevisionDrafted": {
+      "source": "RFC-009",
+      "meaning": "An operator prepared a change to a destination's routing rule; nothing changes until the firm approves it"
+    },
     "RevisionWentLive": {
       "source": "RFC-007 §5.3",
       "meaning": "A destination's new revision became live"

@@ -1,13 +1,12 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "routing-change-during-outage",
-  "story": "Two firms' CRMs are down, with deliveries waiting, when each firm approves a new routing rule. Firm A widens its rule and keeps waiting deliveries on the old revision; its next lead uses the new one. Firm B narrows its rule and chooses to apply it to waiting deliveries, so its waiting existing-client delivery is cancelled with a reason. When the CRMs return, each delivery is sent under the revision it holds.",
+  "story": "Two firms' CRMs are down, with deliveries waiting, when each firm approves a new routing rule. Firm A widens its rule and keeps waiting deliveries on the old revision; its next lead uses the new one. Firm B narrows its rule and chooses to apply it to waiting deliveries, so its waiting existing-client delivery is cancelled with a reason. When the CRMs return, each delivery is sent under the revision it holds. The retry schedule puts their next attempts at about 2 hours 40 minutes, after the CRMs return at the hour.",
   "slice": 5,
-  "model": "proposed",
+  "model": "lab",
   "proves": [
     "docs/rfc/008_delivery_guarantees_and_evidence.md#52-which-revision-a-delivery-uses (routing decided once; waiting deliveries keep their revision unless told otherwise)"
   ],
-  "today": "Revisions live on the onboarding setup (Onboarding.fs). A delivery keeps the body template fixed when it was planned, but records no revision, and there is no choice to apply a new revision to waiting deliveries. Routing in the lab is by the firm's active call types, not a per-destination category rule.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [
@@ -234,7 +233,7 @@
       }
     },
     {
-      "at": "+2h",
+      "at": "+3h",
       "delivery": {
         "lead": "lead-a1",
         "destination": "crm-a",
@@ -243,7 +242,7 @@
       }
     },
     {
-      "at": "+2h",
+      "at": "+3h",
       "delivery": {
         "lead": "lead-a2",
         "destination": "crm-a",
@@ -252,7 +251,7 @@
       }
     },
     {
-      "at": "+2h",
+      "at": "+3h",
       "noAttempt": {
         "destination": "crm-b",
         "lead": "lead-b1",
@@ -260,7 +259,7 @@
       }
     },
     {
-      "at": "+2h",
+      "at": "+3h",
       "noAttempt": {
         "destination": "crm-b",
         "lead": "lead-b2"

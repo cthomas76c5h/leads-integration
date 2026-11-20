@@ -13,6 +13,8 @@ open LeadIntegrations.Domain
 /// Settings keys holding a destination's rule: comma-separated taxonomy ids.
 let categoriesKey = "routeCategories"
 let practiceAreasKey = "routePracticeAreas"
+/// The destination's approved routing revision: 1 as imported or set up, +1 for each approved change.
+let revisionKey = "revision"
 
 type Rule =
     /// The lab's rule from before category routing, kept until a destination's rule is
@@ -36,6 +38,14 @@ let private ids (s: string) =
 
 let private isCrm (c: Connection) =
     Catalog.tryFind c.Kind |> Option.exists (fun k -> k.Category = "crm")
+
+let revisionOf (c: Connection) =
+    match c.Settings.TryGetValue revisionKey with
+    | true, v ->
+        match Int32.TryParse v with
+        | true, n when n >= 1 -> n
+        | _ -> 1
+    | _ -> 1
 
 let ruleOf (c: Connection) : Rule =
     match ids (setting c categoriesKey) with
@@ -119,7 +129,8 @@ let decide (firm: Store.FirmRow) (c: Store.ConnectionRow) (lead: Lead) : Routing
           PracticeArea = m.PracticeArea
           TaxonomyVersion = Categories.version ()
           MatchedOn = matchedOn
-          Reason = reason }
+          Reason = reason
+          Revision = revisionOf conn }
     let routed =
         if lead.Webchat && not (takesChatLeads conn) then
             Error "chat leads are switched off for this destination"

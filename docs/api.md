@@ -203,6 +203,7 @@ interface RoutingDecision {
   taxonomyVersion: number;
   matchedOn: string | null;  // 'new-matter', 'call type' (legacy rule), 'every call'; null unless planned
   reason: string | null;     // why not sent; null when planned
+  revision: number;          // the destination's approved revision whose rule decided it (0: recorded before revisions)
 }
 
 /**
@@ -483,6 +484,8 @@ non-alphanumerics turned into `_` and trimmed ("Date of accident?" →
 | POST | `/api/firms/{id}/connections` | `{ kind, name?, deliveryUrl? }` | `Connection` (source `manual`; URL checked: https, or localhost in dev) |
 | GET | `/api/destinations?q=&health=&kind=&firmActive=all&limit=50&offset=0` | | `{ total: number, counts: Record<DestinationHealth, number>, missed: number, items: DestinationRow[] }` most urgent first. `counts` and `missed` (destinations with missed leads) cover the filter without `health`; `health=missed` lists those with missed leads. Only active firms unless `firmActive=all` |
 | POST | `/api/connections/{id}/send-missed` | | `{ queued: number, notSent: number }`: a delivery for each missed lead, routing applied. 409 unless the destination is live |
+| POST | `/api/connections/{id}/routing` | `{ categories: string[], practiceAreas?: string[], by }` | `{ draftRevision }`. An operator prepares a new routing rule (call-category and practice-area ids; 422 for an unknown one). Kept as the `routingDraft` setting; nothing changes until approved. Emits `RevisionDrafted` |
+| POST | `/api/connections/{id}/routing/approve` | `{ by, applyToWaiting?: boolean }` | `{ revision, cancelled, approvedBy }`. The firm contact approves: the rule goes live as the next `revision` (`RevisionWentLive`). Deliveries still waiting keep the revision they were planned with, unless `applyToWaiting`: then each is decided again, and one the new rule excludes is `cancelled` with the reason (`DeliveryCancelled`). 409 when nothing waits for approval. The lab records the approval through this route; the firm's own approval link is not built |
 | PATCH | `/api/connections/{id}` | `{ enabled?, deliveryUrl?, reactivate?: true }` | `Connection`. `reactivate` sets `status: 'active'` after a switch-off or a reconnection (the lab's stand-in for the firm reconnecting) and makes every held delivery due at once. `enabled: false` pauses it and records `settings.pausedAt`: new leads still get a routing decision, and a planned delivery is held (`status: 'pending'`, `stage: 'held'`, no `nextAttemptAt`, `reason: 'held: destination paused'`), as are deliveries already waiting. A lead whose every delivery that could reach the firm is held goes to the firm's fallback at once. `enabled: true` resumes it, clears `pausedAt` and makes every held delivery due at once. A destination imported off in its source system (`enabled: false`, no `pausedAt`) holds nothing and gets no deliveries |
 | GET | `/api/connections/{id}/preview?variant=full` | | `{ url, headers: Record<string,string>, body: string, errors: string[] }` |
 | POST | `/api/connections/{id}/test` | | `Delivery` (test lead to this connection only) |

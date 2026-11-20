@@ -286,6 +286,11 @@ class LabAdapter:
         elif do == "change-mapping":
             # The lab's real path is a setup revision; the scenario folds test and confirm into approve.
             self.pending_mapping[dest] = a["mapping"]
+        elif do == "change-routing":
+            self.api.ok("POST", f"/api/connections/{cid}/routing",
+                        {"categories": a["routing"].get("categories"), "practiceAreas": a["routing"].get("practiceAreas"), "by": a["by"]})
+        elif do == "approve" and dest not in self.pending_mapping:
+            self.api.ok("POST", f"/api/connections/{cid}/routing/approve", {"by": a["by"], "applyToWaiting": bool(a.get("applyToWaiting"))})
         elif do == "approve" and dest in self.pending_mapping and not a.get("applyToWaiting"):
             self.api.ok("PUT", f"/api/test/connections/{cid}", {"mapping": self.pending_mapping.pop(dest)})
         else:
@@ -343,9 +348,6 @@ class LabAdapter:
         kind = next(k for k in e if k != "at")
         x = e[kind]
         if kind == "delivery":
-            unsupported = [k for k in ("revision",) if k in x]
-            if unsupported:
-                raise Unsupported(f"delivery {', '.join(unsupported)}")
             ds = self._newest(x["lead"], x["destination"])
             if "count" in x and len(ds) != x["count"]:
                 return False, f"{len(ds)} deliveries, expected {x['count']}"
@@ -361,6 +363,10 @@ class LabAdapter:
                 cls = cls if cls in FAILURE_CLASSES else None
                 if cls != x["failureClass"]:
                     problems.append(f"failure class {cls}, expected {x['failureClass']}")
+            if "revision" in x:
+                got = (d.get("decision") or {}).get("revision")
+                if got != x["revision"]:
+                    problems.append(f"revision {got}, expected {x['revision']}")
             if "evidence" in x and d.get("evidence") != x["evidence"]:
                 problems.append(f"evidence {d.get('evidence')}, expected {x['evidence']}")
             if "verifyOverdue" in x and bool(d.get("verifyOverdue")) != x["verifyOverdue"]:

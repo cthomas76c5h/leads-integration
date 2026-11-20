@@ -87,10 +87,6 @@ let private decided (event: LeadEvent) (c: Connection) (decision: RoutingDecisio
         | Some reason -> { newDelivery event c "pending" reason decision nowMs with NextAttemptAt = Nullable() }
         | None -> newDelivery event c "pending" null decision nowMs
 
-/// Record the lead, then one delivery per destination: production leads get a
-/// routing decision at every live or paused connection (Routing.decide: planned,
-/// or not sent with a reason; planned for a paused one is held); a test goes only
-/// to `onlyConnection`, carrying `template` when given, and is not routed.
 /// What intake did with a lead from a channel: recorded it, or found it already recorded for the same
 /// conversation (a channel repeating its event), and answered the same either way.
 type Intake =
@@ -99,6 +95,10 @@ type Intake =
       /// The conversation was already recorded: nothing new was planned or sent.
       Duplicate: bool }
 
+/// Record the lead, then one delivery per destination: production leads get a
+/// routing decision at every live or paused connection (Routing.decide: planned,
+/// or not sent with a reason; planned for a paused one is held); a test goes only
+/// to `onlyConnection`, carrying `template` when given, and is not routed.
 let private record (s: Session) (firmId: string) (conversationId: string) (lead: Lead) (test: bool) (onlyConnection: string option) (template: string option) =
         let firm = Store.firmOrFail s firmId
         let t = now ()
@@ -164,6 +164,72 @@ let testConnection (db: Database) (connectionId: string) (lead: Lead) (template:
     ds[0]
 
 /// Send an event to a connection again as a new delivery (same event id, so the receiver can dedupe).
+/// A routing change waiting for the firm's approval, kept on the destination until approved.
+type RoutingDraft = { Categories: string[]; PracticeAreas: string[]; By: string }
+
+let routingDraftKey = "routingDraft"
+
+/// An operator prepares a new routing rule for a destination (RFC-009). Nothing changes until the
+/// firm contact approves it: leads keep the live rule. Returns the revision it would become.
+let proposeRouting (db: Database) (connectionId: string) (categories: string[]) (practiceAreas: string[]) (by: string) =
+    let known = Categories.taxonomy.Value.Categories |> Array.map _.Id |> set
+    let areas = Categories.taxonomy.Value.PracticeAreas |> Array.map _.Id |> set
+    let categories = if isNull categories then [||] else categories
+    let practiceAreas = if isNull practiceAreas then [||] else practiceAreas
+    if categories.Length = 0 then fail 422 "categories: name at least one call category this destination takes"
+    match categories |> Array.tryFind (known.Contains >> not), practiceAreas |> Array.tryFind (areas.Contains >> not) with
+    | Some c, _ -> fail 422 $"categories: \"{c}\" is not a call category"
+    | _, Some a -> fail 422 $"practiceAreas: \"{a}\" is not a practice area"
+    | _ -> ()
+    write db (fun s ->
+        let c = (Store.connectionOrFail s connectionId).Connection
+        let settings = Dictionary<string, string>(c.Settings)
+        settings[routingDraftKey] <- Json.serialize { Categories = categories; PracticeAreas = practiceAreas; By = by }
+        Store.updateConnection s { c with Settings = settings }
+        Store.emit s "RevisionDrafted" c.FirmId null c.Id
+        Routing.revisionOf c + 1)
+
+/// The firm contact approves the routing change: it goes live as the next revision (RevisionWentLive).
+/// A delivery is routed once, under the revision it was planned with (RFC-008 §5.2). Only when the
+/// firm chooses `applyToWaiting` are its deliveries still waiting decided again under the new rule:
+/// a lead the new rule excludes is cancelled with the reason; one sending now is left alone.
+/// Returns the new revision and how many waiting deliveries were cancelled.
+let approveRouting (db: Database) (connectionId: string) (by: string) (applyToWaiting: bool) =
+    write db (fun s ->
+        let row = Store.connectionOrFail s connectionId
+        let c = row.Connection
+        let draft =
+            match setting c routingDraftKey with
+            | "" -> fail 409 "there is no routing change waiting for approval"
+            | json -> Json.deserialize<RoutingDraft> json
+        let revision = Routing.revisionOf c + 1
+        let settings = Dictionary<string, string>(c.Settings)
+        settings.Remove routingDraftKey |> ignore
+        settings[Routing.categoriesKey] <- String.Join(",", draft.Categories)
+        if draft.PracticeAreas.Length = 0 then settings.Remove Routing.practiceAreasKey |> ignore
+        else settings[Routing.practiceAreasKey] <- String.Join(",", draft.PracticeAreas)
+        settings[Routing.revisionKey] <- string revision
+        let live = { c with Settings = settings }
+        Store.updateConnection s live
+        Store.emit s "RevisionWentLive" c.FirmId null c.Id
+        let mutable cancelled = 0
+        if applyToWaiting then
+            let firm = Store.firmOrFail s c.FirmId
+            let waiting =
+                s.Query "SELECT id FROM deliveries WHERE connection_id=$1 AND status='pending' AND test=0" [ c.Id ] (fun r -> Read.str r 0)
+            for id in waiting do
+                let d = (Store.deliveryOrFail s id).Delivery
+                match Store.tryEvent s d.EventId with
+                | None -> ()
+                | Some e ->
+                    let decision = Routing.decide firm { row with Connection = live } e.Lead
+                    Store.setDecision s d.Id decision
+                    if decision.Outcome <> "planned" then
+                        Store.setDeliveryState s d.Id "cancelled" $"routing changed in revision {revision}: {decision.Reason}" (Nullable())
+                        emitFor s "DeliveryCancelled" d
+                        cancelled <- cancelled + 1
+        {| revision = revision; cancelled = cancelled; approvedBy = by |})
+
 /// Resending a lead its destination already accepted can put a duplicate in the CRM: only a senior
 /// operator may, with the reason (answers.md, "Who may resend a lead that was already accepted?").
 /// Any operator may resend one that was not accepted. A test lead is an operator's own check.
