@@ -201,6 +201,13 @@ let insertEvent (s: Session) (e: LeadEvent) =
           (if e.Test then null else box (e.CreatedAt + Urgency.windowMs category)) ]
     |> ignore
 
+/// The lead already recorded for a channel's conversation, if any (RFC-008 §4.1).
+let eventForConversation (s: Session) (firmId: string) (conversationId: string) : string option =
+    s.TryOne "SELECT id FROM events WHERE firm_id=$1 AND conversation_id=$2" [ firmId; conversationId ] (fun r -> Read.str r 0)
+
+let setConversation (s: Session) (eventId: string) (conversationId: string) =
+    s.Execute "UPDATE events SET conversation_id=$2 WHERE id=$1" [ eventId; conversationId ] |> ignore
+
 /// The lead's acknowledgement link token, for the message to the firm only. Null for a test lead.
 let ackToken (s: Session) (eventId: string) : string =
     s.TryOne "SELECT ack_token FROM events WHERE id=$1" [ eventId ] (fun r -> Read.str r 0) |> Option.toObj
@@ -506,7 +513,9 @@ type LeadSummary =
       Counts: LeadCounts
       Outcome: string
       /// Null for test leads.
-      HandOff: HandOff }
+      HandOff: HandOff
+      /// The channel's conversation it came from; null when the channel gave none (an operator's send).
+      ConversationId: string }
 
 type LeadDetail =
     { Id: string
@@ -522,6 +531,7 @@ type LeadDetail =
       Counts: LeadCounts
       Outcome: string
       HandOff: HandOff
+      ConversationId: string
       Lead: Lead
       Deliveries: Delivery[] }
 
@@ -562,7 +572,8 @@ let private leadSql =
               COALESCE(SUM(d.status = 'skipped' AND COALESCE(d.reason, '') NOT LIKE 'lead problem:%'), 0),
               COALESCE(SUM(d.status = 'pending' AND d.next_attempt_at IS NULL), 0),
               e.ack_required, e.acknowledged_at, e.escalated_at,
-              EXISTS (SELECT 1 FROM attempts a JOIN deliveries x ON x.id = a.delivery_id WHERE x.event_id = e.id)
+              EXISTS (SELECT 1 FROM attempts a JOIN deliveries x ON x.id = a.delivery_id WHERE x.event_id = e.id),
+              e.conversation_id
        FROM events e
        JOIN firms f ON f.id = e.firm_id
        LEFT JOIN deliveries d ON d.event_id = e.id
@@ -614,7 +625,8 @@ let private readLead (r: DbDataReader) : LeadSummary * Lead =
       Mapping = mapping
       Counts = counts
       Outcome = outcomeOf counts handOff
-      HandOff = handOff },
+      HandOff = handOff
+      ConversationId = Read.str r 19 },
     lead
 
 /// Firm and test filter in SQL; search, category and outcome in memory (the
@@ -659,6 +671,7 @@ let leadOrFail (s: Session) (id: string) : LeadDetail =
           Counts = l.Counts
           Outcome = l.Outcome
           HandOff = l.HandOff
+          ConversationId = l.ConversationId
           Lead = lead
           Deliveries = deliveries }
 

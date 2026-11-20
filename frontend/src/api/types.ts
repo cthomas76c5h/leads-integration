@@ -401,6 +401,7 @@ export interface LeadSummary {
   outcome: LeadOutcome;
   /** Null for test leads. */
   handOff: HandOff | null;
+  conversationId: string | null;
 }
 
 /** "Your week in calls": one firm's last 7 days in call categories, with proof of delivery. */

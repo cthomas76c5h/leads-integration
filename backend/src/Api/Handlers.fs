@@ -28,7 +28,7 @@ let private zoneOrFail (zone: string) =
     | None -> fail 422 $"timeZone: \"{zone}\" is not an IANA time zone name, like America/New_York"
 
 [<CLIMutable>]
-type NewLead = { Variant: string; CallType: string; Webchat: bool; ReferenceLead: string }
+type NewLead = { Variant: string; CallType: string; Webchat: bool; ReferenceLead: string; ConversationId: string }
 
 [<CLIMutable>]
 type NewConnection = { Kind: string; Name: string; DeliveryUrl: string }
@@ -60,7 +60,7 @@ type ConnectBody = { Url: string }
 [<CLIMutable>]
 type DecisionBody = { Decision: string; By: string; Comment: string; Version: int }
 
-let private emptyLead = { Variant = "full"; CallType = null; Webchat = false; ReferenceLead = null }
+let private emptyLead = { Variant = "full"; CallType = null; Webchat = false; ReferenceLead = null; ConversationId = null }
 
 // ----- Catalog, overview, firms -----
 
@@ -130,8 +130,10 @@ let sendLead (c: Ctx) (firmId: string) : EndpointHandler =
                     // The reference lead as written; the firm's own name for the call type may replace its call type.
                     let r = (Categories.referenceLead b.ReferenceLead).Lead
                     if String.IsNullOrWhiteSpace b.CallType then r else { r with CallType = b.CallType }
-            let event, deliveries = Dispatch.publish c.Db firmId lead false None None
-            return! created {| event = event; deliveries = deliveries; mapping = Categories.classify lead.CallType |} ctx
+            let r = Dispatch.intake c.Db firmId b.ConversationId lead
+            let answer = {| event = r.Event; deliveries = r.Deliveries; mapping = Categories.classify lead.CallType; duplicate = r.Duplicate |}
+            // A repeat is answered as recorded, not as an error: the channel must stop sending it (api-2: 208).
+            return! (if r.Duplicate then ok answer else created answer) ctx
         }
 
 // ----- Call categories -----

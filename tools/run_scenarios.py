@@ -120,6 +120,7 @@ class LabAdapter:
         self.dests = {}         # scenario destination id -> lab connection id
         self.dest_kind = {}
         self.leads = {}         # scenario lead id -> lab event id
+        self.told = {}  # what intake answered the channel when it repeated a lead's event
         self.pending_mapping = {}
         self.refs = None
 
@@ -193,8 +194,6 @@ class LabAdapter:
             raise Unsupported(f"step '{kind}' {detail}".strip())
 
     def _lead(self, lead):
-        if lead.get("conversation"):
-            pass  # the lab has no conversation record; the id only matters to duplicate-intake faults
         if lead.get("test"):
             only = lead.get("only")
             if not only:
@@ -210,6 +209,8 @@ class LabAdapter:
             body = {"variant": "full", "callType": ref["lead"]["callType"], "webchat": True}
         else:
             body = {"referenceLead": ref["id"]}
+        if lead.get("conversation"):
+            body["conversationId"] = lead["conversation"]
         res = self.api.ok("POST", f"/api/firms/{self.firms[lead['firm']]}/leads", body)
         self.leads[lead["id"]] = res["event"]["id"]
 
@@ -224,6 +225,8 @@ class LabAdapter:
             raise Unsupported(f"step 'fault' {f['kind']}")
         if status >= 300:
             raise RuntimeError(f"fault -> {status}: {payload}")
+        if f["kind"] == "intake-event-repeated":
+            self.told[f["lead"]] = payload.get("told")
 
     def _receiver(self, r):
         answers = dict(r["answers"])
@@ -434,6 +437,24 @@ class LabAdapter:
                 problems.append(f"evidence {h.get('evidence')}, expected {x['evidence']}")
             if "escalated" in x and bool(h.get("escalated")) != x["escalated"]:
                 problems.append(f"escalated {h.get('escalated')}, expected {x['escalated']}")
+            return (not problems), "; ".join(problems)
+        if kind == "capture":
+            if x["lead"] not in self.leads:
+                return x["is"] == "not-recorded", "never recorded"
+            detail = self._lead_detail(x["lead"])
+            problems = []
+            if x["is"] != "recorded":
+                problems.append("recorded, expected not recorded")
+            if "count" in x:
+                conv = detail.get("conversationId")
+                if conv is None:
+                    raise Unsupported("capture count: the lead has no conversation id")
+                items = self.api.ok("GET", f"/api/leads?firmId={detail['firmId']}&limit=500")["items"]
+                n = sum(1 for i in items if i.get("conversationId") == conv)
+                if n != x["count"]:
+                    problems.append(f"{n} leads for conversation {conv}, expected {x['count']}")
+            if "channelTold" in x and self.told.get(x["lead"]) != x["channelTold"]:
+                problems.append(f"the channel was told {self.told.get(x['lead'])}, expected {x['channelTold']}")
             return (not problems), "; ".join(problems)
         if kind == "outcome":
             got = OUTCOMES.get(self._lead_detail(x["lead"])["outcome"], "?")

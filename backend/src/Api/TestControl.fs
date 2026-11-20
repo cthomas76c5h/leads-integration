@@ -177,8 +177,16 @@ let private fault (c: Ctx) : EndpointHandler =
             | "lease-expires" -> Db.write c.Db (fun s -> Store.expireLease s (deliveryOf c b.EventId b.ConnectionId) (now ()))
             | "answer-held" -> Dispatch.Faults.holdNextAnswer[b.ConnectionId] <- true
             | "answer-released" -> Dispatch.releaseAnswers b.ConnectionId
+            | "intake-event-repeated" -> ()
             | other -> fail 422 $"fault {other} is not one the lab can inject"
-            return! ok {| ok = true |} ctx
+            match b.Kind with
+            | "intake-event-repeated" ->
+                // The channel sends the same conversation's event again, as it first did.
+                let e = Db.read c.Db (fun s -> Store.leadOrFail s b.EventId)
+                if isNull e.ConversationId then fail 422 "that lead came with no conversation id: nothing to repeat"
+                let r = Dispatch.intake c.Db e.FirmId e.ConversationId e.Lead
+                return! ok {| ok = true; told = "recorded"; duplicate = r.Duplicate; eventId = r.Event.Id |} ctx
+            | _ -> return! ok {| ok = true |} ctx
         }
 
 let private events (c: Ctx) : EndpointHandler = fun ctx -> ok (Db.read c.Db Store.domainEvents) ctx

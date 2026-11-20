@@ -91,8 +91,15 @@ let private decided (event: LeadEvent) (c: Connection) (decision: RoutingDecisio
 /// routing decision at every live or paused connection (Routing.decide: planned,
 /// or not sent with a reason; planned for a paused one is held); a test goes only
 /// to `onlyConnection`, carrying `template` when given, and is not routed.
-let publish (db: Database) (firmId: string) (lead: Lead) (test: bool) (onlyConnection: string option) (template: string option) =
-    write db (fun s ->
+/// What intake did with a lead from a channel: recorded it, or found it already recorded for the same
+/// conversation (a channel repeating its event), and answered the same either way.
+type Intake =
+    { Event: LeadEvent
+      Deliveries: Delivery[]
+      /// The conversation was already recorded: nothing new was planned or sent.
+      Duplicate: bool }
+
+let private record (s: Session) (firmId: string) (conversationId: string) (lead: Lead) (test: bool) (onlyConnection: string option) (template: string option) =
         let firm = Store.firmOrFail s firmId
         let t = now ()
         let event =
@@ -112,7 +119,10 @@ let publish (db: Database) (firmId: string) (lead: Lead) (test: bool) (onlyConne
                 | None ->
                     (c.Enabled || isPaused c) && (c.Status = "active" || needsReconnection c)
                     && setting c "stage" <> "setup" && setting c "role" <> "fallback")
-        if not test then Store.emit s "LeadRecorded" firmId event.Id null
+        if not (String.IsNullOrEmpty conversationId) then Store.setConversation s event.Id conversationId
+        if not test then
+            Store.emit s "ConversationHandled" firmId event.Id null
+            Store.emit s "LeadRecorded" firmId event.Id null
         let deliveries =
             targets
             |> Array.map (fun row ->
@@ -123,8 +133,29 @@ let publish (db: Database) (firmId: string) (lead: Lead) (test: bool) (onlyConne
                 Store.insertDelivery s d (if d.Status = "pending" then template else None)
                 if not test then emitPlanned s d
                 d.Id)
-        event, deliveries)
+        event, deliveries
+
+let publish (db: Database) (firmId: string) (lead: Lead) (test: bool) (onlyConnection: string option) (template: string option) =
+    write db (fun s -> record s firmId null lead test onlyConnection template)
     |> fun (event, ids) -> event, ids |> Array.map (fun id -> read db (fun s -> (Store.deliveryOrFail s id).Delivery))
+
+/// A lead from a channel (RFC-008 §4.1). Keyed on the channel's conversation id: the check and the
+/// insert are one transaction (and the id is unique per firm), so a channel repeating its event, even
+/// at the same moment, gets the lead already recorded, with nothing planned or sent again.
+let intake (db: Database) (firmId: string) (conversationId: string) (lead: Lead) : Intake =
+    let eventId, ids, duplicate =
+        write db (fun s ->
+            match (if String.IsNullOrWhiteSpace conversationId then None else Store.eventForConversation s firmId conversationId) with
+            | Some id -> id, [||], true
+            | None ->
+                let e, ids = record s firmId conversationId lead false None None
+                e.Id, ids, false)
+    read db (fun s ->
+        let e = (Store.tryEvent s eventId).Value
+        let deliveries =
+            if duplicate then (Store.leadOrFail s eventId).Deliveries
+            else ids |> Array.map (fun id -> (Store.deliveryOrFail s id).Delivery)
+        { Event = e; Deliveries = deliveries; Duplicate = duplicate })
 
 let testConnection (db: Database) (connectionId: string) (lead: Lead) (template: string option) =
     let c = read db (fun s -> (Store.connectionOrFail s connectionId).Connection)

@@ -19,7 +19,7 @@ The name and look under which a firm meets Answering AI. Presentation only: it n
 _Avoid_: app variant, tenant
 
 **Conversation**:
-One call or chat Answering AI took, whatever its outcome. A lead is recorded from some conversations; billing reads every one.
+One call or chat Answering AI took, whatever its outcome. A lead is recorded from some conversations; billing reads every one. Intake keys on the channel's conversation id: one lead per conversation, however often the channel repeats its event. *Lab for the lead; the conversation record itself is not built.*
 _Avoid_: session, room, call (when a chat is included)
 
 **Caller**:

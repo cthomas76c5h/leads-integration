@@ -362,13 +362,18 @@ let openDatabase (path: string) : Database =
           "events", "acknowledged_at", "INTEGER NULL"
           "events", "acknowledged_via", "TEXT NULL"
           "events", "escalated_at", "INTEGER NULL"
-          "events", "expired_at", "INTEGER NULL" ] do
+          "events", "expired_at", "INTEGER NULL"
+          // The channel's conversation id (RFC-008 §4.1): one lead per conversation, whatever the channel repeats.
+          "events", "conversation_id", "TEXT NULL" ] do
         use probe = conn.CreateCommand()
         probe.CommandText <- $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = '{column}'"
         if Convert.ToInt64(probe.ExecuteScalar()) = 0L then
             use alter = conn.CreateCommand()
             alter.CommandText <- $"ALTER TABLE {table} ADD COLUMN {column} {definition}"
             alter.ExecuteNonQuery() |> ignore
+    use unique = conn.CreateCommand()
+    unique.CommandText <- "CREATE UNIQUE INDEX IF NOT EXISTS events_conversation ON events(firm_id, conversation_id) WHERE conversation_id IS NOT NULL"
+    unique.ExecuteNonQuery() |> ignore
     db
 
 /// A private in-memory-like database for tests: a temp file, deleted by the caller.
