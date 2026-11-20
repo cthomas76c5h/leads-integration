@@ -763,21 +763,46 @@ let tryClaim (s: Session) (worker: string) (nowMs: int64) (leaseMs: int64) (id: 
             let version = s.TryOne "SELECT lease_version FROM deliveries WHERE id=$1" [ id ] (fun r -> Read.int64 r 0) |> Option.get
             Some { DeliveryId = id; Version = version; Recovered = (status = "delivering") }
 
-/// Claim what is due for `worker`, the nearest hand-off deadline first, so emergency and custody
-/// leads are not queued behind routine records (RFC-008 §5.3).
+/// At most this many deliveries to one destination are leased at once (RFC-008 §5.3, destination
+/// isolation): a destination that answers slowly, or not at all, holds at most this many send slots,
+/// and the rest of the worker keeps moving.
+let inFlightPerDestination = 4
+
+/// Claim what is due for `worker`, the nearest hand-off deadline first, so emergency and custody leads
+/// are not queued behind routine records (RFC-008 §5.3). Fair as well as urgent:
+/// - a destination never has more than `inFlightPerDestination` deliveries leased at once, counting
+///   leases still running from earlier batches;
+/// - one firm takes at most a quarter of a batch while others have work due; slots left over go to
+///   whatever is due next, so nothing waits when no one else is busy.
+/// All in SQL over everything due, so a firm with a large backlog cannot hide another firm's lead.
+/// The deadline is the lead's hand-off due time, fixed at intake (72 hours after it when none is
+/// recorded: a test lead, or a lead from before it was recorded).
 let claimDue (s: Session) (worker: string) (nowMs: int64) (leaseMs: int64) (limit: int) : Claim[] =
+    let perFirm = max 1 (limit / 4)
     s.Query
-        $"""SELECT d.id, e.created_at, e.lead FROM deliveries d JOIN events e ON e.id = d.event_id
-            WHERE $1 = $1 AND {claimable.Replace("status", "d.status").Replace("next_attempt_at", "d.next_attempt_at").Replace("lease_until", "d.lease_until")}
-            ORDER BY COALESCE(d.next_attempt_at, d.lease_until, 0), d.id LIMIT $3"""
-        [ box 0; box nowMs; box (limit * 4) ]
-        (fun r ->
-            let lead: Lead = Json.deserialize (Read.str r 2)
-            Read.str r 0, Read.int64 r 1 + Urgency.windowMs (Categories.classify lead.CallType).Category)
-    |> Array.mapi (fun i (id, deadline) -> (deadline, i), id)
-    |> Array.sortBy fst
-    |> Array.truncate limit
-    |> Array.choose (fun (_, id) -> tryClaim s worker nowMs leaseMs id)
+        $"""WITH due AS (
+              SELECT d.id, c.firm_id, d.connection_id,
+                     COALESCE(e.handoff_due_at, e.created_at + 259200000) AS deadline
+              FROM deliveries d
+              JOIN events e ON e.id = d.event_id
+              JOIN connections c ON c.id = d.connection_id
+              WHERE $1 = $1 AND {claimable.Replace("status", "d.status").Replace("next_attempt_at", "d.next_attempt_at").Replace("lease_until", "d.lease_until")}),
+            busy AS (
+              SELECT connection_id, COUNT(*) AS leased FROM deliveries
+              WHERE status = 'delivering' AND lease_until > $2 GROUP BY connection_id),
+            ranked AS (
+              SELECT due.id, due.deadline,
+                     ROW_NUMBER() OVER (PARTITION BY due.connection_id ORDER BY due.deadline, due.id) AS byDestination,
+                     ROW_NUMBER() OVER (PARTITION BY due.firm_id ORDER BY due.deadline, due.id) AS byFirm,
+                     COALESCE(busy.leased, 0) AS leased
+              FROM due LEFT JOIN busy ON busy.connection_id = due.connection_id)
+            SELECT id FROM ranked
+            WHERE byDestination + leased <= $3
+            ORDER BY byFirm > $4, deadline, id
+            LIMIT $5"""
+        [ box 0; box nowMs; box inFlightPerDestination; box perFirm; box limit ]
+        (fun r -> Read.str r 0)
+    |> Array.choose (fun id -> tryClaim s worker nowMs leaseMs id)
 
 /// Does this lease version still hold the delivery? Every start and finish of an attempt checks it.
 let holdsLease (s: Session) (id: string) (version: int64) =

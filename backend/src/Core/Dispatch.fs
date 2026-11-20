@@ -754,11 +754,18 @@ let private runClaim (db: Database) (http: HttpClient) (opts: Options) (random: 
     }
 
 /// Claim and send everything due. Returns how many were claimed.
+/// Claim up to `free` due deliveries and start sending each; returns the sends now running.
+let startDue (db: Database) (http: HttpClient) (opts: Options) (random: unit -> float) (free: int) : Task<unit>[] =
+    if free <= 0 then [||]
+    else write db (fun s -> Store.claimDue s workerId (now ()) leaseMs free) |> Array.map (runClaim db http opts random)
+
+/// Claim and send everything due now, and wait for all of it (test control and tests: one pass at a
+/// time on a virtual clock). The worker uses `work`, which never waits for a whole batch.
 let runDue (db: Database) (http: HttpClient) (opts: Options) (random: unit -> float) (limit: int) : Task<int> =
     task {
-        let claims = write db (fun s -> Store.claimDue s workerId (now ()) leaseMs limit)
-        let! _ = Task.WhenAll(claims |> Array.map (runClaim db http opts random))
-        return claims.Length
+        let sends = startDue db http opts random limit
+        let! _ = Task.WhenAll sends
+        return sends.Length
     }
 
 /// Where a destination is looked up by our lead reference. The lab's fake CRMs answer at
@@ -898,3 +905,51 @@ let previewHeaders (headers: (string * string) list) =
     for k, v in headers do
         d[k] <- v
     d
+
+/// How many sends one worker keeps in flight.
+let maxInFlight = 20
+
+/// The delivery worker's loop (Worker.fs). Up to `maxInFlight` sends run at once, and a slot is claimed
+/// again as soon as a send finishes: a destination that answers slowly delays only its own deliveries,
+/// never those that fall due meanwhile (concurrency.md §7). With `Store.inFlightPerDestination`, one slow
+/// destination holds at most a few slots. Every 5 s the sweeps run; the lookups run as a task of their
+/// own, one sweep at a time, so a slow lookup never holds up sending. On stop, sends in flight finish
+/// and record their answers.
+let work (db: Database) (http: HttpClient) (opts: Options) (random: unit -> float) (log: string -> exn option -> unit) (stop: CancellationToken) : Task =
+    task {
+        let running = ResizeArray<Task<unit>>()
+        let mutable lookups: Task = Task.CompletedTask
+        let mutable lastSweep = 0L
+        while not stop.IsCancellationRequested do
+            try
+                let t = now ()
+                if t - lastSweep > 5_000L then
+                    lastSweep <- t
+                    let n = runFallbacks db t
+                    if n > 0 then log $"sent {n} leads to their firm's fallback" None
+                    let h = runHandOffs db t
+                    if h > 0 then log $"{h} hand-offs escalated or expired" None
+                    if lookups.IsCompleted then
+                        lookups <-
+                            task {
+                                try
+                                    let! v = runVerifications db http opts t
+                                    if v > 0 then log $"{v} deliveries verified or flagged" None
+                                with ex -> log "verification lookups failed" (Some ex)
+                            }
+                for finished in running |> Seq.filter _.IsCompleted |> Array.ofSeq do
+                    if finished.IsFaulted then log "a send failed" (Some(finished.Exception :> exn))
+                    running.Remove finished |> ignore
+                running.AddRange(startDue db http opts random (maxInFlight - running.Count))
+                if running.Count = 0 then do! Task.Delay(200, stop)
+                else
+                    let! _ = Task.WhenAny(Task.WhenAny(running |> Seq.cast<Task>), Task.Delay(200, stop))
+                    ()
+            with
+            | :? OperationCanceledException -> ()
+            | ex ->
+                log "delivery worker pass failed" (Some ex)
+                try do! Task.Delay(1000, stop) with :? OperationCanceledException -> ()
+        do! Task.WhenAll(running |> Seq.cast<Task>)
+    }
+
