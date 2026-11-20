@@ -60,6 +60,7 @@ let private newDelivery (event: LeadEvent) (c: Connection) status reason (decisi
       NextAttemptAt = (if status = "pending" then Nullable nowMs else Nullable())
       ReplayOf = null
       Resend = Unchecked.defaultof<Resend>
+      Resolution = Unchecked.defaultof<Resolution>
       CreatedAt = nowMs
       Attempts = [||]
       Diagnosis = null
@@ -164,6 +165,26 @@ let testConnection (db: Database) (connectionId: string) (lead: Lead) (template:
     ds[0]
 
 /// Send an event to a connection again as a new delivery (same event id, so the receiver can dedupe).
+/// An operator settles an unknown outcome after checking the destination (RFC-008 §4.2): `found` (the
+/// lead is there: accepted, on the operator's word) or `closed` (left unsent, with the reason). A resend
+/// is the third way (Dispatch.replay). The resolution stands against any answer that arrives later.
+let resolve (db: Database) (deliveryId: string) (kind: string) (by: string) (why: string) =
+    if kind <> "found" && kind <> "closed" then fail 422 "resolution: found or closed (or resend the lead)"
+    if String.IsNullOrWhiteSpace by then fail 422 "by: who checked the destination"
+    write db (fun s ->
+        let d = (Store.deliveryOrFail s deliveryId).Delivery
+        if d.Status <> "unknown" then fail 409 $"only an unknown outcome is resolved; this delivery is {d.Status}"
+        if not (isNull (box d.Resolution)) then fail 409 $"already resolved ({d.Resolution.Kind})"
+        let t = now ()
+        Store.setResolution s d.Id { Kind = kind; By = by; Why = why; At = t }
+        match kind with
+        | "found" ->
+            Store.setDeliveryState s d.Id "delivered" $"found at the destination by {by}" (Nullable())
+            emitFor s "DeliveryAccepted" d
+        | _ -> Store.setDeliveryState s d.Id "unknown" $"closed by {by}: {why}" (Nullable())
+        emitFor s "DeliveryResolved" d)
+    read db (fun s -> (Store.deliveryOrFail s deliveryId).Delivery)
+
 /// A routing change waiting for the firm's approval, kept on the destination until approved.
 type RoutingDraft = { Categories: string[]; PracticeAreas: string[]; By: string }
 
@@ -275,10 +296,16 @@ let replay (db: Database) (deliveryId: string) (resend: Resend) =
                     NextAttemptAt = Nullable t
                     ReplayOf = old.Delivery.Id
                     Resend = (if isNull (box resend) then { By = null; Role = "operator"; Why = null } else resend)
+                    Resolution = Unchecked.defaultof<Resolution>
                     CreatedAt = t
                     Attempts = [||]
                     Diagnosis = null }
             Store.insertDelivery s fresh old.Template
+            // The one it replaces had an unknown outcome: settled as resent, so a late answer cannot change it.
+            if old.Delivery.Status = "unknown" && isNull (box old.Delivery.Resolution) then
+                let who = if isNull (box resend) || isNull resend.By then "an operator" else resend.By
+                Store.setResolution s old.Delivery.Id { Kind = "resent"; By = who; Why = (if isNull (box resend) then null else resend.Why); At = t }
+                emitFor s "DeliveryResolved" old.Delivery
             if not fresh.Test then emitFor s "LeadResent" fresh
             fresh.Id)
     read db (fun s -> (Store.deliveryOrFail s id).Delivery)
@@ -501,6 +528,10 @@ module Faults =
     let crashAfterSend = ConcurrentDictionary<struct (string * string), bool>()
     /// Destinations whose next answer is held: the attempt is on the wire until released.
     let holdNextAnswer = ConcurrentDictionary<string, bool>()
+    /// (lead, destination) whose worker records the attempt as started, then stops before sending.
+    let stallAfterStart = ConcurrentDictionary<struct (string * string), bool>()
+    /// Those workers, by delivery: what they do when they wake (send, then record the answer).
+    let stalledSends = ConcurrentDictionary<string, unit -> Task<unit>>()
     let heldAnswers = ConcurrentDictionary<string, ResizeArray<unit -> unit>>()
 
 type private Begun =
@@ -633,9 +664,13 @@ let private complete (db: Database) (opts: Options) (random: unit -> float) (del
             | _ -> ()
         else
             Store.finishAttempt s d.Id (record $"unknown, then a late answer: {t.Outcome}" (Nullable()))
-            if d.Status = "unknown" && outcome = Policy.Delivered then
-                Store.setDeliveryState s d.Id "delivered" null (Nullable())
-                emitFor s "DeliveryAccepted" d)
+            if outcome = Policy.Delivered then
+                // Settles an unknown outcome nobody has resolved. After an operator's resolution (or while another
+                // worker holds the delivery) it is evidence only: the destination may now hold a second copy.
+                if d.Status = "unknown" && isNull (box d.Resolution) then
+                    Store.setDeliveryState s d.Id "delivered" null (Nullable())
+                    emitFor s "DeliveryAccepted" d
+                else emitFor s "LateAcceptance" d)
 
 /// Start, send and record one attempt with this lease version. Faults, when test control set one,
 /// stop it where a crash or a held answer would.
@@ -643,6 +678,16 @@ let private startAndSend (db: Database) (http: HttpClient) (opts: Options) (rand
     task {
         match beginAttempt db opts.Origin deliveryId version with
         | Stopped -> ()
+        | Started(c, e, built, n) when fst (Faults.stallAfterStart.TryRemove(struct (e.Id, c.Connection.Id))) ->
+            // Recorded as started, then nothing: the worker wakes later (worker-continues) and sends anyway,
+            // with the lease version it still holds in memory.
+            Faults.stalledSends[deliveryId] <-
+                fun () ->
+                    task {
+                        let started = now ()
+                        let! answer = send http opts c e built started
+                        complete db opts random deliveryId version c.Connection.Id n started answer
+                    }
         | Started(c, e, built, n) ->
             let started = now ()
             let! answer = send http opts c e built started
@@ -784,7 +829,10 @@ let continueStalled (db: Database) (http: HttpClient) (opts: Options) (random: u
     task {
         match Faults.stalled.TryRemove deliveryId with
         | true, version -> do! startAndSend db http opts random deliveryId version
-        | _ -> ()
+        | _ ->
+            match Faults.stalledSends.TryRemove deliveryId with
+            | true, resume -> do! resume ()
+            | _ -> ()
     }
 
 /// Test control: another worker tries to claim this delivery; it sends only if it wins the lease.

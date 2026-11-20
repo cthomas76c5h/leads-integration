@@ -310,7 +310,7 @@ let attemptsOf (s: Session) (deliveryId: string) =
 
 let private deliveryCols =
     """d.id, d.event_id, d.connection_id, c.name, c.kind, f.id, f.name, d.test, d.status, d.reason, d.next_attempt_at, d.replay_of, d.created_at, d.template, d.has_template, d.decision, d.resend,
-     d.verified_at, d.verify_overdue_at, c.settings LIKE '%"duplicates":"lookup"%'"""
+     d.verified_at, d.verify_overdue_at, c.settings LIKE '%"duplicates":"lookup"%', d.resolution"""
 
 let private deliveryFrom =
     "FROM deliveries d JOIN connections c ON c.id = d.connection_id JOIN firms f ON f.id = c.firm_id"
@@ -336,6 +336,10 @@ let private readDelivery (s: Session) (r: DbDataReader) : DeliveryRow =
             | json -> Json.deserialize json
           NextAttemptAt = Read.int64N r 10
           ReplayOf = Read.str r 11
+          Resolution =
+            match Read.str r 20 with
+            | null -> Unchecked.defaultof<Resolution>
+            | json -> Json.deserialize json
           Resend =
             match Read.str r 16 with
             | null -> Unchecked.defaultof<Resend>
@@ -361,7 +365,10 @@ let private withAttempts (s: Session) (d: DeliveryRow) =
                     elif d.Delivery.Status = "delivered" then "accepted"
                     elif attempts.Length > 0 then "submitted"
                     else "none"
+                // A resolved outcome is settled: nothing left to diagnose.
                 Diagnosis =
+                    if not (isNull (box d.Delivery.Resolution)) then null
+                    else
                     Diagnose.diagnose
                         d.Delivery.Kind
                         d.Delivery.Status
@@ -393,7 +400,7 @@ let newestPerPair =
 let lateAfterMs = 15L * 60_000L
 
 let private needsAttention (d: DeliveryRow) =
-    isNull d.Delivery.Diagnosis || d.Delivery.Diagnosis.Class <> "lead"
+    isNull (box d.Delivery.Resolution) && (isNull d.Delivery.Diagnosis || d.Delivery.Diagnosis.Class <> "lead")
 
 /// `Status` may also be 'attention' (the newest delivery per lead and destination
 /// was refused or gave up, and it is not a lead problem) or 'late' (still
@@ -408,7 +415,7 @@ let listDeliveries (s: Session) (f: DeliveryFilter) =
     | null
     | "" -> ()
     | "attention" ->
-        where.Add "d.status IN ('failed', 'unknown')"
+        where.Add "d.status IN ('failed', 'unknown') AND d.resolution IS NULL"
         where.Add newestPerPair
     | "late" ->
         where.Add sendingOrRetrying
@@ -820,6 +827,10 @@ let nextDueAt (s: Session) : int64 option =
 /// A waiting delivery decided again under a newer revision (Dispatch.approveRouting, applyToWaiting).
 let setDecision (s: Session) (id: string) (decision: RoutingDecision) =
     s.Execute "UPDATE deliveries SET decision=$2 WHERE id=$1" [ id; Json.serialize decision ] |> ignore
+
+/// An operator settled an unknown outcome (Dispatch.resolve, Dispatch.replay).
+let setResolution (s: Session) (id: string) (r: Resolution) =
+    s.Execute "UPDATE deliveries SET resolution=$2 WHERE id=$1" [ id; Json.serialize r ] |> ignore
 
 let setDeliveryState (s: Session) (id: string) (status: string) (reason: string) (nextAttemptAt: Nullable<int64>) =
     s.Execute

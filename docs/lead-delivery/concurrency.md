@@ -87,10 +87,19 @@ destination's `duplicates` setting, else its kind's receiver contract):
 |---|---|---|
 | `harmless` (email, SMS, Slack) | Send again | A second message does no harm |
 | `idempotency-key` | Send again | The receiver ignores a key it has seen |
-| `lookup`, `external-reference`, `none`, `unknown` | Status `unknown`: an operator checks the destination, then resends or closes | A second record in a CRM cannot be told apart from the first |
+| `lookup`, `external-reference`, `none`, `unknown` | Status `unknown`: an operator checks the destination, then resolves it | A second record in a CRM cannot be told apart from the first |
 
 A refused connection, DNS or TLS failure sent nothing, so it stays an ordinary
 transient retry.
+
+An operator **resolves** an unknown outcome after checking the destination
+(`Dispatch.resolve`, or a resend through `Dispatch.replay`): **found** (accepted, on
+their word), **closed** (left unsent, with the reason) or **resent** (a new delivery
+replaces it). The resolution is recorded on the delivery (`resolution`) and
+**stands**. In `Dispatch.complete`, a late accepted answer settles a delivery only
+while it is `unknown` and unresolved; otherwise it is kept on its attempt as evidence
+and flagged with `LateAcceptance`, because the destination may now hold a second copy
+([answers.md](answers.md)).
 
 ### 4.3 Order of work
 
@@ -107,7 +116,9 @@ routine records is sent first. It reads four times the batch size and sorts it.
 | An operator pauses a destination before the attempt starts | Both are write transactions; the pause committed first, so `beginAttempt` sees it | Held, never sent; sent when resumed (`Store.releaseHeld`) | `pause-during-send` |
 | An operator pauses while the request is on the wire | The attempt started before the pause committed | That attempt cannot be recalled; its answer is recorded normally. Later leads are held | `pause-during-send` |
 | A worker dies after sending | The lease runs out; `Dispatch.recover` finds the started attempt | Unknown; resent only if harmless | `crash-after-send` |
-| An answer arrives after the lease was taken over | `Dispatch.complete` checks the version | Kept as evidence on its own attempt; settles an `unknown` delivery if accepted | `LeaseTests`, `pause-during-send` (held answer) |
+| An answer arrives after the lease was taken over | `Dispatch.complete` checks the version | Kept as evidence on its own attempt; settles an `unknown` delivery nobody resolved; otherwise `LateAcceptance` | `LeaseTests`, `pause-during-send`, `stall-after-start` |
+| A worker records its attempt, stalls past its lease, then sends anyway | The recovering worker sees the started attempt; the stalled worker's version no longer holds | A CRM is not sent again by the recovering worker; the stalled send's answer settles the unknown delivery. Email is sent again (harmless), and the stalled answer is flagged as a second copy | `stall-after-start` |
+| An operator resolves an unknown outcome, then its late answer arrives | `Dispatch.complete` checks `resolution` | The resolution stands: closed stays closed, a resend is not undone; the answer is evidence, flagged `LateAcceptance` | `unknown-resolved`, `LeaseTests` |
 | A request times out | `Dispatch.outcomeOf` | Retried where harmless; otherwise unknown | `crm-timeout`, `relay-timeouts` |
 | The process restarts mid-send | Nothing is requeued on start; leases run out | Recovery decides, as for a crash | `crash-after-send` |
 | A destination needs reconnection while others wait | `Dispatch.complete` holds that destination's other waiting deliveries in the same transaction (`Store.holdPendingFor`) | Held, not retried, until reconnected | `auth-expired`, `hook-gone` |
@@ -143,5 +154,5 @@ conditionally; and a resend is refused while the lead still waits or is being se
 
 ## 8. Where it is tested
 
-- **Scenarios** (`python tools/run_scenarios.py`): `double-claim`, `pause-during-send`, `crash-after-send`, `crm-timeout`, `relay-timeouts`, `duplicate-intake`, `database-down-at-intake`, `routing-change-during-outage`, `all-routes-down`. Faults are injected through `POST /api/test/faults` (`Dispatch.Faults`, `Db.WritesFail`).
+- **Scenarios** (`python tools/run_scenarios.py`): `double-claim`, `pause-during-send`, `crash-after-send`, `crm-timeout`, `relay-timeouts`, `duplicate-intake`, `database-down-at-intake`, `routing-change-during-outage`, `all-routes-down`, `unknown-resolved`, `stall-after-start`. Faults are injected through `POST /api/test/faults` (`Dispatch.Faults`, `Db.WritesFail`).
 - **F# tests**: `LeaseTests` (exclusive claim, deadline order, the policy after unknown), `IntakeTests`, `HandOffTests`, `RoutingTests`.

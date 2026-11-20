@@ -397,7 +397,8 @@
                 "approve",
                 "change-routing",
                 "acknowledge",
-                "correct-classification"
+                "correct-classification",
+                "resolve"
               ]
             },
             "destination": {
@@ -451,6 +452,13 @@
             "category": {
               "type": "string",
               "description": "correct-classification: the corrected call category"
+            },
+            "resolution": {
+              "enum": [
+                "found",
+                "closed"
+              ],
+              "description": "resolve: how an operator settled an unknown outcome after checking the destination"
             }
           }
         },
@@ -473,9 +481,10 @@
                 "database-available",
                 "intake-event-repeated",
                 "answer-held",
-                "answer-released"
+                "answer-released",
+                "worker-stalls-after-start"
               ],
-              "description": "worker-crash-after-send: the destination received the request and the worker died before recording an answer. second-worker-claims: another worker tries to claim a delivery that is already claimed. worker-stalls-before-send: a worker claims a delivery and stops just before transmitting; worker-continues resumes it. lease-expires: the claim of a stalled worker runs out. database-unavailable / database-available: our database stops and starts answering. intake-event-repeated: the channel sends a lead's completion event again answer-held: the next request to the destination is sent and received, and its answer is held: the attempt is on the wire; answer-released: the held answer arrives."
+              "description": "worker-crash-after-send: the destination received the request and the worker died before recording an answer. second-worker-claims: another worker tries to claim a delivery that is already claimed. worker-stalls-before-send: a worker claims a delivery and stops just before transmitting; worker-continues resumes it. lease-expires: the claim of a stalled worker runs out. database-unavailable / database-available: our database stops and starts answering. intake-event-repeated: the channel sends a lead's completion event again answer-held: the next request to the destination is sent and received, and its answer is held: the attempt is on the wire; answer-released: the held answer arrives. worker-stalls-after-start: a worker records the attempt as started, then stops before transmitting; worker-continues makes it send anyway."
             },
             "lead": {
               "$ref": "#/$defs/id"

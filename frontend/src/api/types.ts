@@ -175,6 +175,9 @@ export interface Attempt {
 /** An operator's resend. The lab has no sign-in: the role is declared with the request. */
 export interface Resend { by: string | null; role: 'operator' | 'senior-operator'; why: string | null }
 
+/** How an operator settled an unknown outcome. It stands: a late answer is kept as evidence only. */
+export interface Resolution { kind: 'found' | 'closed' | 'resent'; by: string | null; why: string | null; at: number }
+
 export interface Delivery {
   id: string;
   eventId: string;
@@ -193,6 +196,7 @@ export interface Delivery {
   nextAttemptAt: number | null;
   replayOf: string | null;
   resend: Resend | null;   // who resent it, as what, and why
+  resolution: Resolution | null;   // how an operator settled an unknown outcome
   evidence: 'verified' | 'accepted' | 'submitted' | 'none';   // the strongest so far (RFC-008 §3.1)
   verifiedAt: number | null;   // found at the destination by a lookup by our lead reference
   verifyOverdue: boolean;      // accepted, but not found within the time to verify

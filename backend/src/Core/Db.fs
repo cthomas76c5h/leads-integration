@@ -410,6 +410,7 @@ let openDatabase (path: string) : Database =
           "deliveries", "lease_until", "INTEGER NULL"
           "deliveries", "lease_version", "INTEGER NOT NULL DEFAULT 0"
           "deliveries", "resend", "TEXT NULL" // who resent it, as what, and why (JSON)
+          "deliveries", "resolution", "TEXT NULL" // how an operator settled an unknown outcome (JSON)
           // Verification by lookup (RFC-008 §3.1): found, flagged as not found in time, last looked.
           "deliveries", "verified_at", "INTEGER NULL"
           "deliveries", "verify_overdue_at", "INTEGER NULL"

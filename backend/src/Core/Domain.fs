@@ -125,6 +125,11 @@ type RoutingDecision =
 /// The lab has no sign-in, so the role is declared with the request; with sign-in it comes from the session.
 type Resend = { By: string; Role: string; Why: string }
 
+/// How an operator settled a delivery whose outcome was unknown (RFC-008 §4.2). Kind: found (it is at
+/// the destination) | closed (not sent again) | resent (a new delivery replaces it). It stands: an
+/// answer that arrives after it is kept as evidence, never allowed to change it.
+type Resolution = { Kind: string; By: string; Why: string; At: int64 }
+
 type Delivery =
     { Id: string
       EventId: string
@@ -144,6 +149,8 @@ type Delivery =
       ReplayOf: string
       /// Who resent it, as what, and why (invariant 10: every operator action recorded). Null unless a resend.
       Resend: Resend
+      /// Set when an operator settled an unknown outcome; null otherwise.
+      Resolution: Resolution
       CreatedAt: int64
       Attempts: Attempt[]
       Diagnosis: Diagnosis

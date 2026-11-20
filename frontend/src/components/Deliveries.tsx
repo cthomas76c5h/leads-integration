@@ -24,6 +24,9 @@ export function StatusBadge({ d, resolved = false }: { d: Delivery; resolved?: b
   if (resolved) return <span className="badge muted">Resolved by resend</span>;
   // Not sent, or refused, for something the lead lacks: nothing at the destination can fix it.
   if ((d.status === 'failed' || d.status === 'skipped') && d.diagnosis?.class === 'lead') return <span className="badge muted">Lead problem</span>;
+  // An unknown outcome an operator settled: it stands, whatever answer arrives later.
+  if (d.resolution?.kind === 'closed') return <span className="badge muted" title={d.reason ?? undefined}>Closed by operator</span>;
+  if (d.resolution?.kind === 'resent') return <span className="badge muted">Resolved by resend</span>;
   // Waiting for its destination to resume or be reconnected: not retrying.
   // Accepted, yet a lookup has not found it in time: the record may be lost at the destination.
   if (d.status === 'delivered' && d.verifyOverdue) return <span className="badge bad" title="Accepted, but a lookup has not found the record">Not found in CRM</span>;
@@ -73,7 +76,7 @@ export function ProblemPanel({ d, destinationStopped, setup, onResend, onChanged
   d: Delivery; destinationStopped: boolean; setup?: Setup | null; onResend: () => void; onChanged: () => void;
 }) {
   const { act } = useToast();
-  const [fixing, setFixing] = useState<'mapping' | 'preview' | null>(null);
+  const [fixing, setFixing] = useState<'mapping' | 'preview' | 'found' | 'closed' | null>(null);
   const g = d.diagnosis;
   if (!g) return null;
   const c = CLASS[g.class];
@@ -107,7 +110,8 @@ export function ProblemPanel({ d, destinationStopped, setup, onResend, onChanged
       case 'ours': return [copy];
       case 'routing': return [{ label: "See the firm's call types", href: `#/firms/${encodeURIComponent(d.firmId)}` }];
       case 'stopped': return [resend];
-      case 'unknown': return [openLead, { ...resend, label: 'Resend: it is missing' }];
+      // Check the destination first; then say what was found. Each choice is recorded and stands.
+      case 'unknown': return [openLead, { label: 'It is there', run: () => setFixing('found') }, { ...resend, label: 'Resend: it is missing' }, { label: 'Close without sending', run: () => setFixing('closed') }];
     }
   })();
   return (
@@ -127,6 +131,9 @@ export function ProblemPanel({ d, destinationStopped, setup, onResend, onChanged
       )}
       {fixing === 'mapping' && setup && <MappingFix d={d} setup={setup} onClose={() => setFixing(null)} onChanged={onChanged} />}
       {fixing === 'preview' && <PreviewFix d={d} onClose={() => setFixing(null)} />}
+      {(fixing === 'found' || fixing === 'closed') && (
+        <ResolveUnknown d={d} kind={fixing} onClose={() => setFixing(null)} onChanged={onChanged} />
+      )}
     </>
   );
 }
@@ -155,6 +162,32 @@ function ResendAccepted({ d, onDone, onCancel }: { d: Delivery; onDone: () => vo
       <div className="problem-actions">
         <button type="submit" className="btn primary" disabled={!senior || !why.trim()}>Resend</button>
         <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
+/** Settle an unknown outcome after checking the destination: who checked, and what they found. */
+function ResolveUnknown({ d, kind, onClose, onChanged }: { d: Delivery; kind: 'found' | 'closed'; onClose: () => void; onChanged: () => void }) {
+  const { act } = useToast();
+  const [by, setBy] = useState('');
+  const [why, setWhy] = useState('');
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void act(() => api.resolve(d.id, { resolution: kind, by: by.trim(), why: why.trim() }), kind === 'found' ? 'Marked as found at the destination' : 'Closed: it will not be sent again')
+      .then((r) => { if (r) { onClose(); onChanged(); } });
+  };
+  return (
+    <form className="problem warn resend-accepted" onSubmit={submit}>
+      <strong>{kind === 'found' ? `The lead is in ${d.connectionName}` : 'Close without sending'}</strong>
+      <span>{kind === 'found'
+        ? 'Recorded as accepted, on your word. An answer that arrives later will not change it.'
+        : 'It stays unsent at this destination. Say why, for example that the firm took it another way.'}</span>
+      <label className="field">Your name<input required value={by} onChange={(e) => setBy(e.target.value)} autoComplete="name" /></label>
+      <label className="field">{kind === 'found' ? 'Where you found it' : 'Why'}<input required={kind === 'closed'} value={why} onChange={(e) => setWhy(e.target.value)} /></label>
+      <div className="problem-actions">
+        <button type="submit" className="btn primary" disabled={!by.trim() || (kind === 'closed' && !why.trim())}>{kind === 'found' ? 'Mark as found' : 'Close it'}</button>
+        <button type="button" className="btn" onClick={onClose}>Cancel</button>
       </div>
     </form>
   );

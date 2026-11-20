@@ -340,6 +340,11 @@ class LabAdapter:
         elif do == "change-mapping":
             # The lab's real path is a setup revision; the scenario folds test and confirm into approve.
             self.pending_mapping[dest] = a["mapping"]
+        elif do == "resolve":
+            ds = self._newest(a["lead"], dest)
+            if not ds:
+                raise RuntimeError(f"resolve: no delivery of {a['lead']} to {dest}")
+            self.api.ok("POST", f"/api/deliveries/{ds[0]['id']}/resolve", {"resolution": a["resolution"], "by": f"scenario {a['by']}", "why": a.get("why")})
         elif do == "correct-classification":
             self.api.ok("POST", f"/api/leads/{self.leads[a['lead']]}/classification",
                         {"category": a["category"], "practiceArea": a.get("practiceArea"), "source": a["by"], "by": f"scenario {a['by']}"})

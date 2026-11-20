@@ -160,6 +160,8 @@ field gives.
 | [chat-leads-refused](scenarios/chat-leads-refused.json) | 2 | `lab` | A destination that refuses chat leads gets not sent, with a reason; email still has it |
 | [platform-outage](scenarios/platform-outage.json) | 3 | `lab` | 429 then 503 for 2½ hours: retried, never sooner than Retry-After; accepted after; streak stays zero |
 | [relay-timeouts](scenarios/relay-timeouts.json) | 3 | `lab` | No answer from email is retried (a second copy is harmless) and accepted once the relay answers |
+| [stall-after-start](scenarios/stall-after-start.json) | 3 | `lab` | A worker that recorded its attempt and stalled past its lease still sends: the CRM gets one copy, settled by its late answer; email is resent, harmlessly |
+| [unknown-resolved](scenarios/unknown-resolved.json) | 3 | `lab` | An operator closes, resends or finds an unknown delivery; the late answers that follow are evidence only, never undoing the resolution |
 | [crm-timeout](scenarios/crm-timeout.json) | 3 | `lab` | A timeout is unknown: email is retried, the CRM waits for an operator and is never sent again |
 | [dead-endpoint](scenarios/dead-endpoint.json) | 3 | `lab` | About 69 hours of retries, then gave up; 5 in a row switch the destination off |
 | [redirect](scenarios/redirect.json) | 3 | `lab` | 301 is refused, never followed; 5 in a row switch off; reactivate and resend under the same identity |

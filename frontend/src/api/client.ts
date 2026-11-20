@@ -85,6 +85,8 @@ export const api = {
   deliverySummary: (q: { test?: boolean; firmId?: string; since?: number } = {}) =>
     request<DeliverySummary>('GET', `/api/deliveries/summary${qs({ ...q })}`),
   replay: (id: string, who?: Partial<Resend>) => request<Delivery>('POST', `/api/deliveries/${enc(id)}/replay`, who),
+  resolve: (id: string, body: { resolution: 'found' | 'closed'; by: string; why: string }) =>
+    request<Delivery>('POST', `/api/deliveries/${enc(id)}/resolve`, body),
   received: (limit = 50) => request<ReceivedRequest[]>('GET', `/api/received${qs({ limit })}`),
 
   setups: () => request<Setup[]>('GET', '/api/setups'),

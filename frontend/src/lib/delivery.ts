@@ -137,7 +137,8 @@ export function nextAction(d: Delivery): string | null {
 }
 
 /** Waits on an operator. A lead problem does not: nothing at the destination can fix it. */
-export const needsAttention = (d: Delivery): boolean => (d.status === 'failed' || d.status === 'unknown') && d.diagnosis?.class !== 'lead';
+export const needsAttention = (d: Delivery): boolean =>
+  (d.status === 'failed' || d.status === 'unknown') && !d.resolution && d.diagnosis?.class !== 'lead';
 
 export const canReplay = (d: Delivery): boolean => d.status !== 'pending' && d.status !== 'delivering';
 

@@ -69,6 +69,14 @@
       "source": "RFC-008 §5.1",
       "meaning": "Delivery changed a destination's observed health"
     },
+    "DeliveryResolved": {
+      "source": "RFC-008 §4.2",
+      "meaning": "An operator settled an unknown outcome: found at the destination, closed, or resent"
+    },
+    "LateAcceptance": {
+      "source": "RFC-008 §5.3",
+      "meaning": "An accepted answer arrived after the delivery was resolved or taken over: kept as evidence; the destination may hold a second copy"
+    },
     "RevisionDrafted": {
       "source": "RFC-009",
       "meaning": "An operator prepared a change to a destination's routing rule; nothing changes until the firm approves it"

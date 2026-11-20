@@ -178,6 +178,7 @@ let private fault (c: Ctx) : EndpointHandler =
             let pair = struct (b.EventId, b.ConnectionId)
             match b.Kind with
             | "worker-stalls-before-send" -> Dispatch.Faults.stallBeforeStart[pair] <- true
+            | "worker-stalls-after-start" -> Dispatch.Faults.stallAfterStart[pair] <- true
             | "worker-crash-after-send" -> Dispatch.Faults.crashAfterSend[pair] <- true
             | "worker-continues" -> do! Dispatch.continueStalled c.Db http.Value opts random (deliveryOf c b.EventId b.ConnectionId)
             | "second-worker-claims" ->

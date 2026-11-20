@@ -415,6 +415,16 @@ let delivery (c: Ctx) (id: string) : EndpointHandler =
         ctx.Response.WriteAsync(o.ToJsonString())
 
 [<CLIMutable>]
+type ResolveBody = { Resolution: string; By: string; Why: string }
+
+let resolveDelivery (c: Ctx) (id: string) : EndpointHandler =
+    fun ctx ->
+        task {
+            let! b = body { Resolution = null; By = null; Why = null } ctx
+            return! ok (Dispatch.resolve c.Db id b.Resolution b.By b.Why) ctx
+        }
+
+[<CLIMutable>]
 type Correction = { Category: string; PracticeArea: string; By: string; Source: string }
 
 let classification (c: Ctx) (id: string) : EndpointHandler = fun ctx -> ok (Corrections.view c.Db id) ctx

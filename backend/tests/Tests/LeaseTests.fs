@@ -102,4 +102,23 @@ let tests =
             Expect.isNone (refused ()) "settled: a resend is allowed"
             Expect.equal (refused () |> Option.map fst) (Some 409) "and the resend itself now waits, so a second is refused"
         }
+
+        test "an operator resolves an unknown outcome once; only an unknown one" {
+            let t, firmId = firmWithEmail ()
+            use _ = t
+            let _, ds = Dispatch.publish t.Db firmId (lead "*New Client Calls") false None None
+            let id = ds[0].Id
+            let attempt f = try f () |> ignore; None with Fail(status, _) -> Some status
+            Expect.equal (attempt (fun () -> Dispatch.resolve t.Db id "closed" "Sam" "x")) (Some 409) "a queued delivery has no unknown outcome"
+            Db.write t.Db (fun s -> Store.setDeliveryState s id "unknown" "sent, no answer" (System.Nullable()))
+            Expect.equal (attempt (fun () -> Dispatch.resolve t.Db id "maybe" "Sam" "x")) (Some 422) "found or closed"
+            Expect.equal (attempt (fun () -> Dispatch.resolve t.Db id "closed" "" "x")) (Some 422) "says who checked"
+            let closed = Dispatch.resolve t.Db id "closed" "Sam" "the firm took it by phone"
+            Expect.equal closed.Status "unknown" "closed stays unsent: its outcome is still unknown"
+            Expect.equal closed.Resolution.Kind "closed" "and resolved"
+            Expect.isNull closed.Diagnosis "nothing left to diagnose"
+            Expect.equal (attempt (fun () -> Dispatch.resolve t.Db id "found" "Sam" "x")) (Some 409) "resolved once"
+            let resent = Dispatch.replay t.Db id Unchecked.defaultof<Resend>
+            Expect.isNull (box resent.Resolution) "a resend of a closed one is a new delivery"
+        }
     ]

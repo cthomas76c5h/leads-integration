@@ -1,0 +1,180 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "stall-after-start",
+  "story": "A worker records its attempts to the firm's CRM and email as started, then stalls before sending either, for longer than its lease. Another worker recovers both: the attempts may have been sent, so both are unknown. The CRM, which cannot tell a repeat, is not sent again; the email, where a second copy is harmless, is. Then the stalled worker wakes and sends what it had started. Its CRM answer arrives on a delivery left unknown, and settles it; its email answer is evidence of a second, harmless copy.",
+  "slice": 3,
+  "model": "lab",
+  "proves": [
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#53-leases-and-what-an-expired-lease-means (a worker that lost its lease cannot change the delivery, even when it still sends)",
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#43-duplicate-handling-per-destination-kind (what follows an unknown outcome, per kind)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "mycase",
+        "role": "usual",
+        "routing": {
+          "categories": [
+            "new-matter"
+          ]
+        }
+      },
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "employment"
+      }
+    },
+    {
+      "at": "+0m",
+      "fault": {
+        "kind": "worker-stalls-after-start",
+        "lead": "lead-1",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+0m",
+      "fault": {
+        "kind": "worker-stalls-after-start",
+        "lead": "lead-1",
+        "destination": "email"
+      }
+    },
+    {
+      "at": "+7m",
+      "fault": {
+        "kind": "worker-continues",
+        "lead": "lead-1",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+7m",
+      "fault": {
+        "kind": "worker-continues",
+        "lead": "lead-1",
+        "destination": "email"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+6m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "unknown",
+        "attempts": 1,
+        "outcomes": [
+          "unknown"
+        ]
+      }
+    },
+    {
+      "at": "+6m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "accepted",
+        "attempts": 2,
+        "outcomes": [
+          "unknown",
+          "answered"
+        ]
+      }
+    },
+    {
+      "at": "+6m",
+      "event": {
+        "name": "LeaseRecovered",
+        "lead": "lead-1",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+6m",
+      "event": {
+        "name": "DeliveryUnknown",
+        "lead": "lead-1",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+6m",
+      "noEvent": {
+        "name": "DeliveryAccepted",
+        "lead": "lead-1",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+10m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "accepted",
+        "attempts": 1,
+        "count": 1
+      }
+    },
+    {
+      "at": "+10m",
+      "event": {
+        "name": "DeliveryAccepted",
+        "lead": "lead-1",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+10m",
+      "event": {
+        "name": "DeliveryAccepted",
+        "lead": "lead-1",
+        "destination": "email",
+        "count": 1
+      }
+    },
+    {
+      "at": "+10m",
+      "event": {
+        "name": "LateAcceptance",
+        "lead": "lead-1",
+        "destination": "email",
+        "count": 1
+      }
+    },
+    {
+      "at": "+10m",
+      "noAttempt": {
+        "destination": "crm",
+        "lead": "lead-1",
+        "after": "+1m"
+      }
+    }
+  ]
+}

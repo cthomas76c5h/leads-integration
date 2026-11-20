@@ -1,0 +1,273 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "unknown-resolved",
+  "story": "Three leads to a CRM are sent and their answers never recorded: each worker loses its lease with the answer still on the wire, so each delivery is unknown and waits for an operator. The operator closes the first (the firm will take it by phone), resends the second (the firm says it is missing) and marks the third found (it is in the CRM). Then each original answer arrives, late. An operator's resolution stands: the late answers are kept as evidence and flagged, never allowed to change what the operator decided.",
+  "slice": 3,
+  "model": "lab",
+  "proves": [
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#42-an-unknown-outcome (an unknown outcome is settled by an operator, and the resolution stands)",
+    "docs/lead-delivery/concurrency.md#5-every-race-and-what-decides-it (a late answer after a resolution is evidence only)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "mycase",
+        "role": "usual",
+        "routing": {
+          "categories": [
+            "new-matter"
+          ]
+        }
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "fault": {
+        "kind": "answer-held",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "employment"
+      }
+    },
+    {
+      "at": "+1m",
+      "fault": {
+        "kind": "lease-expires",
+        "lead": "lead-1",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+2m",
+      "action": {
+        "by": "operator",
+        "do": "resolve",
+        "destination": "crm",
+        "lead": "lead-1",
+        "resolution": "closed",
+        "why": "firm says it is not in the CRM; record by phone instead"
+      }
+    },
+    {
+      "at": "+3m",
+      "fault": {
+        "kind": "answer-released",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+10m",
+      "fault": {
+        "kind": "answer-held",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+10m",
+      "lead": {
+        "id": "lead-2",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "employment"
+      }
+    },
+    {
+      "at": "+11m",
+      "fault": {
+        "kind": "lease-expires",
+        "lead": "lead-2",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+12m",
+      "action": {
+        "by": "operator",
+        "do": "resend",
+        "destination": "crm",
+        "lead": "lead-2",
+        "why": "firm says it is not in the CRM"
+      }
+    },
+    {
+      "at": "+13m",
+      "fault": {
+        "kind": "answer-released",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+20m",
+      "fault": {
+        "kind": "answer-held",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+20m",
+      "lead": {
+        "id": "lead-3",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "employment"
+      }
+    },
+    {
+      "at": "+21m",
+      "fault": {
+        "kind": "lease-expires",
+        "lead": "lead-3",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+22m",
+      "action": {
+        "by": "operator",
+        "do": "resolve",
+        "destination": "crm",
+        "lead": "lead-3",
+        "resolution": "found",
+        "why": "found in the CRM by our reference"
+      }
+    },
+    {
+      "at": "+23m",
+      "fault": {
+        "kind": "answer-released",
+        "destination": "crm"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+1m30s",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "unknown",
+        "attempts": 1,
+        "outcomes": [
+          "unknown"
+        ]
+      }
+    },
+    {
+      "at": "+5m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "unknown",
+        "reason": "closed by",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "noEvent": {
+        "name": "DeliveryAccepted",
+        "lead": "lead-1",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+5m",
+      "event": {
+        "name": "DeliveryResolved",
+        "lead": "lead-1",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "event": {
+        "name": "LateAcceptance",
+        "lead": "lead-1",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+15m",
+      "delivery": {
+        "lead": "lead-2",
+        "destination": "crm",
+        "state": "accepted",
+        "count": 2
+      }
+    },
+    {
+      "at": "+15m",
+      "event": {
+        "name": "DeliveryResolved",
+        "lead": "lead-2",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+15m",
+      "event": {
+        "name": "LateAcceptance",
+        "lead": "lead-2",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+15m",
+      "event": {
+        "name": "DeliveryAccepted",
+        "lead": "lead-2",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+25m",
+      "delivery": {
+        "lead": "lead-3",
+        "destination": "crm",
+        "state": "accepted",
+        "reason": "found at the destination",
+        "count": 1
+      }
+    },
+    {
+      "at": "+25m",
+      "event": {
+        "name": "DeliveryAccepted",
+        "lead": "lead-3",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+25m",
+      "noAttempt": {
+        "destination": "crm",
+        "lead": "lead-3",
+        "after": "+21m"
+      }
+    }
+  ]
+}
