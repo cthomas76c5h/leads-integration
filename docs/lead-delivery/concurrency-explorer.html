@@ -319,7 +319,7 @@ const RACES = [
       { from: 'A', to: 'R', kind: 'net', label: 'POST', fn: 'Dispatch.send', writes: '—', why: 'The answer is held up (test fault: answer-held).' },
       { from: 'B', to: 'D', kind: 'tx', label: 'claim (v2) + recover', fn: 'Store.tryClaim, Dispatch.recover', writes: 'attempt 1 unknown; email resent as attempt 2', events: 'LeaseRecovered, DeliveryUnknown', why: '' },
       { from: 'R', to: 'A', kind: 'net', label: '201 (late)', fn: 'Dispatch.send', writes: '—', why: '' },
-      { from: 'A', to: 'D', kind: 'tx', label: 'complete (v1)', fn: 'Dispatch.complete', checks: 'v1 holds? No', writes: "attempt 1: 'unknown, then a late answer: delivered'", why: 'Kept as evidence on its own attempt and flagged (LateAcceptance): the email went twice, which is harmless. The delivery belongs to v2 and is not touched. Only an unknown outcome nobody has resolved is settled by a late answer.' },
+      { from: 'A', to: 'D', kind: 'tx', label: 'complete (v1)', fn: 'Dispatch.complete', checks: 'v1 holds? No', writes: "attempt 1: 'unknown, then a late answer: delivered'", why: 'Kept as evidence on its own attempt and flagged (LateAcceptance): the email went twice, which is harmless, and the delivery is already settled. Had it still been waiting, sending or unknown, and unresolved, the accepted answer would have settled it.' },
     ],
     outcome: { ok: true, text: 'Nothing is thrown away and nothing is overwritten: every answer lands on the attempt that asked.' } },
 
@@ -335,6 +335,19 @@ const RACES = [
       { from: 'A', to: 'D', kind: 'tx', label: 'complete (v1)', fn: 'Dispatch.complete', checks: 'v1 holds? No. Delivery unknown and unresolved? Yes', writes: "attempt 1: late answer; deliveries: status='delivered'", events: 'DeliveryAccepted', why: 'A stale worker cannot complete the delivery as owner, but its answer is the evidence that settles an outcome left unknown.' },
     ],
     outcome: { ok: true, text: 'One CRM record. Had the destination been email, B would have resent it and A\'s answer would be flagged as a harmless second copy.' } },
+
+  { id: 'takeover', label: 'Answer during a takeover', proof: 'InterleavingTests (found by the search)',
+    story: 'Found by the interleaving search, missed by every scenario. A sends to a CRM and its lease runs out. B claims the delivery as a recovery, and A\'s answer arrives in the moment before B recovers.',
+    lanes: ['A', 'B', 'D', 'R'],
+    steps: [
+      { from: 'A', to: 'D', kind: 'tx', label: 'claim + begin (v1)', fn: 'Store.tryClaim, Dispatch.beginAttempt', writes: "attempt 1 'started'", why: '' },
+      { from: 'A', to: 'R', kind: 'net', label: 'POST (kept)', fn: 'Dispatch.send', writes: '—', why: 'The CRM has the lead.' },
+      { from: 'B', to: 'D', kind: 'tx', label: 'claim (v2, recovered)', fn: 'Store.tryClaim', writes: 'lease v2', why: 'A\'s lease ran out. B has claimed, but not yet recovered.' },
+      { from: 'R', to: 'A', kind: 'net', label: 'answer (late)', fn: 'Dispatch.send', writes: '—', why: 'Accepted, or no answer in time.' },
+      { from: 'A', to: 'D', kind: 'tx', label: 'complete (v1)', fn: 'Dispatch.complete', checks: 'v1 holds? No', writes: "accepted: status='delivered', v2 ended · no answer: attempt 1 closed with no HTTP answer", events: 'DeliveryAccepted (if accepted)', why: 'Before the fix, A closed attempt 1 either way and left the delivery to B.' },
+      { from: 'B', to: 'D', kind: 'bad', label: 'recover → no second send', fn: 'Dispatch.recover, Store.unansweredAttempt', checks: 'v2 still holds? Latest attempt answered by HTTP?', writes: "accepted: nothing (v2 no longer holds) · no answer: status='unknown'", events: 'DeliveryUnknown (if no answer)', why: 'Before the fix, B saw no started attempt, concluded nothing was sent, and sent the CRM the lead a second time.' },
+    ],
+    outcome: { ok: true, text: 'One CRM record. A test that explores every ordering found what no hand-written scenario had.' } },
 
   { id: 'resolved', label: 'Resolved, then the answer arrives', proof: 'unknown-resolved',
     story: 'A CRM delivery is unknown: its answer is still on the wire when the lease ran out. An operator checks the CRM and acts. Then the original answer arrives.',
@@ -401,10 +414,10 @@ const EDGES = [
 const TX = [
   ['Dispatch.intake', 'one write', 'A lead for (firm, conversation)? Routing per destination', 'events, classifications, deliveries', 'ConversationHandled, LeadRecorded, DeliveryPlanned, NotSent, Held'],
   ['Store.claimDue / tryClaim', 'one write (per pass)', 'Claimable: due, or leased and expired', 'lease fields', '—'],
-  ['Dispatch.recover', 'one write', 'An attempt started without an answer', 'attempt unknown; delivery unknown if not harmless', 'LeaseRecovered, AttemptMade, DeliveryUnknown'],
+  ['Dispatch.recover', 'one write', 'Its lease still holds; the latest attempt sent without a definitive answer (started, or no HTTP answer)', 'attempt unknown; delivery unknown if not harmless', 'LeaseRecovered, AttemptMade, DeliveryUnknown'],
   ['Dispatch.beginAttempt', 'one write', 'Lease version; destination exists, active, enabled, not reconnecting; body builds', "attempt 'started', or the delivery held / cancelled / failed", 'Held, DeliveryCancelled'],
   ['Dispatch.send', 'none (network)', 'Address policy', '—', '—'],
-  ['Dispatch.complete', 'one write', 'Lease version', 'the answer; delivery state; connection streak or status; others held on reconnection', 'AttemptMade, DeliveryAccepted / Refused / GaveUp, Held, DeliveryUnknown'],
+  ['Dispatch.complete', 'one write', 'Lease version; if lost, whether an accepted answer settles a delivery not yet settled or resolved', 'the answer; delivery state; connection streak or status; others held on reconnection', 'AttemptMade, DeliveryAccepted / Refused / GaveUp, Held, DeliveryUnknown, LateAcceptance'],
   ['Dispatch.runFallbacks', 'one write', 'No accepted attempt, past the fallback delay (or all held), no fallback delivery yet', 'a fallback delivery', 'FallbackUsed'],
   ['Dispatch.runHandOffs', 'one write', 'acknowledged_at, escalated_at, expired_at still empty', 'escalated_at / expired_at', 'HandOffEscalated, HandOffExpired'],
   ['Dispatch.runVerifications', 'read, up to 20 lookups at once, then one write', 'Accepted, or unknown and unresolved, in the last day, at a lookup destination; each write only if nobody already settled it', 'verified_at / verify_overdue_at; an unknown one found: delivered, resolution found', 'DeliveryVerified, VerificationOverdue, DeliveryAccepted, DeliveryResolved'],

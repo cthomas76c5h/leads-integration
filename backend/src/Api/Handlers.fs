@@ -210,16 +210,7 @@ let patchConnection (c: Ctx) (id: string) : EndpointHandler =
             let! b = body { Enabled = Nullable(); DeliveryUrl = null; Reactivate = Nullable() } ctx
             Db.write c.Db (fun s ->
                 let x = (Store.connectionOrFail s id).Connection
-                let x =
-                    if not b.Enabled.HasValue || b.Enabled.Value = x.Enabled then x
-                    else
-                        // A pause is recorded, so it is told apart from a destination off in its source system:
-                        // only a paused destination holds new leads (Dispatch.isPaused).
-                        let settings = Collections.Generic.Dictionary<string, string>(x.Settings)
-                        if b.Enabled.Value then settings.Remove Dispatch.pausedAtKey |> ignore
-                        else settings[Dispatch.pausedAtKey] <- string (now ())
-                        Store.emit s "DesiredStateChanged" x.FirmId null x.Id
-                        { x with Enabled = b.Enabled.Value; Settings = settings }
+                let x = if b.Enabled.HasValue then Dispatch.setPaused s x b.Enabled.Value else x
                 let x =
                     if String.IsNullOrWhiteSpace b.DeliveryUrl then x
                     else

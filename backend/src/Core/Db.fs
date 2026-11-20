@@ -9,13 +9,19 @@ open System.Data.Common
 open System.Threading
 open Microsoft.Data.Sqlite
 
-type Database(path: string) =
-    let cs =
-        SqliteConnectionStringBuilder(DataSource = path, Mode = SqliteOpenMode.ReadWriteCreate, Cache = SqliteCacheMode.Private, Pooling = true)
-            .ConnectionString
+type Database(path: string, connectionString: string) =
     let writeLock = new SemaphoreSlim(1, 1)
+    new(path: string) =
+        Database(
+            path,
+            SqliteConnectionStringBuilder(DataSource = path, Mode = SqliteOpenMode.ReadWriteCreate, Cache = SqliteCacheMode.Private, Pooling = true)
+                .ConnectionString
+        )
+    /// A private database in memory (tests): it lives while at least one connection to it stays open.
+    static member InMemory(name: string) =
+        Database(name, SqliteConnectionStringBuilder(DataSource = name, Mode = SqliteOpenMode.Memory, Cache = SqliteCacheMode.Shared, Pooling = false).ConnectionString)
     member _.Path = path
-    member _.ConnectionString = cs
+    member _.ConnectionString = connectionString
     member _.WriteLock = writeLock
     /// Failure injection (RFC-008 §10, test control only): every write fails as if the database had
     /// stopped answering, before its transaction begins. Reads still work, so a scenario can look.

@@ -165,6 +165,17 @@ let testConnection (db: Database) (connectionId: string) (lead: Lead) (template:
     ds[0]
 
 /// Send an event to a connection again as a new delivery (same event id, so the receiver can dedupe).
+/// An operator pauses or resumes a destination (RFC-008 §5.4). The pause is recorded (`pausedAt`), so it is told
+/// apart from a destination off in its source system; on resume, what it held falls due now.
+let setPaused (s: Session) (c: Connection) (enabled: bool) : Connection =
+    if c.Enabled = enabled then c
+    else
+        let settings = Dictionary<string, string>(c.Settings)
+        if enabled then settings.Remove pausedAtKey |> ignore
+        else settings[pausedAtKey] <- string (now ())
+        Store.emit s "DesiredStateChanged" c.FirmId null c.Id
+        { c with Enabled = enabled; Settings = settings }
+
 /// An operator settles an unknown outcome after checking the destination (RFC-008 §4.2): `found` (the
 /// lead is there: accepted, on the operator's word) or `closed` (left unsent, with the reason). A resend
 /// is the third way (Dispatch.replay). The resolution stands against any answer that arrives later.
@@ -534,7 +545,9 @@ module Faults =
     let stalledSends = ConcurrentDictionary<string, unit -> Task<unit>>()
     let heldAnswers = ConcurrentDictionary<string, ResizeArray<unit -> unit>>()
 
-type private Begun =
+/// What starting an attempt did. The worker's steps below (claim is `Store.claimDue`; then `recover`,
+/// `beginAttempt`, the request, `complete`) are public so the interleaving test can run them in any order.
+type Begun =
     | Started of Store.ConnectionRow * LeadEvent * Payloads.Built * int
     | Stopped
 
@@ -543,7 +556,7 @@ type private Begun =
 /// committed before this denies it; one committed after cannot recall it. SQLite's single writer
 /// serialises this with every change to the destination; a database with concurrent writers would
 /// lock the destination's row here.
-let private beginAttempt (db: Database) (origin: string) (deliveryId: string) (version: int64) : Begun =
+let beginAttempt (db: Database) (origin: string) (deliveryId: string) (version: int64) : Begun =
     write db (fun s ->
         if not (Store.holdsLease s deliveryId version) then Stopped
         else
@@ -574,7 +587,8 @@ let private beginAttempt (db: Database) (origin: string) (deliveryId: string) (v
                     Store.startAttempt s d.Id n (now ()) c.Connection.DeliveryUrl built.Body
                     Started(c, e, built, n))
 
-type private Answer =
+/// What a receiver answered, as the worker saw it.
+type Answer =
     { Status: int option
       Error: string
       RetryAfter: string
@@ -628,7 +642,7 @@ let private send (http: HttpClient) (opts: Options) (c: Store.ConnectionRow) (e:
 /// Record the answer (RFC-008 §5.3). While this lease version still holds the delivery, the answer
 /// decides it. A worker that lost its lease keeps the answer as evidence on its own attempt, and never
 /// changes the delivery a newer lease owns; an accepted late answer settles a delivery left unknown.
-let private complete (db: Database) (opts: Options) (random: unit -> float) (deliveryId: string) (version: int64) (connectionId: string) (n: int) (started: int64) (a: Answer) =
+let complete (db: Database) (opts: Options) (random: unit -> float) (deliveryId: string) (version: int64) (connectionId: string) (n: int) (started: int64) (a: Answer) =
     write db (fun s ->
         let d = (Store.deliveryOrFail s deliveryId).Delivery
         let current = (Store.connectionOrFail s connectionId).Connection
@@ -665,9 +679,12 @@ let private complete (db: Database) (opts: Options) (random: unit -> float) (del
         else
             Store.finishAttempt s d.Id (record $"unknown, then a late answer: {t.Outcome}" (Nullable()))
             if outcome = Policy.Delivered then
-                // Settles an unknown outcome nobody has resolved. After an operator's resolution (or while another
-                // worker holds the delivery) it is evidence only: the destination may now hold a second copy.
-                if d.Status = "unknown" && isNull (box d.Resolution) then
+                // Accepted is definitive: the destination has the lead. It settles a delivery that is not yet settled
+                // (waiting, being sent, or unknown) and that no operator has resolved. Settling it also ends any newer
+                // lease, so a worker that took the delivery over stops at its next step and never sends a second copy
+                // (found by InterleavingTests: the takeover's recovery saw no unanswered attempt and sent again).
+                // A settled or resolved delivery keeps what it says; the answer is flagged as a possible second copy.
+                if (d.Status = "unknown" || d.Status = "delivering" || d.Status = "pending") && isNull (box d.Resolution) then
                     Store.setDeliveryState s d.Id "delivered" null (Nullable())
                     emitFor s "DeliveryAccepted" d
                 else emitFor s "LateAcceptance" d)
@@ -702,15 +719,22 @@ let private startAndSend (db: Database) (http: HttpClient) (opts: Options) (rand
 /// A lease ran out and another worker took it (RFC-008 §5.3). With no attempt started, nothing can
 /// have been sent: carry on. With one started and unanswered, it is unknown; send again only where a
 /// second copy is harmless, otherwise wait for an operator. Returns whether to go on and send.
-let private recover (db: Database) (claim: Store.Claim) : bool =
+let recover (db: Database) (claim: Store.Claim) : bool =
     write db (fun s ->
         let d = (Store.deliveryOrFail s claim.DeliveryId).Delivery
+        // Settled since the claim (a late answer accepted it): nothing to recover, and nothing to send.
+        if not (Store.holdsLease s d.Id claim.Version) then false
+        else
         emitFor s "LeaseRecovered" d
-        match Store.openAttempt s d.Id with
+        // The latest attempt may have reached the destination with no definitive answer: still started, or
+        // ended in no answer (a late "no answer" from the worker that lost the lease closes it, and must not
+        // read as "nothing sent": InterleavingTests found the CRM sent the lead twice that way).
+        match Store.unansweredAttempt s d.Id with
         | None -> true
-        | Some n ->
-            Store.markAttemptUnknown s d.Id n
-            emitFor s "AttemptMade" d
+        | Some(n, stillStarted) ->
+            if stillStarted then
+                Store.markAttemptUnknown s d.Id n
+                emitFor s "AttemptMade" d
             emitFor s "DeliveryUnknown" d
             let c = (Store.connectionOrFail s d.ConnectionId).Connection
             let duplicates = duplicatesOf c

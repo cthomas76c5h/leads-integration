@@ -12,6 +12,9 @@ let mutable private fixedNow: int64 voption = ValueNone
 /// Fix the clock at `t` (Unix ms). Only test control calls this.
 let setClock (t: int64) = fixedNow <- ValueSome t
 
+/// Back to the real clock (tests that set it).
+let resetClock () = fixedNow <- ValueNone
+
 let now () =
     match fixedNow with
     | ValueSome t -> t

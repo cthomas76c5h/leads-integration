@@ -67,14 +67,18 @@ pending (due) ──claim──▶ delivering ──beginAttempt──▶ attemp
 | Step | Function | In a transaction? | Checks | Writes | Events |
 |---|---|---|---|---|---|
 | Claim | `Store.claimDue` → `Store.tryClaim` | Yes | The delivery is still claimable: due and pending, or delivering with its lease run out. One conditional `UPDATE … WHERE claimable`; it changes one row or none | Lease fields | — |
-| Recover | `Dispatch.recover` (only when the claim took over an expired lease) | Yes | Whether an attempt was started and never answered (`Store.openAttempt`) | That attempt marked unknown; the delivery `unknown` if a second copy is not safe | `LeaseRecovered`, `AttemptMade`, `DeliveryUnknown` |
+| Recover | `Dispatch.recover` (only when the claim took over an expired lease) | Yes | The new lease still holds (a late answer may have settled the delivery since the claim); whether the latest attempt may have reached the destination without a definitive answer: still `started`, or ended with no HTTP answer (`Store.unansweredAttempt`) | That attempt marked unknown; the delivery `unknown` if a second copy is not safe | `LeaseRecovered`, `AttemptMade`, `DeliveryUnknown` |
 | Begin | `Dispatch.beginAttempt` | Yes | The lease version still holds; the destination still exists, is active, enabled and not waiting for reconnection; the body builds | The attempt as `started`; or the delivery held, cancelled or failed instead | `Held` or `DeliveryCancelled` when it stops |
 | Send | `Dispatch.send` | **No** | Address policy (no private addresses unless allowed) | — | — |
 | Complete | `Dispatch.complete` | Yes | The lease version still holds | The answer on the attempt; the delivery's new state; the destination's streak or status | `AttemptMade`, then `DeliveryAccepted`, `DeliveryRefused`, `DeliveryGaveUp`, `Held` or `DeliveryUnknown` |
 
 If the lease no longer holds at Complete, the answer is kept as evidence on the
 worker's own attempt ("unknown, then a late answer") and the delivery is not
-touched, except that an accepted late answer settles a delivery left `unknown`.
+touched, with one exception: an **accepted** answer is definitive (the destination
+has the lead), so it settles a delivery that is not yet settled (waiting, being
+sent under a newer lease, or unknown) and that no operator has resolved. Settling it
+ends the newer lease, so the worker that took over stops at its next step instead of
+sending a second copy.
 
 ### 4.2 After an unknown outcome
 
@@ -101,7 +105,7 @@ An operator **resolves** an unknown outcome after checking the destination
 their word), **closed** (left unsent, with the reason) or **resent** (a new delivery
 replaces it). The resolution is recorded on the delivery (`resolution`) and
 **stands**. In `Dispatch.complete`, a late accepted answer settles a delivery only
-while it is `unknown` and unresolved; otherwise it is kept on its attempt as evidence
+while it is unsettled and unresolved; otherwise it is kept on its attempt as evidence
 and flagged with `LateAcceptance`, because the destination may now hold a second copy
 ([answers.md](answers.md)).
 
@@ -120,7 +124,8 @@ routine records is sent first. It reads four times the batch size and sorts it.
 | An operator pauses a destination before the attempt starts | Both are write transactions; the pause committed first, so `beginAttempt` sees it | Held, never sent; sent when resumed (`Store.releaseHeld`) | `pause-during-send` |
 | An operator pauses while the request is on the wire | The attempt started before the pause committed | That attempt cannot be recalled; its answer is recorded normally. Later leads are held | `pause-during-send` |
 | A worker dies after sending | The lease runs out; `Dispatch.recover` finds the started attempt | Unknown; resent only if harmless | `crash-after-send` |
-| An answer arrives after the lease was taken over | `Dispatch.complete` checks the version | Kept as evidence on its own attempt; settles an `unknown` delivery nobody resolved; otherwise `LateAcceptance` | `LeaseTests`, `pause-during-send`, `stall-after-start` |
+| An answer arrives after the lease was taken over | `Dispatch.complete` checks the version | Kept as evidence on its own attempt; an accepted one settles a delivery not yet settled and not resolved; otherwise `LateAcceptance` | `LeaseTests`, `pause-during-send`, `stall-after-start` |
+| The answer arrives after another worker took over the lease but **before it recovers** | Accepted: the answer settles the delivery and ends the newer lease, and `Dispatch.recover` stops when its lease no longer holds. No answer: `Store.unansweredAttempt` still counts the attempt as possibly sent | No second copy to a CRM. *Found by the interleaving search*: before the fix, the takeover saw no started attempt and sent the lead again | `InterleavingTests` (search and two pinned traces) |
 | A worker records its attempt, stalls past its lease, then sends anyway | The recovering worker sees the started attempt; the stalled worker's version no longer holds | A CRM is not sent again by the recovering worker; the stalled send's answer settles the unknown delivery. Email is sent again (harmless), and the stalled answer is flagged as a second copy | `stall-after-start` |
 | An operator resolves an unknown outcome, then its late answer arrives | `Dispatch.complete` checks `resolution` | The resolution stands: closed stays closed, a resend is not undone; the answer is evidence, flagged `LateAcceptance` | `unknown-resolved`, `LeaseTests` |
 | A request times out | `Dispatch.outcomeOf` | Retried where harmless; otherwise unknown | `crm-timeout`, `relay-timeouts` |
@@ -160,4 +165,71 @@ conditionally; and a resend is refused while the lead still waits or is being se
 ## 8. Where it is tested
 
 - **Scenarios** (`python tools/run_scenarios.py`): `double-claim`, `pause-during-send`, `crash-after-send`, `crm-timeout`, `relay-timeouts`, `duplicate-intake`, `database-down-at-intake`, `routing-change-during-outage`, `all-routes-down`, `unknown-resolved`, `stall-after-start`, `emergency-under-pressure`. Faults are injected through `POST /api/test/faults` (`Dispatch.Faults`, `Db.WritesFail`).
-- **F# tests**: `LeaseTests` (exclusive claim, deadline order, the policy after unknown), `IntakeTests`, `HandOffTests`, `RoutingTests`.
+- **F# tests**: `LeaseTests` (exclusive claim, deadline order, the policy after unknown), `IntakeTests`, `HandOffTests`, `RoutingTests`, `ContractTests` (each delivery contract against the code), and `InterleavingTests` (section 9).
+
+## 9. The model, checked exhaustively
+
+The scenarios test the races someone thought of. `InterleavingTests` tests every
+ordering of the actors' steps, up to a bound, against the real `Store` and `Dispatch`
+code on a real SQLite database, and checks the invariants after every step.
+
+### 9.1 The model
+
+One lead, planned to one destination, as in the lab after intake. A state is
+
+    S = (deliveries, destination, workerA, workerB, receiver, clock)
+
+where `deliveries` are the rows (status, lease version and expiry, resolution,
+attempts), `destination` is enabled or paused, each worker holds what it would hold
+in memory between its steps, and `receiver` is every request the destination got and
+whether it kept the lead. The actions, each one real transaction or one event outside:
+
+| Action | Actor | Runs |
+|---|---|---|
+| `Claim(w)` | worker | `Store.claimDue` |
+| `Recover(w)` | worker, after claiming an expired lease | `Dispatch.recover` |
+| `Begin(w)` | worker | `Dispatch.beginAttempt` |
+| `Send(w, kept)` | network | the request arrives; the receiver keeps the lead or loses it |
+| `Answer(w, accepted \| timeout \| 503)` | network, then worker | `Dispatch.complete` (201 only if kept, 503 only if not) |
+| `Crash(w)`, `CrashAfterSend(w)` | worker | forgets what it held |
+| `TimePasses` | clock | 6 minutes: leases run out, retries fall due |
+| `Pause`, `Resume` | operator | `Dispatch.setPaused`, `Store.releaseHeld` |
+| `Resend`, `Close` | operator | `Dispatch.replay`, `Dispatch.resolve` |
+
+Concurrency is every interleaving of these. Time passes at most twice and the operator
+acts at most twice per run, so the search ends.
+
+### 9.2 The invariants (safety: something bad never happens)
+
+1. **One valid lease.** No two workers hold the current lease version of one delivery.
+2. **Stale workers write nothing.** A worker whose lease version no longer holds changes no delivery when it begins or completes, except that an accepted answer settles a delivery not yet settled and not resolved (§4.1).
+3. **A pause stops new attempts.** Once a pause commits, no attempt starts on that destination until it resumes.
+4. **No second copy where a second copy is not safe.** For a destination whose contract says `afterUnknown` is not `resend`, our automatic sends never leave two copies at the receiver. An operator's resend is a deliberate decision and is not counted.
+5. **Accepted means the destination has it.** A delivery is `delivered` only if the receiver kept the lead, or an operator found it there.
+
+Liveness (a healthy waiting delivery is eventually sent) needs fairness assumptions
+and is not checked; the scenarios cover it for the cases that matter.
+
+### 9.3 How it is checked
+
+A depth-first search over the actions. Each state is a private in-memory SQLite
+database, cloned from its parent with SQLite's backup API, so every branch starts
+from exactly the state it names. States that are the same (same rows by position,
+same worker stages, same receiver record, same budget left) are explored once, unless
+reached again with more steps left. The run also records which races it reached, and
+fails if it never reached one it must (a stale begin, a stale answer, a begin on a
+paused destination, a late answer settling a delivery, recovery leaving an unknown
+outcome, an operator closing one): a check that never meets a race proves nothing.
+
+| Depth | States (CRM, email) | Time (both) | When |
+|---|---|---|---|
+| 8 | 1,357, 1,407 | 16 s | Every test run (default) |
+| 10 | 3,086, 3,453 | 44 s | `INTERLEAVING_DEPTH=10` |
+| 11 | 4,645, 4,942 | 68 s | `INTERLEAVING_DEPTH=11` |
+
+Run it alone: `dotnet run --project tests/Tests --artifacts-path ../.testbuild -- --filter-test-list interleavings`.
+
+### 9.4 What it showed
+
+- **Three planted bugs were each caught at depth 8**, with the shortest trace that shows them: `complete` ignoring the lease version (invariant 2, 6 steps), `beginAttempt` ignoring a pause (invariant 3), and recovery resending to a CRM after an unknown outcome (invariant 4, 8 steps). Email passes the last one, as its contract allows a second copy.
+- **One real bug, at depth 9 and 10**, missed by every scenario: a worker's answer that arrived after another worker took over the lease, but before it recovered, closed the attempt, so the recovery saw no unanswered attempt and sent the CRM the lead again. Fixed in `Dispatch.complete` (an accepted answer settles the delivery and ends the newer lease), `Dispatch.recover` (stops if its lease no longer holds) and `Store.unansweredAttempt` (an attempt with no HTTP answer counts as possibly sent). Both traces are kept as plain tests.

@@ -805,9 +805,17 @@ let finishAttempt (s: Session) (deliveryId: string) (a: Attempt) =
           a.ResponseSnippet; (if a.NextAttemptInMs.HasValue then box a.NextAttemptInMs.Value else null) ]
     |> ignore
 
-/// The attempt that started and has no answer recorded, if any.
-let openAttempt (s: Session) (deliveryId: string) : int option =
-    s.TryOne "SELECT n FROM attempts WHERE delivery_id=$1 AND outcome='started' ORDER BY n DESC LIMIT 1" [ deliveryId ] (fun r -> Read.int r 0)
+/// The latest attempt, if it may have reached the destination without a definitive answer: still
+/// `started` (its worker was lost), or ended with no HTTP answer (a timeout, or a late "no answer" from a
+/// worker that had lost its lease). The flag says whether it is still `started`. An attempt the
+/// destination answered (any HTTP status) is definitive and is not returned.
+let unansweredAttempt (s: Session) (deliveryId: string) : (int * bool) option =
+    s.TryOne "SELECT n, outcome, status FROM attempts WHERE delivery_id=$1 ORDER BY n DESC LIMIT 1" [ deliveryId ] (fun r ->
+        Read.int r 0, Read.str r 1, r.IsDBNull 2)
+    |> Option.bind (fun (n, outcome, noStatus) ->
+        if outcome = "started" then Some(n, true)
+        elif noStatus && not (isNull outcome) && outcome.StartsWith "unknown" then Some(n, false)
+        else None)
 
 /// The attempt was sent and its answer will never be recorded: unknown (RFC-008 §4.2).
 let markAttemptUnknown (s: Session) (deliveryId: string) (n: int) =
