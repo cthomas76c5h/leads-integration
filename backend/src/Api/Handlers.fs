@@ -130,10 +130,21 @@ let sendLead (c: Ctx) (firmId: string) : EndpointHandler =
                     // The reference lead as written; the firm's own name for the call type may replace its call type.
                     let r = (Categories.referenceLead b.ReferenceLead).Lead
                     if String.IsNullOrWhiteSpace b.CallType then r else { r with CallType = b.CallType }
-            let r = Dispatch.intake c.Db firmId b.ConversationId lead
-            let answer = {| event = r.Event; deliveries = r.Deliveries; mapping = Categories.classify lead.CallType; duplicate = r.Duplicate |}
-            // A repeat is answered as recorded, not as an error: the channel must stop sending it (api-2: 208).
-            return! (if r.Duplicate then ok answer else created answer) ctx
+            // Intake never reports a lead it did not commit (RFC-008 §4.1): when the write fails, the channel
+            // is told "not recorded" and keeps its copy to send again. Recording is all or nothing.
+            let recorded =
+                try Ok(Dispatch.intake c.Db firmId b.ConversationId lead)
+                with
+                | Db.Unavailable reason -> Error reason
+                | :? Data.Common.DbException as e -> Error e.Message
+            match recorded with
+            | Error reason ->
+                ctx.Response.Headers.RetryAfter <- "30"
+                return! writeJson 503 (box {| error = $"not recorded: {reason}. Keep the event and send it again"; recorded = false |}) ctx
+            | Ok r ->
+                let answer = {| event = r.Event; deliveries = r.Deliveries; mapping = Categories.classify lead.CallType; duplicate = r.Duplicate |}
+                // A repeat is answered as recorded, not as an error: the channel must stop sending it (api-2: 208).
+                return! (if r.Duplicate then ok answer else created answer) ctx
         }
 
 // ----- Call categories -----

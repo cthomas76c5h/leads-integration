@@ -17,6 +17,9 @@ type Database(path: string) =
     member _.Path = path
     member _.ConnectionString = cs
     member _.WriteLock = writeLock
+    /// Failure injection (RFC-008 §10, test control only): every write fails as if the database had
+    /// stopped answering, before its transaction begins. Reads still work, so a scenario can look.
+    member val WritesFail = false with get, set
 
 let private open' (db: Database) =
     let conn = new SqliteConnection(db.ConnectionString)
@@ -71,8 +74,12 @@ let read (db: Database) (f: Session -> 'T) : 'T =
     use conn = open' db
     f (Session(conn, null))
 
+/// The database could not take a write: nothing in that transaction was committed.
+exception Unavailable of string
+
 /// A write in one transaction, serialised with every other write.
 let write (db: Database) (f: Session -> 'T) : 'T =
+    if db.WritesFail then raise (Unavailable "the database is not answering")
     db.WriteLock.Wait()
     try
         use conn = open' db

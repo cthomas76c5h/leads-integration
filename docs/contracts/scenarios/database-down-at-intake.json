@@ -3,11 +3,10 @@
   "name": "database-down-at-intake",
   "story": "Our database stops answering just before a call completes. Intake tells the channel the lead was not recorded, so the channel keeps its copy; nothing is claimed and nothing is sent. When the database is back, the channel sends the event again, and the lead is recorded once and reaches the firm within its window.",
   "slice": 1,
-  "model": "proposed",
+  "model": "lab",
   "proves": [
     "docs/rfc/008_delivery_guarantees_and_evidence.md#41-the-boundaries (intake never reports a capture it did not commit)"
   ],
-  "today": "Untested in the lab: intake is the API's publish endpoint writing to SQLite, and a failed write returns an error to the caller, but no channel is asked to keep and resend its copy, and no scenario stops the database.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [

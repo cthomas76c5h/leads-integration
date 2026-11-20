@@ -49,7 +49,7 @@ let private stepMs = 60_000L
 let private http = lazy (Dispatch.newHttpClient ())
 
 /// One worker pass at the current time: fallbacks, then every due delivery.
-let private pass (c: Ctx) =
+let private passOnce (c: Ctx) =
     task {
         let opts = Config.dispatchOptions c.Cfg
         Dispatch.runFallbacks c.Db (now ()) |> ignore
@@ -63,6 +63,15 @@ let private pass (c: Ctx) =
             sent <- sent + n
             more <- n > 0 && sent < 10_000
         return sent
+    }
+
+/// While the database is down (fault injection), a worker pass fails and does nothing, as the worker's would.
+let private pass (c: Ctx) =
+    task {
+        try
+            return! passOnce c
+        with Db.Unavailable _ ->
+            return 0
     }
 
 let private setClock: EndpointHandler =
@@ -178,6 +187,8 @@ let private fault (c: Ctx) : EndpointHandler =
             | "answer-held" -> Dispatch.Faults.holdNextAnswer[b.ConnectionId] <- true
             | "answer-released" -> Dispatch.releaseAnswers b.ConnectionId
             | "intake-event-repeated" -> ()
+            | "database-unavailable" -> c.Db.WritesFail <- true
+            | "database-available" -> c.Db.WritesFail <- false
             | other -> fail 422 $"fault {other} is not one the lab can inject"
             match b.Kind with
             | "intake-event-repeated" ->

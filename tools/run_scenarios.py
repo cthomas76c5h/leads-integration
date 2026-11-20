@@ -120,6 +120,7 @@ class LabAdapter:
         self.dests = {}         # scenario destination id -> lab connection id
         self.dest_kind = {}
         self.leads = {}         # scenario lead id -> lab event id
+        self.sent = {}  # scenario lead id -> (firm id, intake body, conversation): what the channel keeps
         self.told = {}  # what intake answered the channel when it repeated a lead's event
         self.pending_mapping = {}
         self.refs = None
@@ -211,10 +212,26 @@ class LabAdapter:
             body = {"referenceLead": ref["id"]}
         if lead.get("conversation"):
             body["conversationId"] = lead["conversation"]
-        res = self.api.ok("POST", f"/api/firms/{self.firms[lead['firm']]}/leads", body)
-        self.leads[lead["id"]] = res["event"]["id"]
+        self.sent[lead["id"]] = (self.firms[lead["firm"]], body, lead.get("conversation"))
+        self._intake(lead["id"])
+
+    def _intake(self, lead_id):
+        """The channel sends a lead's event; intake records it, or says it did not, and the channel keeps it."""
+        firm_id, body, _ = self.sent[lead_id]
+        status, res = self.api.call("POST", f"/api/firms/{firm_id}/leads", body)
+        if status == 503:
+            self.told[lead_id] = "not-recorded"
+            return
+        if status >= 300:
+            raise RuntimeError(f"intake -> {status}: {res}")
+        self.told[lead_id] = "recorded"
+        self.leads[lead_id] = res["event"]["id"]
 
     def _fault(self, f):
+        if f["kind"] == "intake-event-repeated" and f["lead"] not in self.leads:
+            # Intake said it was not recorded: the channel kept its copy and sends it again.
+            self._intake(f["lead"])
+            return
         body = {"kind": f["kind"]}
         if "lead" in f:
             body["eventId"] = self.leads[f["lead"]]
@@ -237,6 +254,8 @@ class LabAdapter:
             raise RuntimeError(f"receiver -> {status}: {payload}")
 
     def _newest(self, lead, dest):
+        if lead not in self.leads:
+            return []  # never recorded: it has no deliveries
         ds = [d for d in self._lead_detail(lead)["deliveries"] if d["connectionId"] == self.dests[dest]]
         return ds  # newest first
 
@@ -409,7 +428,7 @@ class LabAdapter:
                     if (after is None or a["at"] > after) and a["at"] < before]
             return not hits, f"{len(hits)} attempts in the interval"
         if kind == "noDelivery":
-            ds = self._newest(x["lead"], x["destination"])
+            ds = self._newest(x["lead"], x["destination"]) if x["lead"] in self.leads else []
             return (not ds), f"{len(ds)} deliveries exist"
         if kind == "destination":
             c = self._connection(x["id"])
@@ -446,7 +465,18 @@ class LabAdapter:
             return (not problems), "; ".join(problems)
         if kind == "capture":
             if x["lead"] not in self.leads:
-                return x["is"] == "not-recorded", "never recorded"
+                problems = [] if x["is"] == "not-recorded" else ["not recorded"]
+                if "channelTold" in x and self.told.get(x["lead"]) != x["channelTold"]:
+                    problems.append(f"the channel was told {self.told.get(x['lead'])}, expected {x['channelTold']}")
+                firm_id, _, conv = self.sent.get(x["lead"], (None, None, None))
+                if "count" in x:
+                    if not conv:
+                        raise Unsupported("capture count: the lead has no conversation id")
+                    items = self.api.ok("GET", f"/api/leads?firmId={firm_id}&limit=500")["items"]
+                    n = sum(1 for i in items if i.get("conversationId") == conv)
+                    if n != x["count"]:
+                        problems.append(f"{n} leads for conversation {conv}, expected {x['count']}")
+                return (not problems), "; ".join(problems)
             detail = self._lead_detail(x["lead"])
             problems = []
             if x["is"] != "recorded":
