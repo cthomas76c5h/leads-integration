@@ -340,7 +340,7 @@ class LabAdapter:
         kind = next(k for k in e if k != "at")
         x = e[kind]
         if kind == "delivery":
-            unsupported = [k for k in ("revision", "evidence", "verifyOverdue") if k in x]
+            unsupported = [k for k in ("revision",) if k in x]
             if unsupported:
                 raise Unsupported(f"delivery {', '.join(unsupported)}")
             ds = self._newest(x["lead"], x["destination"])
@@ -358,6 +358,10 @@ class LabAdapter:
                 cls = cls if cls in FAILURE_CLASSES else None
                 if cls != x["failureClass"]:
                     problems.append(f"failure class {cls}, expected {x['failureClass']}")
+            if "evidence" in x and d.get("evidence") != x["evidence"]:
+                problems.append(f"evidence {d.get('evidence')}, expected {x['evidence']}")
+            if "verifyOverdue" in x and bool(d.get("verifyOverdue")) != x["verifyOverdue"]:
+                problems.append(f"verify overdue {d.get('verifyOverdue')}, expected {x['verifyOverdue']}")
             if "outcomes" in x:
                 got = [self._attempt_outcome(a) for a in d.get("attempts") or []]
                 if got != x["outcomes"]:

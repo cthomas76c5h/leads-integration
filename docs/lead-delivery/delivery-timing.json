@@ -1,5 +1,5 @@
 {
-  "about": "How long a lead stays in time, when its hand-off goes to the firm's fallback, and how long a delivery keeps retrying. Set by Answering AI, not by firms; the decisions behind each value are in answers.md (Speed: window to act, fallback, holding). Embedded into the backend (Timing.fs); a deployment may point DELIVERY_TIMING_FILE at its own copy. Durations: a number and s, m, h or d.",
+  "about": "How long a lead stays in time, when its hand-off goes to the firm's fallback, how long a delivery keeps retrying, and how long an accepted CRM record may stay unfound by a lookup before it is flagged. Set by Answering AI, not by firms; the decisions behind each value are in answers.md (Speed: window to act, fallback, holding). Embedded into the backend (Timing.fs); a deployment may point DELIVERY_TIMING_FILE at its own copy. Durations: a number and s, m, h or d.",
   "version": 2,
   "windowToAct": {
     "default": "72h",
@@ -11,5 +11,6 @@
     "emergency": "15m",
     "jail-custody": "15m"
   },
+  "verifyWithin": "2h",
   "retrySchedule": ["5s", "1m", "5m", "30m", "2h", "6h", "12h", "24h", "24h"]
 }

@@ -144,7 +144,15 @@ type Delivery =
       Resend: Resend
       CreatedAt: int64
       Attempts: Attempt[]
-      Diagnosis: Diagnosis }
+      Diagnosis: Diagnosis
+      /// The strongest evidence (RFC-008 §3.1): verified | accepted | submitted | none.
+      Evidence: string
+      /// Found at the destination by a lookup by our lead reference.
+      VerifiedAt: Nullable<int64>
+      /// Accepted, but a lookup has not found the record within the time to verify.
+      VerifyOverdue: bool
+      /// The destination can be looked up (its duplicate handling is `lookup`).
+      Verifiable: bool }
 
 type ReceivedRequest =
     { At: int64

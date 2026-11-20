@@ -40,8 +40,16 @@ export function journey(d: Delivery): JourneyStep[] {
     { label: 'Lead published', state: 'done' },
     { label: d.attempts.length > 1 ? `Sent (${d.attempts.length} tries)` : 'Sent', state: sent ? 'done' : 'now' },
     { label: 'Accepted by receiver', state: accepted ? 'done' : stopped ? 'bad' : sent ? 'now' : 'todo' },
-    { label: 'In the CRM', state: 'unknown', note: 'not visible to us' },
+    inTheCrm(d, accepted),
   ];
+}
+
+/** The last step: what a lookup by our lead reference found, where the destination allows one. */
+function inTheCrm(d: Delivery, accepted: boolean): JourneyStep {
+  if (d.verifiedAt !== null) return { label: 'In the CRM', state: 'done', note: 'found by our lead reference' };
+  if (!d.verifiable) return { label: 'In the CRM', state: 'unknown', note: 'not visible to us' };
+  if (d.verifyOverdue) return { label: 'In the CRM', state: 'bad', note: 'accepted, but not found: ask the firm' };
+  return { label: 'In the CRM', state: accepted ? 'now' : 'todo', note: accepted ? 'looking it up' : undefined };
 }
 
 /** When the lead reached someone at the firm, against its window to act, in plain words. */

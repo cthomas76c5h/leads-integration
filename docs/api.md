@@ -179,6 +179,10 @@ interface Delivery {
   nextAttemptAt: number | null;
   replayOf: string | null;
   resend: { by: string | null; role: 'operator' | 'senior-operator'; why: string | null } | null;  // who resent it, as what, and why
+  evidence: 'verified' | 'accepted' | 'submitted' | 'none';   // the strongest so far (RFC-008 §3.1)
+  verifiedAt: number | null;   // found at the destination by a lookup by our lead reference
+  verifyOverdue: boolean;      // accepted, but not found within the time to verify (delivery-timing.json verifyWithin)
+  verifiable: boolean;         // the destination can be looked up: its settings say duplicates: 'lookup'
   createdAt: number;
   attempts: Attempt[];
   /** What is wrong and why, worked out by the server (docs/lead-delivery). Null when nothing is. */
@@ -499,7 +503,8 @@ non-alphanumerics turned into `_` and trimmed ("Date of accident?" →
 | GET | `/ack/{leadId}?t={token}` | | HTML: a page with one button, "I have this lead". Records nothing (mail scanners open links). 404 page for a link we did not send. The link is in every production email and SMS (`ackUrl`, and at the end of `text`) |
 | POST | `/ack/{leadId}?t={token}` | | HTML. Records the acknowledgement (the first one counts) and emits `HandOffAcknowledged` |
 | POST | `/receiver/{ok\|reject\|flaky\|gone\|slow\|down}` | anything | lab receivers (`down`: always 503) |
-| POST | `/receiver/crm/{kind}?mode=ok\|reject\|flaky\|gone\|slow\|down&require=Phone,Email` | the kind's payload | validates the payload like the real CRM would, plus any `require`d fields (how the lab plays a webhook that needs a field); 201 or 422 |
+| POST | `/receiver/crm/{kind}?mode=ok\|reject\|flaky\|gone\|slow\|down\|lost-record&require=Phone,Email` | the kind's payload | validates the payload like the real CRM would, plus any `require`d fields (how the lab plays a webhook that needs a field); 201 or 422. An accepted request is kept under our lead reference (its `webhook-id` header), except in `lost-record` mode |
+| GET | `/receiver/crm/{kind}/lookup?ref={leadId}&dest=` | | The fake CRM's lookup by our lead reference: 200 when it kept that record, 404 when not |
 
 Errors the UI should show as-is: 404 `no such …`, 409 state conflicts
 (`not ready: Draft`), 422 validation.

@@ -193,6 +193,10 @@ export interface Delivery {
   nextAttemptAt: number | null;
   replayOf: string | null;
   resend: Resend | null;   // who resent it, as what, and why
+  evidence: 'verified' | 'accepted' | 'submitted' | 'none';   // the strongest so far (RFC-008 §3.1)
+  verifiedAt: number | null;   // found at the destination by a lookup by our lead reference
+  verifyOverdue: boolean;      // accepted, but not found within the time to verify
+  verifiable: boolean;         // the destination can be looked up
   createdAt: number;
   attempts: Attempt[];
   /** What is wrong and why, worked out by the server. Null when nothing is. */

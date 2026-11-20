@@ -54,6 +54,7 @@ let private pass (c: Ctx) =
         let opts = Config.dispatchOptions c.Cfg
         Dispatch.runFallbacks c.Db (now ()) |> ignore
         Dispatch.runHandOffs c.Db (now ()) |> ignore
+        let! _ = Dispatch.runVerifications c.Db http.Value opts (now ())
         let mutable sent = 0
         let mutable more = true
         while more do

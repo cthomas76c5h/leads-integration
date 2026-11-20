@@ -194,6 +194,14 @@ CREATE TABLE IF NOT EXISTS attempts (
   PRIMARY KEY (delivery_id, n)
 );
 
+-- The fake CRMs' own records (Receivers.fs): what a lookup by our lead reference finds.
+CREATE TABLE IF NOT EXISTS receiver_records (
+  kind TEXT NOT NULL,
+  dest TEXT NOT NULL,          -- the scenario's destination key; '' outside scenarios
+  ref TEXT NOT NULL,           -- our lead reference (the webhook-id header)
+  at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS received (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   at INTEGER NOT NULL,
@@ -343,6 +351,10 @@ let openDatabase (path: string) : Database =
           "deliveries", "lease_until", "INTEGER NULL"
           "deliveries", "lease_version", "INTEGER NOT NULL DEFAULT 0"
           "deliveries", "resend", "TEXT NULL" // who resent it, as what, and why (JSON)
+          // Verification by lookup (RFC-008 §3.1): found, flagged as not found in time, last looked.
+          "deliveries", "verified_at", "INTEGER NULL"
+          "deliveries", "verify_overdue_at", "INTEGER NULL"
+          "deliveries", "verify_checked_at", "INTEGER NULL"
           // The hand-off (RFC-008 §3.2): fixed at intake from the category, then what happened to it.
           "events", "ack_token", "TEXT NULL" // the lead's acknowledgement link; never in the operator API
           "events", "ack_required", "INTEGER NOT NULL DEFAULT 0"

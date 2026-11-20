@@ -15,7 +15,9 @@ open System.Text.RegularExpressions
 type Settings =
     { WindowToAct: Map<string, int64>
       FallbackAfter: Map<string, int64>
-      RetrySchedule: int64[] }
+      RetrySchedule: int64[]
+      /// How long after acceptance a destination that can be looked up must show the record.
+      VerifyWithin: int64 }
 
 let private duration (text: string) : int64 =
     let m = Regex.Match(text.Trim(), @"^(\d+)(s|m|h|d)$")
@@ -41,7 +43,11 @@ let parse (json: string) : Settings =
     if retries.Length = 0 then failwith "delivery timing: retrySchedule is empty"
     { WindowToAct = byCategory root "windowToAct"
       FallbackAfter = byCategory root "fallbackAfter"
-      RetrySchedule = retries }
+      RetrySchedule = retries
+      VerifyWithin =
+        match root.TryGetProperty "verifyWithin" with
+        | true, v -> duration (v.GetString())
+        | _ -> 2L * 3_600_000L }
 
 let private embedded () =
     use s = Assembly.GetExecutingAssembly().GetManifestResourceStream "delivery-timing.json"
@@ -67,3 +73,6 @@ let windowToActMs (category: string) = lookup current.Value.WindowToAct category
 
 /// How long a lead of this category may wait with nothing accepted before the fallback takes the hand-off.
 let fallbackAfterMs (category: string) = lookup current.Value.FallbackAfter category
+
+/// How long an accepted record may stay unfound by a lookup before it is flagged (RFC-008 §3.1).
+let verifyWithinMs () = current.Value.VerifyWithin

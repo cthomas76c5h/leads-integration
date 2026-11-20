@@ -130,7 +130,7 @@ let tests =
                   Expect.equal (hit.Headers.RetryAfter.ToString()) "30" "with its Retry-After"
                   let other = post client "/receiver/crm/email?dest=someone-else" """{"subject":"s","to":"a@example.com","body":"b"}"""
                   Expect.notEqual (int other.StatusCode) 503 "another destination is untouched"
-                  let bad = client.PutAsync($"/api/test/receivers/{key}", new StringContent("""{"mode":"lost-record"}""", Encoding.UTF8, "application/json")).Result
+                  let bad = client.PutAsync($"/api/test/receivers/{key}", new StringContent("""{"mode":"silent-drop"}""", Encoding.UTF8, "application/json")).Result
                   Expect.equal (int bad.StatusCode) 422 "a mode the lab does not implement is refused, not ignored"
               finally
                   Api.Receivers.overrides.TryRemove key |> ignore

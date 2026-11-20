@@ -66,4 +66,22 @@ let tests =
                 |> Set.ofArray
             Expect.equal Catalog.harmlessDuplicates declared "Catalog.harmlessDuplicates and the contracts agree"
         }
+
+        test "a CRM that can be looked up is asked by our lead reference, at its own lookup" {
+            Expect.equal
+                (Dispatch.lookupUrl "http://localhost:5080/receiver/crm/clio-grow?dest=crm" "evt_1")
+                "http://localhost:5080/receiver/crm/clio-grow/lookup?dest=crm&ref=evt_1"
+                "beside the delivery address, keeping its query"
+            Expect.equal (Dispatch.lookupUrl "http://localhost:5080/receiver/crm/mycase" "evt 2") "http://localhost:5080/receiver/crm/mycase/lookup?ref=evt%202" "escaped"
+            let t, _ = firmWithEmail ()
+            use _ = t
+            Db.write t.Db (fun s -> Store.keepRecord s "clio-grow" "crm" "evt_1" 0L)
+            Expect.isTrue (Db.read t.Db (fun s -> Store.hasRecord s "clio-grow" "crm" "evt_1")) "the fake CRM finds what it kept"
+            Expect.isFalse (Db.read t.Db (fun s -> Store.hasRecord s "clio-grow" "crm" "evt_2")) "and nothing else"
+            Expect.isFalse (Db.read t.Db (fun s -> Store.hasRecord s "clio-grow" "other" "evt_1")) "per destination"
+        }
+
+        test "the time to verify is set with the other delivery timings" {
+            Expect.equal (Timing.verifyWithinMs ()) (2L * 3_600_000L) "2 hours, to confirm with data"
+        }
     ]

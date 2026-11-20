@@ -11,7 +11,7 @@ open Oxpecker
 open LeadIntegrations
 open LeadIntegrations.Domain
 
-let modes = set [ "ok"; "reject"; "flaky"; "gone"; "slow"; "down"; "expired-auth" ]
+let modes = set [ "ok"; "reject"; "flaky"; "gone"; "slow"; "down"; "expired-auth"; "lost-record" ]
 
 /// How one destination's receiver answers in a scenario run, set through test
 /// control (docs/api.md) for requests carrying `?dest={key}`. Empty outside test runs.
@@ -97,12 +97,24 @@ let handle (db: Db.Database) (kind: string) (mode: string) : EndpointHandler =
                     | _ -> byMode mode problems key
                 if mode = "slow" && (over |> Option.forall (fun o -> o.Status.IsNone)) then do! Task.Delay(TimeSpan.FromSeconds 15.0)
                 record db ctx kind mode status verdict body
+                // A CRM keeps what it accepted, findable by our lead reference; lost-record accepts and keeps nothing.
+                let reference = ctx.Request.Headers["webhook-id"].ToString()
+                if not (isNull kind) && status >= 200 && status < 300 && mode <> "lost-record" && reference <> "" then
+                    Db.write db (fun s -> Store.keepRecord s kind dest reference (now ()))
                 retryAfter |> Option.iter (fun ra -> ctx.Response.Headers.RetryAfter <- ra)
                 do! answer status verdict ctx
         }
 
+/// A CRM's lookup by our lead reference: 200 when it has the record, 404 when not (RFC-008 §4.3).
+let lookup (db: Db.Database) (kind: string) : EndpointHandler =
+    fun ctx ->
+        let reference = Http.query ctx "ref"
+        let found = not (isNull reference) && Db.read db (fun s -> Store.hasRecord s kind (Http.query ctx "dest") reference)
+        if found then answer 200 "found" ctx else answer 404 "no record with that reference" ctx
+
 let endpoints (db: Db.Database) : Endpoint list =
-    [ POST
+    [ GET [ routef "/receiver/crm/{%s}/lookup" (lookup db) ]
+      POST
           [ routef "/receiver/crm/{%s}" (fun kind ctx ->
                 let mode = Http.query ctx "mode"
                 handle db kind (if isNull mode then "ok" else mode) ctx)

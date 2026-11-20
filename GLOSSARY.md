@@ -161,7 +161,7 @@ The destination answered that it took the lead. The strongest claim a receiver's
 _Avoid_: delivered to CRM, success
 
 **Verified in CRM**:
-Someone (the firm, or an API that allows it) confirmed the record exists in the CRM.
+Someone (the firm, or an API that allows it) confirmed the record exists in the CRM. *Lab for a lookup by our lead reference, against the fake CRMs; no real CRM's lookup is confirmed yet.* Accepted but not found within the time to verify (2 hours): **not found in CRM**, for an operator to ask the firm.
 
 **Acknowledged**:
 A person at the firm, or a workflow the firm authorised, confirmed receipt of a lead: a reply to the text, a click on the signed link, the lead opened in the firm portal. *Lab for the link in an email or SMS: opening it shows a button, and only pressing it counts, since mail scanners open links on their own.*

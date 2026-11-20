@@ -25,6 +25,9 @@ export function StatusBadge({ d, resolved = false }: { d: Delivery; resolved?: b
   // Not sent, or refused, for something the lead lacks: nothing at the destination can fix it.
   if ((d.status === 'failed' || d.status === 'skipped') && d.diagnosis?.class === 'lead') return <span className="badge muted">Lead problem</span>;
   // Waiting for its destination to resume or be reconnected: not retrying.
+  // Accepted, yet a lookup has not found it in time: the record may be lost at the destination.
+  if (d.status === 'delivered' && d.verifyOverdue) return <span className="badge bad" title="Accepted, but a lookup has not found the record">Not found in CRM</span>;
+  if (d.status === 'delivered' && d.verifiedAt !== null) return <span className="badge ok" title="Found by our lead reference">Verified</span>;
   if (d.stage === 'held') return <span className="badge warn" title={d.reason?.includes('reconnection') ? 'Held until the firm reconnects' : 'Held until the destination resumes'}>Held</span>;
   const s = STATUS[d.status];
   return <span className={`badge ${s.tone}`}>{s.label}</span>;

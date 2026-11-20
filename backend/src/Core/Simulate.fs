@@ -527,7 +527,11 @@ let run (db: Db.Database) (opts: Options) : Summary =
                       Resend = (if isNull replayOf then Unchecked.defaultof<Resend> else { By = "Lab operator"; Role = "operator"; Why = "the destination was fixed" })
                       CreatedAt = t
                       Attempts = [||]
-                      Diagnosis = null }
+                      Diagnosis = null
+                      Evidence = null
+                      VerifiedAt = Nullable()
+                      VerifyOverdue = false
+                      Verifiable = false }
                   Attempts = ResizeArray()
                   Template = template }
             sims.Add sim

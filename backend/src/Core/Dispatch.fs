@@ -62,7 +62,11 @@ let private newDelivery (event: LeadEvent) (c: Connection) status reason (decisi
       Resend = Unchecked.defaultof<Resend>
       CreatedAt = nowMs
       Attempts = [||]
-      Diagnosis = null }
+      Diagnosis = null
+      Evidence = null
+      VerifiedAt = Nullable()
+      VerifyOverdue = false
+      Verifiable = false }
 
 let private emitFor (s: Session) (name: string) (d: Delivery) = Store.emit s name d.FirmId d.EventId d.ConnectionId
 
@@ -579,6 +583,82 @@ let runDue (db: Database) (http: HttpClient) (opts: Options) (random: unit -> fl
         let claims = write db (fun s -> Store.claimDue s workerId (now ()) leaseMs limit)
         let! _ = Task.WhenAll(claims |> Array.map (runClaim db http opts random))
         return claims.Length
+    }
+
+/// Where a destination is looked up by our lead reference. The lab's fake CRMs answer at
+/// `{delivery path}/lookup?ref=`; a real CRM's lookup is its own API, built per kind once its
+/// sandbox confirms one (RFC-008 §4.3).
+let lookupUrl (deliveryUrl: string) (reference: string) =
+    let u = UriBuilder(Uri deliveryUrl)
+    u.Path <- u.Path.TrimEnd('/') + "/lookup"
+    let q = u.Query.TrimStart('?')
+    u.Query <- (if q = "" then "" else q + "&") + "ref=" + Uri.EscapeDataString reference
+    u.Uri.AbsoluteUri
+
+/// How often an accepted record not yet found is looked up again.
+let lookupEveryMs = 60_000L
+
+/// Verification by lookup (RFC-008 §3.1): each accepted delivery to a destination that can be looked
+/// up is checked until its record is found (verified, DeliveryVerified). Not found within the time to
+/// verify, it is flagged once (VerificationOverdue), and still looked up for a day, in case it appears.
+/// A lookup that fails says nothing either way. Returns how many deliveries changed.
+let runVerifications (db: Database) (http: HttpClient) (opts: Options) (nowMs: int64) : Task<int> =
+    task {
+        let due =
+            read db (fun s ->
+                s.Query
+                    """SELECT d.id, d.event_id, d.connection_id, d.verify_overdue_at, c.delivery_url, c.firm_id,
+                              (SELECT MIN(a.at) FROM attempts a WHERE a.delivery_id = d.id AND a.outcome = 'delivered')
+                       FROM deliveries d JOIN connections c ON c.id = d.connection_id
+                       WHERE d.status = 'delivered' AND d.test = 0 AND d.verified_at IS NULL
+                         AND c.settings LIKE '%"duplicates":"lookup"%'
+                         AND (d.verify_checked_at IS NULL OR d.verify_checked_at <= $1)"""
+                    [ nowMs - lookupEveryMs ]
+                    (fun r -> Read.str r 0, Read.str r 1, Read.str r 2, Read.int64N r 3, Read.str r 4, Read.str r 5, Read.int64N r 6))
+        let mutable changed = 0
+        for id, eventId, connectionId, overdueAt, url, firmId, acceptedAt in due do
+            let acceptedAt = if acceptedAt.HasValue then acceptedAt.Value else nowMs
+            if nowMs - acceptedAt <= 86_400_000L then
+                let! found =
+                    task {
+                        let target = lookupUrl url eventId
+                        match Address.checkShape opts.Address target with
+                        | Error _ -> return None
+                        | Ok uri ->
+                            match! Address.checkResolves opts.Address uri with
+                            | Error _ -> return None
+                            | Ok uri ->
+                                try
+                                    use cts = new CancellationTokenSource(opts.TimeoutMs)
+                                    use req = new HttpRequestMessage(HttpMethod.Get, uri)
+                                    req.Headers.TryAddWithoutValidation("user-agent", opts.UserAgent) |> ignore
+                                    use! res = http.SendAsync(req, cts.Token)
+                                    return
+                                        match int res.StatusCode with
+                                        | 200 -> Some true
+                                        | 404 -> Some false
+                                        | _ -> None
+                                with
+                                | :? OperationCanceledException
+                                | :? HttpRequestException -> return None
+                    }
+                let n =
+                    write db (fun s ->
+                        let at = now ()
+                        match found with
+                        | Some true ->
+                            s.Execute "UPDATE deliveries SET verified_at=$2, verify_checked_at=$2 WHERE id=$1" [ id; at ] |> ignore
+                            Store.emit s "DeliveryVerified" firmId eventId connectionId
+                            1
+                        | _ ->
+                            s.Execute "UPDATE deliveries SET verify_checked_at=$2 WHERE id=$1" [ id; at ] |> ignore
+                            if not overdueAt.HasValue && at - acceptedAt > Timing.verifyWithinMs () then
+                                s.Execute "UPDATE deliveries SET verify_overdue_at=$2 WHERE id=$1" [ id; at ] |> ignore
+                                Store.emit s "VerificationOverdue" firmId eventId connectionId
+                                1
+                            else 0)
+                changed <- changed + n
+        return changed
     }
 
 /// Test control: a stalled worker wakes and tries to start with the lease version it still holds.

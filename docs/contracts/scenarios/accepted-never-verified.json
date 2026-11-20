@@ -3,12 +3,11 @@
   "name": "accepted-never-verified",
   "story": "The firm's CRM supports looking a record up by our lead reference. The first lead is accepted and then found: verified. Later the CRM starts accepting requests without the record ever appearing. The second lead stays accepted, never verified, and is flagged once the set time to verify has passed (assumed here to be two hours).",
   "slice": 3,
-  "model": "proposed",
+  "model": "lab",
   "proves": [
     "docs/rfc/008_delivery_guarantees_and_evidence.md#31-five-levels (accepted and verified are distinct levels)",
     "docs/rfc/008_delivery_guarantees_and_evidence.md#43-duplicate-handling-per-destination-kind (lookup gives verified)"
   ],
-  "today": "The lab stops at accepted: no destination is looked up, and the journey ends 'In the CRM: not visible to us'. No CRM's lookup is confirmed yet; this scenario assumes one.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [

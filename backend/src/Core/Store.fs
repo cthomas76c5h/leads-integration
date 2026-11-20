@@ -282,7 +282,8 @@ let attemptsOf (s: Session) (deliveryId: string) =
         readAttempt
 
 let private deliveryCols =
-    "d.id, d.event_id, d.connection_id, c.name, c.kind, f.id, f.name, d.test, d.status, d.reason, d.next_attempt_at, d.replay_of, d.created_at, d.template, d.has_template, d.decision, d.resend"
+    """d.id, d.event_id, d.connection_id, c.name, c.kind, f.id, f.name, d.test, d.status, d.reason, d.next_attempt_at, d.replay_of, d.created_at, d.template, d.has_template, d.decision, d.resend,
+     d.verified_at, d.verify_overdue_at, c.settings LIKE '%"duplicates":"lookup"%'"""
 
 let private deliveryFrom =
     "FROM deliveries d JOIN connections c ON c.id = d.connection_id JOIN firms f ON f.id = c.firm_id"
@@ -314,7 +315,11 @@ let private readDelivery (s: Session) (r: DbDataReader) : DeliveryRow =
             | json -> Json.deserialize json
           CreatedAt = Read.int64 r 12
           Attempts = [||]
-          Diagnosis = null }
+          Diagnosis = null
+          Evidence = null
+          VerifiedAt = Read.int64N r 17
+          VerifyOverdue = not (r.IsDBNull 18) && r.IsDBNull 17
+          Verifiable = Read.bool r 19 }
       Template = if Read.bool r 14 then Some(Read.str r 13) else None }
 
 let private withAttempts (s: Session) (d: DeliveryRow) =
@@ -324,6 +329,11 @@ let private withAttempts (s: Session) (d: DeliveryRow) =
             { d.Delivery with
                 Attempts = attempts
                 Stage = stageOf d.Delivery.Status d.Delivery.NextAttemptAt attempts
+                Evidence =
+                    if d.Delivery.VerifiedAt.HasValue then "verified"
+                    elif d.Delivery.Status = "delivered" then "accepted"
+                    elif attempts.Length > 0 then "submitted"
+                    else "none"
                 Diagnosis =
                     Diagnose.diagnose
                         d.Delivery.Kind
@@ -817,6 +827,15 @@ let releaseHeld (s: Session) (connectionId: string) (nowMs: int64) : int =
 
 
 // ----- Received (fake receivers) -----
+
+/// A fake CRM keeps a record it accepted, under our lead reference (Receivers.fs).
+let keepRecord (s: Session) (kind: string) (dest: string) (reference: string) (at: int64) =
+    s.Execute "INSERT INTO receiver_records (kind, dest, ref, at) VALUES ($1,$2,$3,$4)" [ kind; (if isNull dest then "" else dest); reference; at ] |> ignore
+
+/// Whether a fake CRM has a record with our lead reference: its lookup.
+let hasRecord (s: Session) (kind: string) (dest: string) (reference: string) =
+    s.TryOne "SELECT 1 FROM receiver_records WHERE kind=$1 AND dest=$2 AND ref=$3" [ kind; (if isNull dest then "" else dest); reference ] (fun _ -> true)
+    |> Option.isSome
 
 let insertReceived (s: Session) (r: ReceivedRequest) =
     s.Execute
