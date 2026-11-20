@@ -8,6 +8,7 @@ what we still assume.
 | For | Read |
 |---|---|
 | What we decided, why, and what would change it | [answers.md](answers.md), the only place decisions are stated |
+| Who buys, what problem they pay to solve, and why us: the commercial case, as hypotheses to confirm | [commercial-case.md](../business/commercial-case.md) |
 | What building the lab taught us about the product | [lessons.md](lessons.md) |
 | The model the roadmap builds | [README.md](README.md), and for the whole product [RFC-007](../rfc/007_domain_model_and_build_order.md) |
 | Each slice of the build, its tasks and effort | [RFC-007 §8](../rfc/007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices) |
