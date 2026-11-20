@@ -1,7 +1,8 @@
 # The next 12 months
 
 What the business should do this year, and what we ask leadership to decide. It builds
-on [what firms need](what-firms-need.md) and the [commercial case](commercial-case.md).
+on [what firms need](what-firms-need.md) and the [commercial case](commercial-case.md);
+how the lab's way of working serves it is in [what the lab taught us](what-the-lab-taught-us.md).
 
 ## In three sentences
 
