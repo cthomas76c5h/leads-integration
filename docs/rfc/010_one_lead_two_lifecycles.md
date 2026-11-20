@@ -3,7 +3,7 @@
 **Answering AI — Product and Technical Proposal**
 
 **Date:** November 20, 2026
-**Status:** Proposed — Awaiting stakeholder approval
+**Status:** Proposed — ready for architectural review (reviewer, November 20, 2026); not yet for production approval
 **Decision owner:** Product / Engineering
 **Reviewers:** Operations, Onboarding, Engineering, the voice platform team
 **Related:** RFC-001 (the window to act, the fallback) · RFC-002 (classification at intake) · RFC-005 (one standard lead) · RFC-007 (§5 the Intake and Delivery contexts) · RFC-008 (§3 evidence levels, §3.2 escalation) · RFC-009 (routing by category)
@@ -28,7 +28,7 @@ There is a second gap. "**Acknowledged**" means *the firm received the lead* her
 thing the caller is waiting for, has an owner in none of the three channels.
 
 **We propose** that the lead becomes the contract between Intake and Delivery
-(`intake-lead/draft-1`), and that the product runs **two lifecycles on one lead ID**:
+(`intake-lead/draft-2`), and that the product runs **two lifecycles on one lead ID**:
 delivery, which exists today, and **follow-up**, which is new. Each has its own
 events and its own escalation, and neither waits for the other.
 
@@ -71,13 +71,14 @@ The full field list is in [lead-contract.md](../../../intake-policy-lab/docs/lea
 lead, intake sends:
 
 - the policy revision the call ran on;
-- the category, practice area and their source, set at intake;
-- whether the firm **takes** the matter;
-- every applicable question: answered (with its source), declined or not asked;
+- the category, practice area and their source, set at intake: a **default** the call type suggests, which a structured fact or an approved rule may **override**;
+- whether the firm **takes** the matter, and whether the inquiry is a **prospect** (§3.3);
+- every applicable question: answered, declined or not asked, with the **provenance** of each value: observed, caller-reported, policy-derived or model-inferred;
+- the caller's **language** and any **person asked for by name**, as fields, never inside a label;
 - the outcome the policy **required** and the one that **happened**;
 - whether a transfer target was **available** by the firm's own schedule;
 - **urgency signals with their source** (for example, *in-custody, the caller's answer*);
-- whether a **follow-up is owed**, with the firm's rules or "none agreed";
+- whether a **follow-up is owed**, when it became owed, and the firm's rules or "none agreed", including **when its clock starts** (§3.4);
 - evidence references.
 
 Intake **never names destinations** and **never sets delivery's clocks**. Routing
@@ -112,7 +113,26 @@ They answer different questions and never stand in for each other. At the injury
 firm in the comparison, the callback is due within 60 minutes, before delivery's
 1-hour fallback has started.
 
-### 3.3 Invariants
+### 3.3 Inquiry is not lead
+
+Every conversation is an **inquiry**, kept as evidence and delivered to the firm. Only a
+**prospect** becomes a prospect record in a CRM: a new matter the firm takes. A matter
+the firm declines, an existing client, a court, an insurer or a vendor may need a
+response, but none of them is a sales lead. The lead says which, and why
+(`qualification`). This answers the declined-matter question without deleting evidence
+or polluting a CRM.
+
+### 3.4 When the follow-up clock starts
+
+Each firm's approved policy names the moment, and the lead carries both the moment and
+the resulting deadlines:
+
+- **obligation:** when the follow-up became owed. A transfer nobody answered, a failed booking, a caller who left, or a "message, always followed up" outcome. This can be before the call ends.
+- **call-ended:** the call's durable end, by either side. A dropped call still creates the obligation.
+
+No clock starts from when someone happened to open the follow-up.
+
+### 3.5 Invariants
 
 1. **A follow-up never waits for delivery.** It is owed from the moment the conversation ends with one owed, even if every destination is down.
 2. **Delivery never needs the follow-up.** A lead is delivered, held, fallen back and escalated exactly as today.
@@ -139,6 +159,7 @@ assignment (RFC-009 §3); changing any delivery window.
 - No routing decision reads a call-type name (RFC-009's routing decisions record the category).
 - Every lead from a firm without follow-up rules is flagged "nobody responsible" in the weekly report.
 - The six realistic firms' compatibility report shows 41 of 41 call types agreeing (39 today), and every urgency signal arriving with its source.
+- A real-call pilot (the intake lab's `docs/pilot.md`) shows the checker catches the material errors (prohibited actions, follow-ups with nobody responsible) that reviewers find, with few false alarms. Every disagreement is examined.
 
 ## 6. Key Risks and Mitigations
 
@@ -151,13 +172,29 @@ assignment (RFC-009 §3); changing any delivery window.
 
 ## 7. Decisions and Approval Request
 
+The reviewer approved the direction (one lead, two independent lifecycles), subject to
+explicit answers on urgency, declined inquiries, provenance, category mapping and the
+follow-up clock. Decisions 5 to 9 are those answers.
+
 | # | Decision | Recommendation |
 |---|---|---|
-| 1 | The lead contract as the direction for RFC-005's standard lead | Approve |
+| 1 | The lead contract (`intake-lead/draft-2`) as the direction for RFC-005's standard lead | Approve |
 | 2 | The follow-up lifecycle, its events and its escalation, in the Intake context | Approve |
 | 3 | *Acknowledged* keeps its meaning (received); intake's step is *responsibility accepted* | Approve |
 | 4 | Routing never reads the call-type name once the contract's category arrives | Approve, with RFC-009 |
-| 5 | Declined matters (`taken: false`) skip CRMs by default and still reach the firm's notifications | Approve, to confirm with Onboarding |
+| 5 | **Urgency is a signal, not a category:** emergency and custody travel in `urgency[]` with their provenance, beside the call's real category | Approve; taxonomy change in slice 4 |
+| 6 | **Inquiry is not lead:** every conversation is kept and reaches the firm; only a prospect (§3.3) creates a CRM prospect record | Approve, to confirm with Onboarding |
+| 7 | **Provenance on every value:** observed, caller-reported, policy-derived or model-inferred. A model-inferred value never counts as a fact on its own | Approve |
+| 8 | **The call type suggests a default category;** structured facts and approved rules may override it, and the lead says which | Approve |
+| 9 | **The follow-up clock starts where the firm's approved policy says** (§3.4), and the lead carries the moment and the deadlines | Approve |
+| 10 | Language and a named person are contract fields, never free text in a label | Approve |
+
+### Framing
+
+This is the operational machinery behind the answering service, not a new product.
+Its first use is internal: a service that is measurably more consistent, with fewer
+complaints, credits and rework. Packaging it for firms comes later, if at all, once
+those effects show.
 
 ## Final Recommendation
 

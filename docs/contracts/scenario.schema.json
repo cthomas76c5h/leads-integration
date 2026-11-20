@@ -356,6 +356,7 @@
               "additionalProperties": false,
               "properties": {
                 "owed": { "type": "boolean" },
+                "clockStartsAt": { "enum": ["obligation", "call-ended"], "description": "When the firm's deadlines start (RFC-010 §3.4)" },
                 "ownerRole": { "type": "string" },
                 "acceptWithinMinutes": { "type": "integer", "minimum": 1 },
                 "callBackWithinMinutes": { "type": "integer", "minimum": 1 },

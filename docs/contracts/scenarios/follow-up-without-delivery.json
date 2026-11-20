@@ -6,7 +6,7 @@
   "model": "proposed",
   "today": "The lab has no follow-up lifecycle: it records and delivers the lead, but owes the caller nothing, so FollowUpOwed and FollowUpEscalated never happen. The three prohibited effects already hold.",
   "proves": [
-    "docs/rfc/010_one_lead_two_lifecycles.md#33-invariants (1: a follow-up never waits for delivery; 3: each lifecycle escalates under its own name)",
+    "docs/rfc/010_one_lead_two_lifecycles.md#35-invariants (1: a follow-up never waits for delivery; 3: each lifecycle escalates under its own name)",
     "docs/rfc/010_one_lead_two_lifecycles.md#32-two-lifecycles-one-lead-id (FollowUpOwed, FollowUpEscalated)"
   ],
   "given": {
@@ -60,6 +60,7 @@
         "practiceArea": "personal-injury",
         "followUp": {
           "owed": true,
+          "clockStartsAt": "call-ended",
           "ownerRole": "intake manager",
           "acceptWithinMinutes": 15,
           "callBackWithinMinutes": 60,
