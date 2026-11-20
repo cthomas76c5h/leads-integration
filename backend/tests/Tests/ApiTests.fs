@@ -46,7 +46,8 @@ let private drain (db: Db.Database) (client: HttpClient) =
         { TimeScale = 1_000_000.0
           TimeoutMs = 5000
           Address = { AllowLocal = true }
-          UserAgent = "test" }
+          UserAgent = "test"
+          Origin = "http://localhost" }
     let mutable sent = 1
     while sent > 0 do
         sent <- (Dispatch.runDue db client opts (fun () -> 0.5) 50).Result

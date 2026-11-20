@@ -64,6 +64,25 @@ export function handOffText(h: HandOff | null, createdAt: number, counts?: { tot
   return { text: `${duration(Math.max(0, h.dueAt - now))} left of its ${window} window`, tone: 'warn' };
 }
 
+/**
+ * Whether a person at the firm confirmed an emergency or custody lead (RFC-008 §3.2): null for
+ * leads that need acceptance only. Not confirmed within the fallback delay: an operator calls the firm.
+ */
+export function confirmationText(h: HandOff | null, createdAt: number): { text: string; tone: Tone } | null {
+  if (!h || !h.needsAcknowledgement) return null;
+  if (h.acknowledgedAt !== null) {
+    const after = duration(h.acknowledgedAt - createdAt);
+    return h.escalated
+      ? { text: `Confirmed by the firm ${after} after the call, after it was escalated`, tone: 'warn' }
+      : { text: `Confirmed by the firm ${after} after the call`, tone: 'ok' };
+  }
+  if (h.escalated) return { text: 'Not confirmed: escalated. Call the firm to make sure someone has it', tone: 'bad' };
+  return { text: 'Waiting for the firm to confirm through the link in the email or SMS', tone: 'warn' };
+}
+
+/** The firm has not confirmed an urgent lead: an operator should call. */
+export const callTheFirm = (h: HandOff | null): boolean => !!h && h.escalated && h.acknowledgedAt === null;
+
 /** What kind of problem it is, in the words operators act on (docs/lead-delivery/operations.md#diagnose-a-delivery). */
 export const CLASS: Record<FailureClass, { label: string; tone: Tone }> = {
   transient: { label: 'Temporary', tone: 'warn' },

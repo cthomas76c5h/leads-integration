@@ -188,8 +188,49 @@ let setConnectionTemplate (s: Session) (id: string) (template: string) =
 
 // ----- Events -----
 
+/// A lead is classified at intake: whether its hand-off needs acknowledgement, and when its window
+/// to act closes, are fixed then. A test lead owes no hand-off, and has no acknowledgement link.
 let insertEvent (s: Session) (e: LeadEvent) =
-    s.Execute "INSERT INTO events (id, firm_id, test, lead, created_at) VALUES ($1,$2,$3,$4,$5)" [ e.Id; e.FirmId; e.Test; Json.serialize e.Lead; e.CreatedAt ]
+    let category = (Categories.classify e.Lead.CallType).Category
+    s.Execute
+        """INSERT INTO events (id, firm_id, test, lead, created_at, ack_token, ack_required, handoff_due_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)"""
+        [ e.Id; e.FirmId; e.Test; Json.serialize e.Lead; e.CreatedAt
+          (if e.Test then null else Secrets.newToken ())
+          (not e.Test && Urgency.needsAcknowledgement category)
+          (if e.Test then null else box (e.CreatedAt + Urgency.windowMs category)) ]
+    |> ignore
+
+/// The lead's acknowledgement link token, for the message to the firm only. Null for a test lead.
+let ackToken (s: Session) (eventId: string) : string =
+    s.TryOne "SELECT ack_token FROM events WHERE id=$1" [ eventId ] (fun r -> Read.str r 0) |> Option.toObj
+
+/// A person at the firm confirmed receipt through the lead's link (RFC-008 §3.1). None: not a link we
+/// sent. Some false: already acknowledged (the first one counts).
+let acknowledge (s: Session) (eventId: string) (token: string) (via: string) (nowMs: int64) : bool option =
+    let same (a: string) (b: string) =
+        not (isNull a || isNull b)
+        && Security.Cryptography.CryptographicOperations.FixedTimeEquals(Text.Encoding.UTF8.GetBytes a, Text.Encoding.UTF8.GetBytes b)
+    match s.TryOne "SELECT ack_token, acknowledged_at, firm_id FROM events WHERE id=$1 AND test=0" [ eventId ] (fun r -> Read.str r 0, Read.int64N r 1, Read.str r 2) with
+    | Some(stored, at, firmId) when same stored token ->
+        if at.HasValue then Some false
+        else
+            s.Execute "UPDATE events SET acknowledged_at=$2, acknowledged_via=$3 WHERE id=$1" [ eventId; nowMs; via ] |> ignore
+            emit s "HandOffAcknowledged" firmId eventId null
+            Some true
+    | _ -> None
+
+/// The simulator's record of what happened to a hand-off (Simulate.fs), written with its history.
+/// Also fixes the intake facts, for leads written before they existed.
+let setHandOff (s: Session) (e: LeadEvent) (acknowledgedAt: Nullable<int64>) (escalatedAt: Nullable<int64>) (expiredAt: Nullable<int64>) =
+    let n (v: Nullable<int64>) = if v.HasValue then box v.Value else null
+    let category = (Categories.classify e.Lead.CallType).Category
+    s.Execute
+        """UPDATE events SET ack_token=COALESCE(ack_token, $5), ack_required=$6, handoff_due_at=$7,
+                  acknowledged_at=$2, acknowledged_via=CASE WHEN $2 IS NULL THEN NULL ELSE 'link' END, escalated_at=$3, expired_at=$4
+           WHERE id=$1"""
+        [ e.Id; n acknowledgedAt; n escalatedAt; n expiredAt; Secrets.newToken (); Urgency.needsAcknowledgement category
+          e.CreatedAt + Urgency.windowMs category ]
     |> ignore
 
 let tryEvent (s: Session) (id: string) =
@@ -427,7 +468,15 @@ type HandOff =
       /// Taken by the firm's fallback destination.
       ViaFallback: bool
       /// on-time | expired | waiting
-      State: string }
+      State: string
+      /// The strongest evidence (RFC-008 §3.1): acknowledged | accepted | submitted | none.
+      Evidence: string
+      /// Emergencies and custody: a person at the firm must confirm receipt (RFC-008 §3.2).
+      NeedsAcknowledgement: bool
+      AcknowledgedAt: Nullable<int64>
+      /// No acknowledgement within the fallback delay: an operator calls the firm.
+      EscalatedAt: Nullable<int64>
+      Escalated: bool }
 
 type LeadSummary =
     { Id: string
@@ -497,7 +546,9 @@ let private leadSql =
                 ORDER BY a.at, CASE WHEN c2.kind IN ('email', 'sms', 'slack') THEN 0 ELSE 1 END LIMIT 1),
               -- Not sent because the rule excludes it; a lead problem still owes the firm a hand-off.
               COALESCE(SUM(d.status = 'skipped' AND COALESCE(d.reason, '') NOT LIKE 'lead problem:%'), 0),
-              COALESCE(SUM(d.status = 'pending' AND d.next_attempt_at IS NULL), 0)
+              COALESCE(SUM(d.status = 'pending' AND d.next_attempt_at IS NULL), 0),
+              e.ack_required, e.acknowledged_at, e.escalated_at,
+              EXISTS (SELECT 1 FROM attempts a JOIN deliveries x ON x.id = a.delivery_id WHERE x.event_id = e.id)
        FROM events e
        JOIN firms f ON f.id = e.firm_id
        LEFT JOIN deliveries d ON d.event_id = e.id
@@ -531,7 +582,12 @@ let private readLead (r: DbDataReader) : LeadSummary * Lead =
               At = at
               By = (if viaFallback then by.Substring(0, by.Length - "|fallback".Length) else by)
               ViaFallback = viaFallback
-              State = Urgency.handOffState createdAt window (if at.HasValue then Some at.Value else None) (now ()) }
+              State = Urgency.handOffState createdAt window (if at.HasValue then Some at.Value else None) (now ())
+              Evidence = Urgency.evidence (not (r.IsDBNull 16)) at.HasValue (Read.bool r 18)
+              NeedsAcknowledgement = Read.bool r 15
+              AcknowledgedAt = Read.int64N r 16
+              EscalatedAt = Read.int64N r 17
+              Escalated = not (r.IsDBNull 17) }
     { Id = Read.str r 0
       FirmId = Read.str r 1
       FirmName = Read.str r 2

@@ -176,4 +176,51 @@ let tests =
               let late = leadsOf (firmOf "no-fallback") |> Array.filter (fun l -> l.HandOff.State = "expired")
               Expect.isNonEmpty late "without one, leads miss their 72-hour window"
               Expect.isTrue (late |> Array.exists (fun l -> l.HandOff.At.HasValue)) "and some reach the firm only when resent, days late"
+          }
+
+          test "an emergency with no acknowledgement escalates once, after its fallback delay; one confirmed in time never does" {
+              let t, firmId, _ = firmWithFallback ()
+              use _ = t
+              let start = now - 3L * hour
+              let silent = record t firmId start (lead "*Emergency Calls")
+              let confirmed = record t firmId start (lead "*Emergency Calls")
+              let routine = record t firmId start (lead "*New Client Calls")
+              let token = Db.read t.Db (fun s -> Store.ackToken s confirmed.Id)
+              Expect.isNone (Db.write t.Db (fun s -> Store.acknowledge s confirmed.Id "not-the-token" "link" (start + 5L * minute))) "a link we did not send records nothing"
+              Expect.equal (Db.write t.Db (fun s -> Store.acknowledge s confirmed.Id token "link" (start + 5L * minute))) (Some true) "the link we sent"
+              Expect.equal (Db.write t.Db (fun s -> Store.acknowledge s confirmed.Id token "link" (start + 6L * minute))) (Some false) "the first one counts"
+              Expect.equal (Dispatch.runHandOffs t.Db (start + 14L * minute)) 0 "nothing before 15 minutes"
+              Expect.equal (Dispatch.runHandOffs t.Db (start + 16L * minute)) 1 "the silent emergency escalates"
+              Expect.equal (Dispatch.runHandOffs t.Db (start + 30L * minute)) 0 "once"
+              let handOff id = (Db.read t.Db (fun s -> Store.leadOrFail s id)).HandOff
+              Expect.isTrue (handOff silent.Id).Escalated "escalated"
+              Expect.isFalse (handOff confirmed.Id).Escalated "confirmed in time"
+              Expect.equal (handOff confirmed.Id).Evidence "acknowledged" "the strongest evidence"
+              Expect.isFalse (handOff routine.Id).NeedsAcknowledgement "a new matter needs acceptance only"
+              Expect.isFalse (handOff routine.Id).Escalated "and never escalates"
+              let names = Db.read t.Db (fun s -> Store.domainEvents s) |> Array.map (fun e -> e.Name, e.EventId)
+              Expect.contains names ("HandOffEscalated", silent.Id) "the event"
+              Expect.contains names ("HandOffAcknowledged", confirmed.Id) "the event"
+          }
+
+          test "a lead with nothing accepted when its window closes expires once" {
+              let t, firmId, _ = firmWithFallback ()
+              use _ = t
+              let start = now - 3L * hour
+              let e = record t firmId start (lead "*Emergency Calls")
+              Expect.equal (Dispatch.runHandOffs t.Db (start + 23L * hour)) 1 "escalated, not yet expired"
+              Expect.equal (Dispatch.runHandOffs t.Db (start + 25L * hour)) 1 "expired"
+              Expect.equal (Dispatch.runHandOffs t.Db (start + 26L * hour)) 0 "once"
+              let names = Db.read t.Db (fun s -> Store.domainEvents s) |> Array.filter (fun x -> x.EventId = e.Id) |> Array.map _.Name
+              Expect.equal names [| "HandOffEscalated"; "HandOffExpired" |] "in order"
+          }
+
+          test "an email or SMS carries the acknowledgement link; other kinds do not" {
+              let built: Payloads.Built = { ContentType = "application/json"; Body = """{"to":"a@b.c","subject":"s","text":"hello"}""" }
+              let url = Dispatch.ackUrl "http://lab/" "evt_1" "tok"
+              Expect.equal url "http://lab/ack/evt_1?t=tok" "the link"
+              let email = Payloads.withAcknowledgement "email" url built
+              Expect.stringContains email.Body "\"ackUrl\":\"http://lab/ack/evt_1?t=tok\"" "as a field"
+              Expect.stringContains email.Body "Confirm you have this lead" "and in the text"
+              Expect.equal (Payloads.withAcknowledgement "webhook" url built) built "a webhook is read by software"
           } ]

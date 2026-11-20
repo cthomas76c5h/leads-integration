@@ -15,7 +15,13 @@ type Options =
     { TimeScale: float
       TimeoutMs: int
       Address: Address.Policy
-      UserAgent: string }
+      UserAgent: string
+      /// Where this API is reached from outside: the base of acknowledgement links.
+      Origin: string }
+
+/// The link a person at the firm follows to confirm a lead (GET shows a confirm button; POST records it).
+let ackUrl (origin: string) (eventId: string) (token: string) =
+    if isNull token then null else $"{origin.TrimEnd '/'}/ack/{eventId}?t={Uri.EscapeDataString token}"
 
 let private setting (c: Connection) key =
     match c.Settings.TryGetValue key with
@@ -208,6 +214,49 @@ let runFallbacks (db: Database) (nowMs: int64) : int =
             | None -> ()
         queued)
 
+/// A lead is still owed a hand-off unless the firm's routing sends it nowhere on purpose
+/// (every delivery skipped by a rule; a lead problem still owes one). SQL over `e`.
+let private owedSql =
+    """NOT (EXISTS (SELECT 1 FROM deliveries x WHERE x.event_id = e.id)
+             AND NOT EXISTS (SELECT 1 FROM deliveries x WHERE x.event_id = e.id
+                               AND NOT (x.status = 'skipped' AND COALESCE(x.reason, '') NOT LIKE 'lead problem:%')))"""
+
+/// The hand-off's own clocks (RFC-008 §3.2), checked with the fallbacks:
+/// - an emergency or custody lead with no acknowledgement within its fallback delay escalates to an
+///   operator who calls the firm, once (HandOffEscalated);
+/// - a lead with nothing accepted when its window to act closes has expired (HandOffExpired), once.
+/// Returns how many hand-offs changed.
+let runHandOffs (db: Database) (nowMs: int64) : int =
+    write db (fun s ->
+        let mutable changed = 0
+        let waiting =
+            s.Query
+                ("""SELECT e.id, e.firm_id, e.lead, e.created_at FROM events e
+                   WHERE e.test = 0 AND e.ack_required = 1 AND e.acknowledged_at IS NULL AND e.escalated_at IS NULL
+                     AND e.created_at > $1 AND """ + owedSql)
+                [ nowMs - 2L * 86_400_000L ]
+                (fun r -> Read.str r 0, Read.str r 1, Read.str r 2, Read.int64 r 3)
+        for id, firmId, lead, createdAt in waiting do
+            let category = (Categories.classify (Json.deserialize<Lead> lead).CallType).Category
+            if nowMs - createdAt >= Urgency.fallbackAfterMs category then
+                s.Execute "UPDATE events SET escalated_at=$2 WHERE id=$1" [ id; nowMs ] |> ignore
+                Store.emit s "HandOffEscalated" firmId id null
+                changed <- changed + 1
+        let expired =
+            s.Query
+                ("""SELECT e.id, e.firm_id FROM events e
+                   WHERE e.test = 0 AND e.handoff_due_at IS NOT NULL AND e.handoff_due_at < $1 AND e.expired_at IS NULL
+                     AND NOT EXISTS (SELECT 1 FROM attempts a JOIN deliveries x ON x.id = a.delivery_id
+                                      WHERE x.event_id = e.id AND a.outcome = 'delivered' AND a.at <= e.handoff_due_at)
+                     AND """ + owedSql)
+                [ nowMs ]
+                (fun r -> Read.str r 0, Read.str r 1)
+        for id, firmId in expired do
+            s.Execute "UPDATE events SET expired_at=$2 WHERE id=$1" [ id; nowMs ] |> ignore
+            Store.emit s "HandOffExpired" firmId id null
+            changed <- changed + 1
+        changed)
+
 /// The body (and headers) a connection would receive for a lead.
 let buildFor (c: Store.ConnectionRow) (template: string option) (eventId: string) (lead: Lead) =
     let present name = c.Connection.Credentials |> Array.exists (fun f -> f.Name = name && f.Present)
@@ -330,7 +379,7 @@ type private Begun =
 /// committed before this denies it; one committed after cannot recall it. SQLite's single writer
 /// serialises this with every change to the destination; a database with concurrent writers would
 /// lock the destination's row here.
-let private beginAttempt (db: Database) (deliveryId: string) (version: int64) : Begun =
+let private beginAttempt (db: Database) (origin: string) (deliveryId: string) (version: int64) : Begun =
     write db (fun s ->
         if not (Store.holdsLease s deliveryId version) then Stopped
         else
@@ -356,6 +405,7 @@ let private beginAttempt (db: Database) (deliveryId: string) (version: int64) : 
                     Store.setDeliveryState s d.Id "failed" ("body: " + String.Join("; ", errors)) (Nullable()) // never fixes itself on retry
                     Stopped
                 | Ok built ->
+                    let built = if d.Test then built else Payloads.withAcknowledgement c.Connection.Kind (ackUrl origin e.Id (Store.ackToken s e.Id)) built
                     let n = d.Attempts.Length + 1
                     Store.startAttempt s d.Id n (now ()) c.Connection.DeliveryUrl built.Body
                     Started(c, e, built, n))
@@ -458,7 +508,7 @@ let private complete (db: Database) (opts: Options) (random: unit -> float) (del
 /// stop it where a crash or a held answer would.
 let private startAndSend (db: Database) (http: HttpClient) (opts: Options) (random: unit -> float) (deliveryId: string) (version: int64) : Task<unit> =
     task {
-        match beginAttempt db deliveryId version with
+        match beginAttempt db opts.Origin deliveryId version with
         | Stopped -> ()
         | Started(c, e, built, n) ->
             let started = now ()

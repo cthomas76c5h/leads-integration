@@ -341,7 +341,15 @@ let openDatabase (path: string) : Database =
           "deliveries", "decision", "TEXT NULL"
           "deliveries", "lease_owner", "TEXT NULL"
           "deliveries", "lease_until", "INTEGER NULL"
-          "deliveries", "lease_version", "INTEGER NOT NULL DEFAULT 0" ] do
+          "deliveries", "lease_version", "INTEGER NOT NULL DEFAULT 0"
+          // The hand-off (RFC-008 §3.2): fixed at intake from the category, then what happened to it.
+          "events", "ack_token", "TEXT NULL" // the lead's acknowledgement link; never in the operator API
+          "events", "ack_required", "INTEGER NOT NULL DEFAULT 0"
+          "events", "handoff_due_at", "INTEGER NULL"
+          "events", "acknowledged_at", "INTEGER NULL"
+          "events", "acknowledged_via", "TEXT NULL"
+          "events", "escalated_at", "INTEGER NULL"
+          "events", "expired_at", "INTEGER NULL" ] do
         use probe = conn.CreateCommand()
         probe.CommandText <- $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = '{column}'"
         if Convert.ToInt64(probe.ExecuteScalar()) = 0L then

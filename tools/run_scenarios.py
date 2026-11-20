@@ -85,6 +85,15 @@ class Api:
             except ValueError:
                 return e.code, {"error": text}
 
+    def page(self, method: str, url_path: str):
+        """A page meant for a person (HTML), as a browser would ask for it: the status only."""
+        req = urllib.request.Request(self.base + url_path, data=b"" if method == "POST" else None, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=60) as res:
+                return res.status
+        except urllib.error.HTTPError as e:
+            return e.code
+
     def ok(self, method: str, path: str, body=None):
         status, payload = self.call(method, path, body)
         if status >= 300:
@@ -244,6 +253,25 @@ class LabAdapter:
             self.api.ok("PATCH", f"/api/connections/{cid}", {"enabled": False})
         elif do == "resume":
             self.api.ok("PATCH", f"/api/connections/{cid}", {"enabled": True})
+        elif do == "acknowledge":
+            # A person at the firm follows the link in the email or SMS they received, then confirms.
+            if a.get("via", "link") != "link":
+                raise Unsupported(f"acknowledge via {a['via']}")
+            event_id = self.leads[a["lead"]]
+            marker = f"/ack/{event_id}?"
+            links = []
+            for r in self.api.ok("GET", "/api/received") or []:
+                try:
+                    url = json.loads(r.get("body") or "{}").get("ackUrl")
+                except ValueError:
+                    url = None
+                if url and marker in url:
+                    links.append(url)
+            if not links:
+                raise RuntimeError(f"acknowledge: no message for {a['lead']} carried an acknowledgement link")
+            path = links[0][links[0].index("/ack/"):]
+            if self.api.page("GET", path) != 200 or self.api.page("POST", path) != 200:
+                raise RuntimeError(f"acknowledge: the link for {a['lead']} was refused")
         elif do == "send-missed":
             self.api.ok("POST", f"/api/connections/{cid}/send-missed")
         elif do == "change-mapping":
@@ -381,8 +409,8 @@ class LabAdapter:
                 problems.append(f"failure streak {c['consecutiveFailures']}, expected {x['failureStreak']}")
             return (not problems), "; ".join(problems)
         if kind == "handOff":
-            if "escalated" in x or x.get("evidence") not in (None, "accepted"):
-                raise Unsupported("hand-off evidence beyond accepted, or escalation")
+            if x.get("evidence") == "verified":
+                raise Unsupported("hand-off evidence: verified")
             h = self._lead_detail(x["lead"]).get("handOff")
             if not h:
                 return False, "no hand-off (a test lead?)"
@@ -392,6 +420,10 @@ class LabAdapter:
                 problems.append(f"hand-off {state}, expected {x['state']}")
             if "by" in x and h.get("by") not in (x["by"], self.dests.get(x["by"])):
                 problems.append(f"by {h.get('by')}, expected {x['by']}")
+            if "evidence" in x and h.get("evidence") != x["evidence"]:
+                problems.append(f"evidence {h.get('evidence')}, expected {x['evidence']}")
+            if "escalated" in x and bool(h.get("escalated")) != x["escalated"]:
+                problems.append(f"escalated {h.get('escalated')}, expected {x['escalated']}")
             return (not problems), "; ".join(problems)
         if kind == "outcome":
             got = OUTCOMES.get(self._lead_detail(x["lead"])["outcome"], "?")

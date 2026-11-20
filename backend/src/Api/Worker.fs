@@ -26,6 +26,8 @@ type DeliveryWorker(db: Db.Database, opts: Dispatch.Options, logger: ILogger<Del
                         lastFallbackCheck <- t
                         let n = Dispatch.runFallbacks db t
                         if n > 0 then logger.LogInformation("sent {Count} leads to their firm's fallback", n)
+                        let h = Dispatch.runHandOffs db t
+                        if h > 0 then logger.LogInformation("{Count} hand-offs escalated or expired", h)
                     let! sent = Dispatch.runDue db http opts Random.Shared.NextDouble 20
                     if sent = 0 then do! Task.Delay(200, stop)
                 with

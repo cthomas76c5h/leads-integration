@@ -106,6 +106,23 @@ let private setting (settings: IDictionary<string, string>) key =
     | true, v -> v
     | _ -> ""
 
+/// The kinds a person reads, so they can carry the lead's acknowledgement link (RFC-008 §3.1).
+let acknowledgeable = set [ "email"; "sms" ]
+
+/// Add the acknowledgement link to an email or SMS body: as `ackUrl`, and at the end of its text.
+/// Opening the message proves nothing; following the link and confirming does.
+let withAcknowledgement (kind: string) (url: string) (built: Built) : Built =
+    if not (acknowledgeable.Contains kind) || String.IsNullOrEmpty url then built
+    else
+        match System.Text.Json.Nodes.JsonNode.Parse built.Body with
+        | :? System.Text.Json.Nodes.JsonObject as o ->
+            let text = match o["text"] with null -> "" | t -> t.GetValue<string>()
+            let line = if kind = "sms" then $" Confirm you have it: {url}" else $"\n\nConfirm you have this lead: {url}"
+            o["text"] <- System.Text.Json.Nodes.JsonValue.Create(text + line)
+            o["ackUrl"] <- System.Text.Json.Nodes.JsonValue.Create url
+            { built with Body = o.ToJsonString() }
+        | _ -> built
+
 /// Build the request body. `credentialPresent name` says whether the connection
 /// has that credential on file (the value itself is never held: shape-only import).
 let build

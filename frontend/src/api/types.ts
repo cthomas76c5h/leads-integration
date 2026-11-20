@@ -371,6 +371,11 @@ export interface HandOff {
   by: string | null;
   viaFallback: boolean;
   state: 'on-time' | 'expired' | 'waiting';
+  evidence: 'acknowledged' | 'accepted' | 'submitted' | 'none';
+  needsAcknowledgement: boolean;
+  acknowledgedAt: number | null;
+  escalatedAt: number | null;
+  escalated: boolean;
 }
 
 export interface LeadSummary {

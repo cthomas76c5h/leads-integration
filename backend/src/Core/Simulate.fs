@@ -673,6 +673,34 @@ let run (db: Db.Database) (opts: Options) : Summary =
         for sim in sims do
             Store.insertDelivery s sim.D sim.Template
             for a in sim.Attempts do Store.insertAttempt s sim.D.Id a
+        // ----- What happened to each hand-off (RFC-008 §3.2), as Dispatch.runHandOffs and the link -----
+        // Best guess, to confirm with data: a person confirms most emergency and custody leads that reached
+        // an email or SMS, within minutes; the rest escalate to an operator after the fallback delay.
+        let byEvent = sims |> Seq.groupBy _.D.EventId |> dict
+        for e in Array.append leads added do
+            let mine = match byEvent.TryGetValue e.Id with | true, xs -> Array.ofSeq xs | _ -> [||]
+            let owed = not (mine.Length > 0 && mine |> Array.forall (fun x -> x.D.Status = "skipped" && not (Diagnose.isLeadProblem x.D.Reason)))
+            let category = (Categories.classify e.Lead.CallType).Category
+            let accepted kinds =
+                [ for x in mine do
+                      if kinds x.D.Kind then
+                          for a in x.Attempts do
+                              if a.Outcome = "delivered" then yield a.At ]
+            let firstAccepted = accepted (fun _ -> true) |> List.sort |> List.tryHead
+            let ack =
+                if not (Urgency.needsAcknowledgement category) || rnd.NextDouble() >= 0.85 then None
+                else
+                    accepted Payloads.acknowledgeable.Contains |> List.sort |> List.tryHead
+                    |> Option.map (fun at -> at + int64 (1 + rnd.Next 10) * minute)
+                    |> Option.filter (fun at -> at <= nowMs)
+            let escalateAt = e.CreatedAt + Urgency.fallbackAfterMs category
+            let escalated =
+                owed && Urgency.needsAcknowledgement category && escalateAt <= nowMs
+                && (ack |> Option.forall (fun at -> at > escalateAt))
+            let due = e.CreatedAt + Urgency.windowMs category
+            let expired = owed && due < nowMs && (firstAccepted |> Option.forall (fun at -> at > due))
+            let nullable = function Some (v: int64) -> Nullable v | None -> Nullable()
+            Store.setHandOff s e (nullable ack) (if escalated then Nullable escalateAt else Nullable()) (if expired then Nullable due else Nullable())
         for r in received |> Seq.sortBy _.At |> Seq.rev |> Seq.truncate 500 |> Seq.rev do
             Store.insertReceived s r
         let touched = Dictionary<string, string>()

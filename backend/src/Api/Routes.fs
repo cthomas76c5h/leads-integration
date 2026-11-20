@@ -33,7 +33,9 @@ let endpoints (c: Ctx) : Endpoint list =
             route "/api/received" (g (received c))
             route "/api/setups" (g (listSetups c))
             routef "/api/setups/{%s}/fields" (fun id -> g (setupFields c id))
-            routef "/api/client/setups/{%s}" (fun t -> g (clientSetup c t)) ]
+            routef "/api/client/setups/{%s}" (fun t -> g (clientSetup c t))
+            // A person at the firm, from the link in an email or SMS: public, the token is the permission.
+            routef "/ack/{%s}" (fun id -> g (ackPage c id)) ]
       POST
           [ route "/api/firms" (g (createFirm c))
             routef "/api/firms/{%s}/leads" (fun id -> g (sendLead c id))
@@ -47,7 +49,8 @@ let endpoints (c: Ctx) : Endpoint list =
             route "/api/setups" (g (createSetup c))
             routef "/api/setups/{%s}/{%s}" (fun id action -> g (setupAction c action id))
             routef "/api/client/setups/{%s}/connect" (fun t -> g (clientConnect c t))
-            routef "/api/client/setups/{%s}/decision" (fun t -> g (clientDecision c t)) ]
+            routef "/api/client/setups/{%s}/decision" (fun t -> g (clientDecision c t))
+            routef "/ack/{%s}" (fun id -> g (ackConfirm c id)) ]
       PATCH
           [ routef "/api/firms/{%s}" (fun id -> g (patchFirm c id))
             routef "/api/connections/{%s}" (fun id -> g (patchConnection c id))

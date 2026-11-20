@@ -53,6 +53,7 @@ let private pass (c: Ctx) =
     task {
         let opts = Config.dispatchOptions c.Cfg
         Dispatch.runFallbacks c.Db (now ()) |> ignore
+        Dispatch.runHandOffs c.Db (now ()) |> ignore
         let mutable sent = 0
         let mutable more = true
         while more do

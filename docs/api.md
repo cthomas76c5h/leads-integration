@@ -253,6 +253,11 @@ interface HandOff {
   by: string | null;          // the destination that took it first
   viaFallback: boolean;       // taken by the firm's fallback
   state: 'on-time' | 'expired' | 'waiting';
+  evidence: 'acknowledged' | 'accepted' | 'submitted' | 'none';   // the strongest so far (RFC-008 §3.1)
+  needsAcknowledgement: boolean;   // emergencies and custody: a person at the firm must confirm (RFC-008 §3.2)
+  acknowledgedAt: number | null;   // confirmed through the link in the email or SMS
+  escalatedAt: number | null;      // not confirmed within the fallback delay: an operator calls the firm
+  escalated: boolean;
 }
 
 /** "Your week in calls": one firm's last 7 days in call categories, with proof of delivery. */
@@ -490,6 +495,8 @@ non-alphanumerics turned into `_` and trimmed ("Date of accident?" →
 | GET | `/api/client/setups/{token}` | | `Setup` without `token`/`connectionId`, plus `connected: boolean` |
 | POST | `/api/client/setups/{token}/connect` | `{ url? }` | `{ ok: true }` (webhook / zapier: paste URL; CRM kinds: simulated authorization) |
 | POST | `/api/client/setups/{token}/decision` | `{ decision: 'approved' \| 'changes', by, comment, version }` | `{ ok: true }` |
+| GET | `/ack/{leadId}?t={token}` | | HTML: a page with one button, "I have this lead". Records nothing (mail scanners open links). 404 page for a link we did not send. The link is in every production email and SMS (`ackUrl`, and at the end of `text`) |
+| POST | `/ack/{leadId}?t={token}` | | HTML. Records the acknowledgement (the first one counts) and emits `HandOffAcknowledged` |
 | POST | `/receiver/{ok\|reject\|flaky\|gone\|slow\|down}` | anything | lab receivers (`down`: always 503) |
 | POST | `/receiver/crm/{kind}?mode=ok\|reject\|flaky\|gone\|slow\|down&require=Phone,Email` | the kind's payload | validates the payload like the real CRM would, plus any `require`d fields (how the lab plays a webhook that needs a field); 201 or 422 |
 

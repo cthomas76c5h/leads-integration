@@ -3,12 +3,11 @@
   "name": "all-routes-down",
   "story": "A call about someone in custody (a 24-hour window, a 15-minute fallback delay) arrives while both the firm's email and its SMS fallback are down, and stay down for over a day. Neither can deliver; after 15 minutes the hand-off escalates to an operator who calls the firm, and when the 24-hour window passes the lead expires, first in every view. Later, with the routes back, an emergency is accepted by email and then acknowledged by the firm through the link in it, so it is confirmed and never escalates.",
   "slice": 6,
-  "model": "proposed",
+  "model": "lab",
   "proves": [
     "docs/rfc/008_delivery_guarantees_and_evidence.md#32-the-hand-off-revised (emergencies need acknowledgement; escalate after the fallback delay)",
     "docs/rfc/008_delivery_guarantees_and_evidence.md#31-five-levels (accepted and acknowledged hand-offs are distinct)"
   ],
-  "today": "The lab has no acknowledgement and no escalation: a hand-off is reached when a delivery is accepted. Expired leads are shown first in the Delivery Center (built). both-routes-down shows a similar outage for a new matter, without acknowledgement or escalation.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [

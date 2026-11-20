@@ -164,11 +164,15 @@ _Avoid_: delivered to CRM, success
 Someone (the firm, or an API that allows it) confirmed the record exists in the CRM.
 
 **Acknowledged**:
-A person at the firm, or a workflow the firm authorised, confirmed receipt of a lead: a reply to the text, a click on the signed link, the lead opened in the firm portal.
+A person at the firm, or a workflow the firm authorised, confirmed receipt of a lead: a reply to the text, a click on the signed link, the lead opened in the firm portal. *Lab for the link in an email or SMS: opening it shows a button, and only pressing it counts, since mail scanners open links on their own.*
 _Avoid_: read (opening an email is not counted), seen
 
+**Escalated**:
+An emergency or custody lead that no one at the firm acknowledged within its fallback delay (15 minutes): an operator calls the firm. Happens once per lead, and stays on its record even if the firm confirms later. *Lab.*
+_Avoid_: alert, page
+
 **Evidence level**:
-The strongest proof a delivery or hand-off has: submitted, accepted, verified or acknowledged. The one number is reported at two of them, accepted and confirmed.
+The strongest proof a delivery or hand-off has: submitted, accepted, verified or acknowledged. The one number is reported at two of them, accepted and confirmed. *Lab for a hand-off, without verified.*
 _Avoid_: confidence (that belongs to classification)
 
 **Refused**:

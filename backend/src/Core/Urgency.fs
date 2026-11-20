@@ -11,6 +11,18 @@ let windowMs (category: string) : int64 = Timing.windowToActMs category
 /// custody. Its own clock, independent of the window.
 let fallbackAfterMs (category: string) : int64 = Timing.fallbackAfterMs category
 
+/// Emergencies and custody need a person at the firm to confirm receipt, not only a destination to
+/// accept it (RFC-008 §3.2): without that within the fallback delay, the hand-off escalates to an
+/// operator who calls the firm. A firm choosing it for new matters too is not built.
+let needsAcknowledgement (category: string) = category = "emergency" || category = "jail-custody"
+
+/// The strongest evidence a hand-off has (RFC-008 §3.1): acknowledged | accepted | submitted | none.
+let evidence (acknowledged: bool) (accepted: bool) (attempted: bool) =
+    if acknowledged then "acknowledged"
+    elif accepted then "accepted"
+    elif attempted then "submitted"
+    else "none"
+
 /// on-time | expired (the window passed before any hand-off; it may have reached the firm later) | waiting
 let handOffState (createdAt: int64) (window: int64) (handedAt: int64 option) (nowMs: int64) =
     match handedAt with

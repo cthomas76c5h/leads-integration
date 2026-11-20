@@ -456,3 +456,35 @@ let clientDecision (c: Ctx) (token: string) : EndpointHandler =
             Onboarding.decide c.Db token b.Decision b.By b.Comment b.Version
             return! ok {| ok = true |} ctx
         }
+
+// ----- Acknowledgement link (RFC-008 §3.1): a person at the firm confirms a lead -----
+
+let private page (status: int) (title: string) (body: string) (ctx: HttpContext) =
+    ctx.Response.StatusCode <- status
+    ctx.Response.ContentType <- "text/html; charset=utf-8"
+    ctx.Response.Headers["Referrer-Policy"] <- "no-referrer"
+    ctx.Response.WriteAsync(
+        $"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{title}</title><style>body{{font:16px system-ui,sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem}}button{{font:inherit;padding:.6rem 1.2rem}}</style>
+</head><body><h1>{title}</h1>{body}<p><small>Answering AI</small></p></body></html>""")
+
+/// GET shows a button and records nothing: mail scanners and link previews open links on their own,
+/// so only the POST a person sends by pressing it counts as an acknowledgement.
+let ackPage (c: Ctx) (eventId: string) : EndpointHandler =
+    fun ctx ->
+        let token = query ctx "t"
+        let known = Db.read c.Db (fun s -> not (isNull token) && Store.ackToken s eventId = token)
+        if not known then page 404 "Link not recognised" "<p>This confirmation link is not one we sent.</p>" ctx
+        else
+            let action = $"/ack/{Uri.EscapeDataString eventId}?t={Uri.EscapeDataString token}"
+            page 200 "Confirm you have this lead"
+                $"""<p>Press the button to tell Answering AI that your team has this lead, so nobody calls you about it.</p>
+<form method="post" action="{Net.WebUtility.HtmlEncode action}"><button type="submit">I have this lead</button></form>"""
+                ctx
+
+let ackConfirm (c: Ctx) (eventId: string) : EndpointHandler =
+    fun ctx ->
+        let token = query ctx "t"
+        match Db.write c.Db (fun s -> Store.acknowledge s eventId token "link" (now ())) with
+        | None -> page 404 "Link not recognised" "<p>This confirmation link is not one we sent.</p>" ctx
+        | Some _ -> page 200 "Thank you" "<p>Confirmed: your team has this lead.</p>" ctx

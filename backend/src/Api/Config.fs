@@ -67,4 +67,5 @@ let dispatchOptions (cfg: Config) : LeadIntegrations.Dispatch.Options =
     { TimeScale = cfg.TimeScale
       TimeoutMs = cfg.DeliveryTimeoutMs
       Address = addressPolicy cfg
-      UserAgent = "AnsweringAI-Webhooks/0.1" }
+      UserAgent = "AnsweringAI-Webhooks/0.1"
+      Origin = cfg.Origin }

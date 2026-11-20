@@ -5,7 +5,7 @@ import { StatusBadge } from '../components/Deliveries';
 import { MappingChips } from '../components/Mapping';
 import { Loading } from '../components/Shell';
 import { labels, useTaxonomy } from '../lib/categories';
-import { CLASS, handOffText, problem, STAGE } from '../lib/delivery';
+import { callTheFirm, CLASS, confirmationText, handOffText, problem, STAGE } from '../lib/delivery';
 import { leadNo, plural, when } from '../lib/format';
 import { usePoll } from '../lib/poll';
 import { href, replaceQuery } from '../lib/route';
@@ -154,6 +154,7 @@ function Row({ x, on, onOpen, onFirm, l }: { x: LeadSummary; on: boolean; onOpen
       <td>
         <span className={`badge ${o.tone}`}>{o.label}</span><span className="sub">{parts || 'no destination'}</span>
         {(() => { const h = handOffText(x.handOff, x.createdAt, x.counts); return h && <span className={`sub ${h.tone === 'ok' ? '' : h.tone === 'bad' ? 'bad' : 'warn-text'}`}>{h.text}</span>; })()}
+        {callTheFirm(x.handOff) && <span className="badge bad" title="Not confirmed within its fallback delay">Call the firm</span>}
       </td>
     </tr>
   );
@@ -178,6 +179,7 @@ function LeadDrawer({ id, onClose, l }: { id: string; onClose: () => void; l: Re
         <dt>Source</dt><dd>{x.source}{x.webchat ? ' · chat' : ''}</dd>
         <dt>Call type</dt><dd><code>{x.callType || '—'}</code><br /><MappingChips m={data.mapping} l={l} /></dd>
         {(() => { const h = handOffText(data.handOff, data.createdAt, data.counts); return h && <><dt>Hand-off</dt><dd className={h.tone === 'bad' ? 'bad' : h.tone === 'warn' ? 'warn-text' : ''}>{h.text}</dd></>; })()}
+        {(() => { const h = confirmationText(data.handOff, data.createdAt); return h && <><dt>Confirmed</dt><dd className={h.tone === 'bad' ? 'bad' : h.tone === 'warn' ? 'warn-text' : ''}>{h.text}</dd></>; })()}
         <dt>Message</dt><dd>{x.message || <span className="muted">—</span>}</dd>
       </dl>
       {x.custom.length > 0 && (
