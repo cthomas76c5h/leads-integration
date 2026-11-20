@@ -30,6 +30,11 @@ already have into the most dependable intake service for the firms we already se
 > **A dependable receptionist that follows your firm's instructions, knows when to
 > involve a person, and makes sure every call reaches its next action.**
 
+We are building a dependable intake service, not just an AI receptionist or a delivery
+system. Its defining strength is **following each firm's instructions faithfully**:
+most complaints about messages are about a call handled differently from how the firm
+asked, not about mishearing the caller. That shapes nearly every product decision.
+
 It makes three promises we must be able to show, not just claim:
 
 - **Consistency:** the firm's instructions were followed.
@@ -76,6 +81,33 @@ checks wrongly pass a bad call, especially a serious one: a checker that reports
 well while missing real failures is worse than none. We do not claim the results until
 the checks agree with people.
 
+## The economics we still need
+
+The strategy is clear on the problem, the product and the method. It still lacks the
+numbers that say where the money is: which firms are most profitable, which are worth
+upgrading, why firms leave, how much better and cheaper the AI is, and what moving a
+firm across is actually worth.
+
+Keep three kinds of value apart, because each needs different proof:
+
+- **Lower cost:** the same calls handled with fewer human minutes, fewer corrections and less support. We can measure this ourselves.
+- **Better retention:** firms stay because their instructions are followed and they need to check on us less. This needs to follow groups of firms over time.
+- **More revenue:** firms pay for booking, more complex handling, languages or reporting. Only a priced offer they accept proves this.
+
+Never add them into one return-on-investment figure.
+
+**The first-quarter deliverable is a customer and unit-economics analysis.** For each
+firm: what it pays, its calls and how many are billable, human handling time, AI cost,
+escalations, support tickets, credits, and whether it stayed. Then group the firms by
+volume, practice area and how they are served. Start with the busiest firms, alongside
+a fair sample of smaller ones: the most valuable firms may be the ones combining
+volume, high expectations and good margins, not simply the busiest. The data lives in
+the billing system, the legacy answering platform and the voice platform, so it needs
+their owners.
+
+The question it answers: **which firms can we serve better with AI and people
+together, at a better margin, without losing more of them?**
+
 ## What to do, in order
 
 **Straight away**
@@ -86,6 +118,7 @@ the checks agree with people.
 
 **First**
 
+- Build the customer and unit-economics analysis.
 - Talk to customers: current firms, recent cancellations, and firms that turned down the AI service. Why they bought, what they value, why they leave, and which calls they trust to AI. What we know about firms is not recent, so this comes first.
 - Check that the voice platform is ready to be the foundation.
 - Start checking the quality of every call.
@@ -125,7 +158,7 @@ next step, and the firm can see exactly what happened.
 Each quarter ends with a decision. Finishing the work does not earn the next step;
 the evidence does.
 
-- **First quarter: is the voice platform the right foundation?** We need to know it is ready for production, matches what firms rely on today, and has someone running it. And from talking to customers: which firms suit which way of serving them.
+- **First quarter: is the voice platform the right foundation, and where is the money?** We need to know it is ready for production, matches what firms rely on today, and has someone running it. From the economics: which firms are most profitable and worth serving better. And from talking to customers: which firms suit which way of serving them.
 - **Second quarter: is the improved service better than today's?** Call quality, missed transfers recovered, bookings, what firms say, and what it costs per call.
 - **Third quarter: which customers and features justify a higher price?** Firms paying in the pilots, staying, and the margin on them.
 - **Fourth quarter: what do we scale, move across, or retire?** Economics that repeat, operations that hold up, and customers who accept the change.
@@ -149,7 +182,11 @@ financial model. Setting them before that would be guessing.
 3. **Invest on evidence:** spend where it measurably improves accuracy, calls handled through to their next step, retention, cost, and what firms will pay, and pass each quarter's gate before committing more.
 
 Bringing the systems together is the means, not the goal: on its own, it does not make
-a product firms want. The
+a product firms want.
+
+This plan is ready for leadership to discuss, not yet for a large migration or
+investment. That commitment should follow the evidence the first two quarters bring:
+how firms behave, how good the service measurably is, and what it earns. The
 year succeeds if we can say, and show:
 
 > **"We follow your instructions, get your messages right, and make sure callers are
