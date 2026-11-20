@@ -28,5 +28,10 @@
     "status": 422,
     "body": "missing {field}"
   },
-  "duplicates": "harmless"
+  "duplicates": "harmless",
+  "afterUnknown": "resend",
+  "evidence": {"strongest": "acknowledged", "how": "A person presses the signed confirm link at the end of the email (GET shows the button; only the POST counts). Opening the email does not"},
+  "handOff": "person",
+  "remoteId": "none",
+  "answers": "standard"
 }

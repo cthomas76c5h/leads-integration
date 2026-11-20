@@ -520,8 +520,8 @@ Every `/api/portal/leads` route needs `Authorization: Bearer {token}` (401 witho
 | GET | `/ack/{leadId}?t={token}` | | HTML: a page with one button, "I have this lead". Records nothing (mail scanners open links). 404 page for a link we did not send. The link is in every production email and SMS (`ackUrl`, and at the end of `text`) |
 | POST | `/ack/{leadId}?t={token}` | | HTML. Records the acknowledgement (the first one counts) and emits `HandOffAcknowledged` |
 | POST | `/receiver/{ok\|reject\|flaky\|gone\|slow\|down}` | anything | lab receivers (`down`: always 503) |
-| POST | `/receiver/crm/{kind}?mode=ok\|reject\|flaky\|gone\|slow\|down\|lost-record&require=Phone,Email` | the kind's payload | validates the payload like the real CRM would, plus any `require`d fields (how the lab plays a webhook that needs a field); 201 or 422. An accepted request is kept under our lead reference (its `webhook-id` header), except in `lost-record` mode |
-| GET | `/receiver/crm/{kind}/lookup?ref={leadId}&dest=` | | The fake CRM's lookup by our lead reference: 200 when it kept that record, 404 when not |
+| POST | `/receiver/crm/{kind}?mode=ok\|reject\|flaky\|gone\|slow\|down\|lost-record\|accept-then-timeout&require=Phone,Email` | the kind's payload | validates the payload like the real CRM would, plus any `require`d fields (how the lab plays a webhook that needs a field); 201 or 422. An accepted request is kept under our lead reference (its `webhook-id` header), except in `lost-record` mode |
+| GET | `/receiver/crm/{kind}/lookup?ref={leadId}&dest=` | | The fake CRM's lookup by our lead reference: 200 when it kept that record, 404 when not, 503 while that destination's receiver is `down` |
 
 Errors the UI should show as-is: 404 `no such …`, 409 state conflicts
 (`not ready: Draft`), 422 validation.

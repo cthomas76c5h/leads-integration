@@ -75,9 +75,15 @@
     "body": "missing {field}"
   },
   "duplicates": "unknown",
+  "afterUnknown": "operator",
+  "evidence": {"strongest": "accepted", "how": "Zapier's 2xx: the Zap was triggered, not that its steps ran"},
+  "handOff": "record",
+  "remoteId": "unknown",
+  "answers": "standard",
   "toConfirm": [
     "The field mapping lives in the firm's Zap: whether a Zap fails visibly when a field it maps is blank",
     "That a deleted Zap answers 410 Gone (the lab's hook-removed rule)",
-    "Duplicate handling: we send the lead id as event_id and as the webhook-id header; whether a firm's Zap filters on it is the Zap's choice, so this stays unknown (RFC-008 §4.3)"
+    "Duplicate handling: we send the lead id as event_id and as the webhook-id header; whether a firm's Zap filters on it is the Zap's choice, so this stays unknown (RFC-008 §4.3)",
+    "Whether its answer returns its own id for the record it made (remoteId)"
   ]
 }

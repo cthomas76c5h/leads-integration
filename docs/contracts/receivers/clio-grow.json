@@ -43,11 +43,17 @@
     "body": "missing {field}"
   },
   "duplicates": "unknown",
+  "afterUnknown": "operator",
+  "evidence": {"strongest": "accepted", "how": "The CRM's 2xx. Verified once a lookup by our lead reference is confirmed in its sandbox (duplicates: lookup)"},
+  "handOff": "record",
+  "remoteId": "unknown",
+  "answers": "standard",
   "toConfirm": [
     "Where the firm's inbox lead token goes in the real request (the lab keeps only its presence and fingerprint)",
     "The real status for an accepted lead",
     "How the real API answers an expired or revoked token, and whether the lab's expired-auth mode (401) matches it",
     "Whether N/A for a missing name is accepted, or should be a lead problem (not sent)",
-    "Duplicate handling (idempotency key, lookup by our reference, external reference, or none): RFC-008 §4.3"
+    "Duplicate handling (idempotency key, lookup by our reference, external reference, or none): RFC-008 §4.3",
+    "Whether its answer returns its own id for the record it made (remoteId)"
   ]
 }

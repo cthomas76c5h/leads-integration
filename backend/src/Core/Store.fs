@@ -582,6 +582,9 @@ let private outcomeOf (c: LeadCounts) (handOff: HandOff) =
     else "delivered"
 
 /// Counts over the latest delivery per connection: a replay replaces what it replays.
+/// The kinds that reach a person, as a SQL list (Catalog.reachesPerson): the hand-off tie-break.
+let private reachesPersonSql = Catalog.reachesPerson |> Seq.map (fun k -> $"'{k}'") |> String.concat ", "
+
 let private leadSql =
     """SELECT e.id, e.firm_id, f.name, e.test, e.lead, e.created_at,
               COUNT(d.id),
@@ -594,7 +597,7 @@ let private leadSql =
               (SELECT c2.name || CASE WHEN c2.settings LIKE '%"role":"fallback"%' THEN '|fallback' ELSE '' END
                  FROM attempts a JOIN deliveries x ON x.id = a.delivery_id JOIN connections c2 ON c2.id = x.connection_id
                 WHERE x.event_id = e.id AND a.outcome = 'delivered'
-                ORDER BY a.at, CASE WHEN c2.kind IN ('email', 'sms', 'slack') THEN 0 ELSE 1 END LIMIT 1),
+                ORDER BY a.at, CASE WHEN c2.kind IN (""" + reachesPersonSql + """) THEN 0 ELSE 1 END LIMIT 1),
               -- Not sent because the rule excludes it; a lead problem still owes the firm a hand-off.
               COALESCE(SUM(d.status = 'skipped' AND COALESCE(d.reason, '') NOT LIKE 'lead problem:%'), 0),
               COALESCE(SUM(d.status = 'pending' AND d.next_attempt_at IS NULL), 0),

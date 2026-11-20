@@ -171,6 +171,10 @@ let kinds: Kind[] =
 
 let private byKind = kinds |> Array.map (fun k -> k.Kind, k) |> dict
 
+/// The kinds a person at the firm reads (the notify category): they can carry the hand-off, and a tie
+/// between two accepted deliveries goes to them. Each receiver contract says so (handOff: person).
+let reachesPerson = kinds |> Array.filter (fun k -> k.Category = "notify") |> Array.map _.Kind |> set
+
 let tryFind (kind: string) =
     match byKind.TryGetValue kind with
     | true, k -> Some k

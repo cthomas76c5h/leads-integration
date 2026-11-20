@@ -171,6 +171,10 @@ _Avoid_: read (opening an email is not counted), seen
 An emergency or custody lead that no one at the firm acknowledged within its fallback delay (15 minutes): an operator calls the firm. Happens once per lead, and stays on its record even if the firm confirms later. *Lab.*
 _Avoid_: alert, page
 
+**Delivery contract**:
+What one destination kind requires and how it answers, how it handles a repeat and settles an unknown outcome, the strongest evidence it can give, and whether it reaches a person. One file per kind in `docs/contracts/receivers/`; the tests hold the code to it. *Lab; each kind's values are confirmed against its sandbox one at a time (`toConfirm`).*
+_Avoid_: integration spec, adapter config
+
 **Evidence level**:
 The strongest proof a delivery or hand-off has: submitted, accepted, verified or acknowledged. The one number is reported at two of them, accepted and confirmed. *Lab for a hand-off, without verified.*
 _Avoid_: confidence (that belongs to classification)

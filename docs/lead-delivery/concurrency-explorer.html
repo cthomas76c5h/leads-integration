@@ -407,7 +407,7 @@ const TX = [
   ['Dispatch.complete', 'one write', 'Lease version', 'the answer; delivery state; connection streak or status; others held on reconnection', 'AttemptMade, DeliveryAccepted / Refused / GaveUp, Held, DeliveryUnknown'],
   ['Dispatch.runFallbacks', 'one write', 'No accepted attempt, past the fallback delay (or all held), no fallback delivery yet', 'a fallback delivery', 'FallbackUsed'],
   ['Dispatch.runHandOffs', 'one write', 'acknowledged_at, escalated_at, expired_at still empty', 'escalated_at / expired_at', 'HandOffEscalated, HandOffExpired'],
-  ['Dispatch.runVerifications', 'read, up to 20 lookups at once, then one write', 'Accepted in the last day, lookup destination; each write only if not already verified or flagged', 'verified_at / verify_overdue_at', 'DeliveryVerified, VerificationOverdue (once each)'],
+  ['Dispatch.runVerifications', 'read, up to 20 lookups at once, then one write', 'Accepted, or unknown and unresolved, in the last day, at a lookup destination; each write only if nobody already settled it', 'verified_at / verify_overdue_at; an unknown one found: delivered, resolution found', 'DeliveryVerified, VerificationOverdue, DeliveryAccepted, DeliveryResolved'],
   ['Handlers.patchConnection', 'one write', '—', 'enabled, pausedAt; releaseHeld on resume', 'DesiredStateChanged'],
   ['Dispatch.replay', 'one write', 'Destination active; nothing of the lead still waiting or sending there; accepted ⇒ senior operator with a reason', 'a new delivery, replayOf, resend', 'LeadResent'],
   ['Dispatch.approveRouting', 'one write', 'A draft waits; with applyToWaiting, each pending delivery decided again', 'the rule, revision; cancelled deliveries', 'RevisionWentLive, DeliveryCancelled'],

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "receiver.schema.json",
   "title": "Receiver contract",
-  "description": "What one destination kind requires of a request, and how it answers when it accepts or refuses one. The behaviours every kind shares are in receivers/modes.json. See README.md in this folder.",
+  "description": "What one destination kind requires of a request, and how it answers when it accepts or refuses one. The behaviours every kind shares are in receivers/modes.json. See README.md in this folder. A destination kind's delivery contract: what we send, what counts as accepted, how a repeat is handled and an unknown outcome settled, the evidence it can give, whether it reaches a person, and how its answers are read. backend/tests/Tests/ContractTests.fs checks each field against the code.",
   "type": "object",
   "required": [
     "kind",
@@ -12,7 +12,12 @@
     "requires",
     "accepts",
     "refusesMissing",
-    "duplicates"
+    "duplicates",
+    "afterUnknown",
+    "evidence",
+    "handOff",
+    "remoteId",
+    "answers"
   ],
   "additionalProperties": false,
   "properties": {
@@ -141,6 +146,56 @@
         "unknown"
       ],
       "description": "How this kind handles a lead it may have seen, which decides what follows an unknown outcome (RFC-008 §4.3). idempotency-key: ignores a request with a key it has seen. lookup: we can ask whether a record with our lead reference exists. external-reference: stores our reference but does not deduplicate. none: confirmed to have no way to tell. harmless: a second copy costs nothing. unknown: not yet verified against the destination's sandbox; treated at runtime like external-reference or none (RFC-008 §4.3). Every kind is 'unknown' until there is evidence"
+    },
+    "afterUnknown": {
+      "enum": [
+        "resend",
+        "lookup",
+        "operator"
+      ],
+      "description": "What follows an unknown outcome (sent, no answer recorded; RFC-008 §4.2). resend: sent again, a second copy is safe (harmless or idempotency-key). lookup: looked up by our lead reference; found settles it, otherwise an operator checks. operator: held as unknown for an operator to check and resolve (found, closed or resent). Follows from duplicates; Dispatch.retryAfterUnknown and Dispatch.runVerifications implement it"
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "strongest",
+        "how"
+      ],
+      "additionalProperties": false,
+      "description": "The strongest evidence this kind can give that the lead reached the firm (RFC-008 §3.1), and how",
+      "properties": {
+        "strongest": {
+          "enum": [
+            "accepted",
+            "verified",
+            "acknowledged"
+          ]
+        },
+        "how": {
+          "type": "string"
+        }
+      }
+    },
+    "handOff": {
+      "enum": [
+        "person",
+        "record"
+      ],
+      "description": "person: a person at the firm reads it (it can carry the hand-off and the fallback). record: it stores the lead in a system (the record, which can be late); a person seeing it is not evidence we have. Catalog.reachesPerson implements it"
+    },
+    "remoteId": {
+      "enum": [
+        "returned",
+        "none",
+        "unknown"
+      ],
+      "description": "Whether the destination's answer returns its own id for the record it made: what real reconciliation keys on. unknown until its sandbox shows it"
+    },
+    "answers": {
+      "enum": [
+        "standard"
+      ],
+      "description": "How its answers are read. standard: the one table every kind shares (Policy.classify: 2xx accepted; 401, 403, 410 needs reconnection; 408, 425, 429, 5xx and no answer retried; other 3xx, 4xx refused). A kind that needs its own reading adds a value here and the code that implements it"
     },
     "toConfirm": {
       "type": "array",

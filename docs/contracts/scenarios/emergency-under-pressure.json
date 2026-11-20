@@ -1,0 +1,250 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "emergency-under-pressure",
+  "story": "An emergency call. The firm's CRM makes the record but its answer never comes back in time, so the outcome is unknown; the CRM can be looked up, but it is struggling and its lookups fail too. An operator pauses it. With nothing accepted after 15 minutes the agreed email fallback takes the lead and, unacknowledged, the hand-off escalates; the firm then confirms through the link in that email, moments too late to stop the escalation. When the CRM recovers, a lookup finds the record it made at the start and settles the unknown outcome, though the destination is paused, since a lookup sends nothing. An operator who then tries to resend it to the CRM is refused: it is accepted, and only a senior operator may.",
+  "slice": 6,
+  "model": "lab",
+  "proves": [
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#42-an-unknown-outcome (a timeout after the record was made is unknown, and a lookup settles it)",
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#32-the-hand-off-revised (fallback, escalation and acknowledgement at once)",
+    "docs/lead-delivery/answers.md#routing-and-integrations (who may resend a lead that was already accepted)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "mycase",
+        "role": "usual",
+        "routing": {
+          "categories": [
+            "new-matter",
+            "emergency"
+          ]
+        },
+        "duplicates": "lookup"
+      },
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "fallback"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "crm",
+        "answers": {
+          "mode": "accept-then-timeout"
+        }
+      }
+    },
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "emergency"
+      }
+    },
+    {
+      "at": "+30s",
+      "receiver": {
+        "destination": "crm",
+        "answers": {
+          "mode": "down"
+        }
+      }
+    },
+    {
+      "at": "+5m",
+      "action": {
+        "by": "operator",
+        "do": "pause",
+        "destination": "crm",
+        "why": "the CRM is timing out"
+      }
+    },
+    {
+      "at": "+15m30s",
+      "action": {
+        "by": "firm-contact",
+        "do": "acknowledge",
+        "lead": "lead-1",
+        "via": "link"
+      }
+    },
+    {
+      "at": "+20m",
+      "receiver": {
+        "destination": "crm",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    },
+    {
+      "at": "+25m",
+      "action": {
+        "by": "operator",
+        "do": "resend",
+        "destination": "crm",
+        "lead": "lead-1",
+        "refused": true
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+2m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "unknown",
+        "attempts": 1,
+        "outcomes": [
+          "unknown"
+        ]
+      }
+    },
+    {
+      "at": "+2m",
+      "event": {
+        "name": "DeliveryUnknown",
+        "lead": "lead-1",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+10m",
+      "destination": {
+        "id": "crm",
+        "state": "paused"
+      }
+    },
+    {
+      "at": "+14m",
+      "handOff": {
+        "lead": "lead-1",
+        "state": "pending",
+        "evidence": "submitted",
+        "escalated": false
+      }
+    },
+    {
+      "at": "+16m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "accepted"
+      }
+    },
+    {
+      "at": "+16m",
+      "event": {
+        "name": "FallbackUsed",
+        "lead": "lead-1",
+        "count": 1
+      }
+    },
+    {
+      "at": "+16m",
+      "event": {
+        "name": "HandOffEscalated",
+        "lead": "lead-1",
+        "count": 1
+      }
+    },
+    {
+      "at": "+17m",
+      "handOff": {
+        "lead": "lead-1",
+        "state": "reached-by-fallback",
+        "by": "email",
+        "evidence": "acknowledged",
+        "escalated": true
+      }
+    },
+    {
+      "at": "+17m",
+      "event": {
+        "name": "HandOffAcknowledged",
+        "lead": "lead-1",
+        "count": 1
+      }
+    },
+    {
+      "at": "+19m",
+      "noEvent": {
+        "name": "DeliveryVerified",
+        "lead": "lead-1",
+        "destination": "crm"
+      }
+    },
+    {
+      "at": "+23m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "accepted",
+        "evidence": "verified",
+        "attempts": 1,
+        "count": 1
+      }
+    },
+    {
+      "at": "+23m",
+      "event": {
+        "name": "DeliveryResolved",
+        "lead": "lead-1",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+30m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "accepted",
+        "count": 1
+      }
+    },
+    {
+      "at": "+30m",
+      "noEvent": {
+        "name": "LeadResent",
+        "lead": "lead-1"
+      }
+    },
+    {
+      "at": "+30m",
+      "noAttempt": {
+        "destination": "crm",
+        "lead": "lead-1",
+        "after": "+1m"
+      }
+    },
+    {
+      "at": "+30m",
+      "handOff": {
+        "lead": "lead-1",
+        "state": "reached-by-fallback",
+        "by": "email",
+        "evidence": "acknowledged",
+        "escalated": true
+      }
+    }
+  ]
+}

@@ -21,6 +21,11 @@
     "body": "missing {field}"
   },
   "duplicates": "harmless",
+  "afterUnknown": "resend",
+  "evidence": {"strongest": "accepted", "how": "The message posted. Nothing shows a person read it"},
+  "handOff": "person",
+  "remoteId": "none",
+  "answers": "standard",
   "toConfirm": [
     "How a removed incoming-webhook URL is answered, and whether it matches the lab's hook-removed rule (410)"
   ]

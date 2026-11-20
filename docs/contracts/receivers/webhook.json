@@ -22,7 +22,13 @@
     "body": "missing {field}"
   },
   "duplicates": "unknown",
+  "afterUnknown": "operator",
+  "evidence": {"strongest": "accepted", "how": "The receiver's 2xx. A firm's webhook confirmed to deduplicate on our lead id is set duplicates: idempotency-key, and is then resent after an unknown outcome"},
+  "handOff": "record",
+  "remoteId": "unknown",
+  "answers": "standard",
   "toConfirm": [
-    "Duplicate handling: we send the lead id as the signed webhook-id header, the same on every retry, so a receiver can deduplicate on it; whether a given receiver does is its own choice, so this stays unknown per receiver (RFC-008 §4.3)"
+    "Duplicate handling: we send the lead id as the signed webhook-id header, the same on every retry, so a receiver can deduplicate on it; whether a given receiver does is its own choice, so this stays unknown per receiver (RFC-008 §4.3)",
+    "Whether its answer returns its own id for the record it made (remoteId)"
   ]
 }

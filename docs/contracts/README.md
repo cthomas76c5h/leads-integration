@@ -12,7 +12,7 @@ receivers are rewritten to read these files.
 | [scenarios/](scenarios/) | One file per scenario |
 | [receiver.schema.json](receiver.schema.json) | The format of a receiver contract |
 | [receivers/modes.json](receivers/modes.json) | How a fake receiver behaves in each mode, the same for every kind |
-| [receivers/](receivers/) | One file per destination kind: what it requires, how it accepts and refuses, how it handles duplicates |
+| [receivers/](receivers/) | One delivery contract per destination kind: what it requires, how it accepts and refuses, how it handles duplicates and settles an unknown outcome, the evidence it can give, whether it reaches a person |
 | [events.json](events.json) | The domain events a scenario may assert, each with its source |
 
 Check every file:
@@ -108,9 +108,11 @@ not any implementation's: `needs-reconnection`, not `disabled`; `held`, not
 A scenario with `model: proposed` is expected to fail on the lab until the rule
 is built. That is its purpose: it is the acceptance test for the slice.
 
-## A receiver contract
+## A delivery contract (receiver contract)
 
-What one destination kind requires, and how it answers. The fake receivers are
+What one destination kind requires, how it answers, and what we can and cannot know about it.
+`ContractTests.fs` checks every field below that the code acts on against the code, both ways:
+a contract that says one thing while the code does another fails the tests. The fake receivers are
 generated from these, and the same files drive the contract tests against each
 CRM's sandbox ([RFC-006](../rfc/006_integration_lab.md)).
 
@@ -123,13 +125,19 @@ CRM's sandbox ([RFC-006](../rfc/006_integration_lab.md)).
 | `accepts` | The status of an accepted lead |
 | `refusesMissing` | The answer when a required field is missing or blank |
 | `duplicates` | How the kind handles a lead it may have seen, which decides what follows an unknown outcome ([RFC-008 §4.3](../rfc/008_delivery_guarantees_and_evidence.md#43-duplicate-handling-per-destination-kind)): `idempotency-key`, `lookup`, `external-reference`, `none` (confirmed to have no way to tell), `harmless`, or **`unknown`**: not yet verified against the destination's sandbox, and treated at runtime like `external-reference` or `none`. Every kind is `unknown` until there is evidence; only email, SMS and Slack, where a second copy is harmless by nature, are not |
+| `afterUnknown` | What follows an unknown outcome: `resend` (a second copy is safe), `lookup` (looked up by our lead reference; found settles it, otherwise an operator checks) or `operator` (held for an operator to resolve: found, closed or resent). Follows from `duplicates` |
+| `evidence` | The strongest evidence it can give that the lead reached the firm (`accepted`, `verified`, `acknowledged`; [RFC-008 §3.1](../rfc/008_delivery_guarantees_and_evidence.md#31-five-levels)), and how |
+| `handOff` | `person` (someone at the firm reads it: it can carry the hand-off and the fallback) or `record` (it stores the lead in a system) |
+| `remoteId` | Whether its answer returns its own id for the record it made: `returned`, `none` or `unknown` until its sandbox shows it. Nothing keeps one yet, so no contract may say `returned` |
+| `answers` | How its answers are read: `standard` (the one shared table, `Policy.classify`) until a kind needs its own |
 | `toConfirm` | What the sandbox must still settle |
 
 Modes (`ok`, `reject`, `flaky`, `gone`, `down`, `slow`, `expired-auth`,
-`lost-record`) are the same for every kind and live once, in
-[modes.json](receivers/modes.json). `expired-auth` and `lost-record` (accepts, but
-a lookup never finds the record) are proposed: the lab's receivers do not have
-them yet.
+`lost-record`, `accept-then-timeout`) are the same for every kind and live once, in
+[modes.json](receivers/modes.json). `expired-auth` is proposed: the lab's receivers
+do not have it yet. `lost-record` accepts, but a lookup never finds the record;
+`accept-then-timeout` makes the record and never answers in time, so the outcome is
+unknown while the record exists. In `down` mode, lookups answer 503 too.
 
 ## Events
 
@@ -160,6 +168,7 @@ field gives.
 | [chat-leads-refused](scenarios/chat-leads-refused.json) | 2 | `lab` | A destination that refuses chat leads gets not sent, with a reason; email still has it |
 | [platform-outage](scenarios/platform-outage.json) | 3 | `lab` | 429 then 503 for 2½ hours: retried, never sooner than Retry-After; accepted after; streak stays zero |
 | [relay-timeouts](scenarios/relay-timeouts.json) | 3 | `lab` | No answer from email is retried (a second copy is harmless) and accepted once the relay answers |
+| [emergency-under-pressure](scenarios/emergency-under-pressure.json) | 6 | `lab` | A CRM makes the record and times out (unknown); paused; the fallback takes the emergency; escalation and the firm's confirmation at once; a lookup settles the CRM once it recovers; an operator's resend of it is refused |
 | [stall-after-start](scenarios/stall-after-start.json) | 3 | `lab` | A worker that recorded its attempt and stalled past its lease still sends: the CRM gets one copy, settled by its late answer; email is resent, harmlessly |
 | [unknown-resolved](scenarios/unknown-resolved.json) | 3 | `lab` | An operator closes, resends or finds an unknown delivery; the late answers that follow are evidence only, never undoing the resolution |
 | [crm-timeout](scenarios/crm-timeout.json) | 3 | `lab` | A timeout is unknown: email is retried, the CRM waits for an operator and is never sent again |

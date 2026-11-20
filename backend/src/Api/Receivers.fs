@@ -11,7 +11,7 @@ open Oxpecker
 open LeadIntegrations
 open LeadIntegrations.Domain
 
-let modes = set [ "ok"; "reject"; "flaky"; "gone"; "slow"; "down"; "expired-auth"; "lost-record" ]
+let modes = set [ "ok"; "reject"; "flaky"; "gone"; "slow"; "down"; "expired-auth"; "lost-record"; "accept-then-timeout" ]
 
 /// How one destination's receiver answers in a scenario run, set through test
 /// control (docs/api.md) for requests carrying `?dest={key}`. Empty outside test runs.
@@ -84,6 +84,14 @@ let handle (db: Db.Database) (kind: string) (mode: string) : EndpointHandler =
             let problems = if isNull kind then [] else FakeCrm.checkWith required kind ctx.Request.ContentType body
             let key = ctx.Request.Path.Value + "|" + (if isNull dest then "" else dest)
             match over with
+            | _ when mode = "accept-then-timeout" && problems.IsEmpty && not (isNull kind) ->
+                // The record is made, then the answer never comes back in time: the worst case for an unknown outcome.
+                let reference = ctx.Request.Headers["webhook-id"].ToString()
+                if reference <> "" then Db.write db (fun s -> Store.keepRecord s kind dest reference (now ()))
+                record db ctx kind mode 201 "accepted, answer held until the caller gave up" body
+                try
+                    do! Task.Delay(TimeSpan.FromSeconds 30.0, ctx.RequestAborted)
+                with :? OperationCanceledException -> ()
             | Some o when o.NoAnswer ->
                 // Hold until the caller times out and goes away; it never learns what happened.
                 try
@@ -109,8 +117,13 @@ let handle (db: Db.Database) (kind: string) (mode: string) : EndpointHandler =
 let lookup (db: Db.Database) (kind: string) : EndpointHandler =
     fun ctx ->
         let reference = Http.query ctx "ref"
-        let found = not (isNull reference) && Db.read db (fun s -> Store.hasRecord s kind (Http.query ctx "dest") reference)
-        if found then answer 200 "found" ctx else answer 404 "no record with that reference" ctx
+        let dest = Http.query ctx "dest"
+        // A CRM that is down answers its lookups no better than its requests.
+        match (if isNull dest then None else match overrides.TryGetValue dest with | true, o -> Some o | _ -> None) with
+        | Some o when o.Mode = "down" -> answer 503 "unavailable (down)" ctx
+        | _ ->
+            let found = not (isNull reference) && Db.read db (fun s -> Store.hasRecord s kind dest reference)
+            if found then answer 200 "found" ctx else answer 404 "no record with that reference" ctx
 
 let endpoints (db: Db.Database) : Endpoint list =
     [ GET [ routef "/receiver/crm/{%s}/lookup" (lookup db) ]

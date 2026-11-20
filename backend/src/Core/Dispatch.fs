@@ -767,14 +767,19 @@ let runVerifications (db: Database) (http: HttpClient) (opts: Options) (nowMs: i
                     """SELECT d.id, d.event_id, d.connection_id, c.delivery_url, c.firm_id,
                               (SELECT MIN(a.at) FROM attempts a WHERE a.delivery_id = d.id AND a.outcome = 'delivered')
                        FROM deliveries d JOIN connections c ON c.id = d.connection_id
-                       WHERE d.status = 'delivered' AND d.test = 0 AND d.verified_at IS NULL
+                       WHERE d.test = 0 AND d.verified_at IS NULL
                          AND c.settings LIKE '%"duplicates":"lookup"%'
-                         AND (d.verify_checked_at IS NULL OR d.verify_checked_at <= $1)
-                         AND EXISTS (SELECT 1 FROM attempts a WHERE a.delivery_id = d.id AND a.outcome = 'delivered' AND a.at >= $2)
+                         -- First looked up a minute after its last attempt (a CRM may file it a moment later), then once a minute.
+                         AND COALESCE(d.verify_checked_at, (SELECT MAX(a.at) FROM attempts a WHERE a.delivery_id = d.id), 0) <= $1
+                         AND ((d.status = 'delivered'
+                               AND EXISTS (SELECT 1 FROM attempts a WHERE a.delivery_id = d.id AND a.outcome = 'delivered' AND a.at >= $2))
+                           -- An unknown outcome nobody resolved: the lookup can settle it (afterUnknown: lookup).
+                           OR (d.status = 'unknown' AND d.resolution IS NULL
+                               AND EXISTS (SELECT 1 FROM attempts a WHERE a.delivery_id = d.id AND a.at >= $2)))
                        ORDER BY COALESCE(d.verify_checked_at, 0), d.id
                        LIMIT $3"""
                     [ nowMs - lookupEveryMs; nowMs - 86_400_000L; lookupBatch ]
-                    (fun r -> Read.str r 0, Read.str r 1, Read.str r 2, Read.str r 3, Read.str r 4, Read.int64 r 5))
+                    (fun r -> Read.str r 0, Read.str r 1, Read.str r 2, Read.str r 3, Read.str r 4, Read.int64N r 5))
         let lookup (url: string) (eventId: string) =
             task {
                 match Address.checkShape opts.Address (lookupUrl url eventId) with
@@ -811,9 +816,19 @@ let runVerifications (db: Database) (http: HttpClient) (opts: Options) (nowMs: i
                             if n = 1 then
                                 Store.emit s "DeliveryVerified" firmId eventId connectionId
                                 changed <- changed + 1
+                                // An unknown outcome the lookup settles: found, by the lookup, as an operator would.
+                                let reconciled =
+                                    s.Execute
+                                        "UPDATE deliveries SET status='delivered', reason='found at the destination by a lookup by our lead reference' WHERE id=$1 AND status='unknown' AND resolution IS NULL"
+                                        [ id ]
+                                if reconciled = 1 then
+                                    Store.setResolution s id { Kind = "found"; By = "lookup by our lead reference"; Why = null; At = at }
+                                    Store.emit s "DeliveryAccepted" firmId eventId connectionId
+                                    Store.emit s "DeliveryResolved" firmId eventId connectionId
                         | _ ->
                             s.Execute "UPDATE deliveries SET verify_checked_at=$2 WHERE id=$1" [ id; at ] |> ignore
-                            if at - acceptedAt > Timing.verifyWithinMs () then
+                            // Overdue applies to an accepted record that cannot be found; an unknown one already waits for an operator.
+                            if acceptedAt.HasValue && at - acceptedAt.Value > Timing.verifyWithinMs () then
                                 let n =
                                     s.Execute
                                         "UPDATE deliveries SET verify_overdue_at=$2 WHERE id=$1 AND verified_at IS NULL AND verify_overdue_at IS NULL"

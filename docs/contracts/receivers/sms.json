@@ -24,5 +24,10 @@
     "status": 422,
     "body": "missing {field}"
   },
-  "duplicates": "harmless"
+  "duplicates": "harmless",
+  "afterUnknown": "resend",
+  "evidence": {"strongest": "acknowledged", "how": "A person follows the signed confirm link in the text and presses the button. A reply is not read yet"},
+  "handOff": "person",
+  "remoteId": "none",
+  "answers": "standard"
 }

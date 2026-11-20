@@ -87,7 +87,11 @@ destination's `duplicates` setting, else its kind's receiver contract):
 |---|---|---|
 | `harmless` (email, SMS, Slack) | Send again | A second message does no harm |
 | `idempotency-key` | Send again | The receiver ignores a key it has seen |
-| `lookup`, `external-reference`, `none`, `unknown` | Status `unknown`: an operator checks the destination, then resolves it | A second record in a CRM cannot be told apart from the first |
+| `lookup` | Status `unknown`, and looked up by our lead reference (`Dispatch.runVerifications`): found settles it (accepted, verified, resolved as found by the lookup); not found leaves it for an operator | A lookup can confirm a record, never prove one will not appear |
+| `external-reference`, `none`, `unknown` | Status `unknown`: an operator checks the destination, then resolves it | A second record in a CRM cannot be told apart from the first |
+
+Each kind's choice is stated in its delivery contract (`afterUnknown` in
+`docs/contracts/receivers/{kind}.json`), and `ContractTests` checks it against this code.
 
 A refused connection, DNS or TLS failure sent nothing, so it stays an ordinary
 transient retry.
@@ -128,6 +132,7 @@ routine records is sent first. It reads four times the batch size and sorts it.
 | An emergency is acknowledged as its escalation falls due | `Dispatch.runHandOffs` checks `acknowledged_at` and `escalated_at` in its transaction | Escalated at most once; an acknowledgement committed first prevents it | `all-routes-down`, `HandOffTests` |
 | A routing change is approved while deliveries wait or send | `Dispatch.approveRouting` decides again only `pending` deliveries, and only when asked | Waiting ones keep their revision unless the firm applies the change; one being sent is never touched | `routing-change-during-outage`, `RoutingTests` |
 | An operator resends while the original still waits | `Dispatch.replay` checks, in its transaction, for a delivery of the lead to that destination still `pending` or `delivering` | Refused (409) until it settles; a bulk resend skips it and says so | `LeaseTests` |
+| A lookup finds the record of an unknown outcome as an operator resolves it | Both write conditionally (`… AND status='unknown' AND resolution IS NULL`) | Whichever commits first settles it; the other changes nothing | `emergency-under-pressure` |
 | Two sweeps look up the same record | Conditional updates in `Dispatch.runVerifications` (`WHERE verified_at IS NULL`, `… AND verify_overdue_at IS NULL`) | Verified or flagged once; the event is emitted once | — |
 
 ## 6. Timings
@@ -139,7 +144,7 @@ routine records is sent first. It reads four times the batch size and sorts it.
 | Batch claimed per pass | 20 (worker), 50 (test control) | `Worker.fs`, `TestControl.fs` |
 | Idle wait when nothing was due | 200 ms | `Worker.fs` |
 | Sweeps (fallbacks, hand-offs, lookups) | Every 5 s | `Worker.fs` |
-| Lookup of an unverified record | At most once a minute | `Dispatch.lookupEveryMs` |
+| Lookup of an unverified record | First a minute after its last attempt, then at most once a minute | `Dispatch.lookupEveryMs` |
 | Lookups per sweep | At most 20, sent at once; the longest unchecked first | `Dispatch.lookupBatch` |
 | Waiting for another process's write | Up to 5 s | `busy_timeout`, `Db.fs` |
 
@@ -154,5 +159,5 @@ conditionally; and a resend is refused while the lead still waits or is being se
 
 ## 8. Where it is tested
 
-- **Scenarios** (`python tools/run_scenarios.py`): `double-claim`, `pause-during-send`, `crash-after-send`, `crm-timeout`, `relay-timeouts`, `duplicate-intake`, `database-down-at-intake`, `routing-change-during-outage`, `all-routes-down`, `unknown-resolved`, `stall-after-start`. Faults are injected through `POST /api/test/faults` (`Dispatch.Faults`, `Db.WritesFail`).
+- **Scenarios** (`python tools/run_scenarios.py`): `double-claim`, `pause-during-send`, `crash-after-send`, `crm-timeout`, `relay-timeouts`, `duplicate-intake`, `database-down-at-intake`, `routing-change-during-outage`, `all-routes-down`, `unknown-resolved`, `stall-after-start`, `emergency-under-pressure`. Faults are injected through `POST /api/test/faults` (`Dispatch.Faults`, `Db.WritesFail`).
 - **F# tests**: `LeaseTests` (exclusive claim, deadline order, the policy after unknown), `IntakeTests`, `HandOffTests`, `RoutingTests`.

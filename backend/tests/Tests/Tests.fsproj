@@ -23,6 +23,7 @@
     <Compile Include="LeaseTests.fs" />
     <Compile Include="IntakeTests.fs" />
     <Compile Include="CorrectionTests.fs" />
+    <Compile Include="ContractTests.fs" />
     <Compile Include="BillingTests.fs" />
     <Compile Include="ImportTests.fs" />
     <Compile Include="OnboardingTests.fs" />

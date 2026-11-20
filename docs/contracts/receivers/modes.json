@@ -22,6 +22,13 @@
       "answers": [{ "status": 401, "body": "unauthorized: access token expired" }],
       "note": "The simulator injects this answer today; the receivers have no mode for it yet"
     },
+    "accept-then-timeout": {
+      "model": "lab",
+      "checksBody": true,
+      "answers": [{ "status": 201, "body": "accepted", "afterSeconds": 30 }],
+      "lookup": "found",
+      "note": "Makes the record, then holds the answer past the caller's timeout: the caller sees no answer (an unknown outcome) while the record exists. A lookup finds it. In down mode, lookups answer 503 as well"
+    },
     "lost-record": {
       "model": "lab",
       "checksBody": true,
