@@ -12,27 +12,29 @@ say so. Decisions stay in [answers.md](../lead-delivery/answers.md); the product
 engineering direction stays in [strategy.md](../lead-delivery/strategy.md). This page
 asks whether that direction is worth paying for.
 
-## The hypothesis (version 1)
+## The hypothesis (version 2)
 
-**Dependable, managed intake for small and growing law firms.**
+**Dependable intake for law firms that cannot take every call while they work.**
 
 | | |
 |---|---|
-| **Customer** | Small and growing law firms that lack the staff, time or tools to handle every inquiry consistently |
-| **Problem** | Answering, qualifying, passing on and following up inquiries takes staff time, and every step is a chance to miss one |
-| **Solution** | A managed AI-and-human intake service that handles the routine, works with the firm's existing systems, escalates the exceptions, and makes every outcome visible |
-| **Economic value** | Fewer interruptions, less administrative work, dependable handling of every inquiry, and possibly more retained clients |
-| **Differentiator to prove** | More dependable intake at a lower total cost, not cheaper AI conversations |
+| **Customer** | Small and growing law firms: a median of 44 calls a month. The 570 firms taking 100 or more a month (23%) carry two-thirds of the volume |
+| **Problem** | Calls arrive during the working day (83% on weekdays, 8 am–6 pm) while attorneys are in court or with clients. When we try to put a caller through, two in three attempts find nobody. Firms' main complaint is the quality of the message we took |
+| **Solution** | A managed intake service: it answers, captures the call accurately, reaches whoever can act (live, or by the email or text they already read), follows up until someone does, and shows what happened there |
+| **Economic value** | Fewer interruptions, every caller handled well, and fewer callers lost when nobody at the firm could pick up |
+| **Differentiator to prove** | Message quality, and a hand-off that still works when the firm cannot answer, not cheaper AI calls |
 
-**Preventing lost new clients is our leading value proposition, not yet a known reason
-to buy.** The economics point to it, but firms may buy for other reasons: freedom from
-interruptions, predictable staffing costs, bilingual coverage, or a more professional
-first impression. Recovering lost clients may be the benefit underneath without being
-what makes a firm sign. Our reliability work serves all of these; which one firms pay
-for decides how we sell it.
+**What production changed from version 1** ([what firms need](what-firms-need.md)):
 
-Two things we know for certain: the firms already pay us to answer their calls, and
-today we cannot show them what happened to each inquiry. Closing that gap comes first.
+- **Daytime overflow, not after-hours rescue.** Firms use us mostly as a receptionist for calls they cannot take while working.
+- **The hand-off fails at the firm.** Two in three live transfers find nobody; that, more than our delivery code, is where callers can be lost.
+- **Firms complain about what we captured, not whether it arrived.** 60% of tickets are "Message concern"; 3 of 480 mention not receiving leads.
+- **Firms read their leads by email or text, not in the portal.** 8.6% of portal leads are ever marked read. Proof and confirmation must go where firms already look.
+- **Only one in five calls is labelled a new client,** and two in five are marked free. The case built on "every call is a new client" overstated it.
+
+Preventing lost new clients stays a value proposition, but not the lead one: the
+evidence points to **dependable handling of every call while the firm is busy**, with
+message quality as the felt pain.
 
 ## The questions
 
@@ -55,10 +57,13 @@ suggests small, low-tooling firms ([strategy §2.4](../lead-delivery/strategy.md
 
 ### What is their expensive problem?
 
-**Our leading candidate: a new client who called and was never reached in time.**
-The alternatives a firm may feel more directly are interruptions, staff time spent on
-intake, and coverage out of hours or in another language. Interviews and cancellation
-reasons decide which leads. In law, a caller who is not
+**What production points to: calls the firm cannot take while it works, handled well
+enough that nothing is lost and nothing has to be redone.** 83% of billable calls
+arrive in the working day; two in three live transfers find nobody at the firm; and
+firms' main complaint is the quality of the message we took
+([what firms need](what-firms-need.md)). A new client never reached in
+time is the costliest case of this, not the most frequent: one call in five is
+labelled a new matter. In law, a caller who is not
 called back within minutes or hours calls the next firm. For a personal-injury or
 criminal-defence practice, one lost retained client can cost more than a year of our
 service.
@@ -168,19 +173,24 @@ if offer A wins, that decision is revised in
 
 ### Why do customers cancel, complain or upgrade?
 
-We hold no support tickets or cancellation notes, so these are predictions from the
-system's design, ranked by how strongly the evidence points to them:
+**Complaints, from the 480 in-app tickets** ([what firms need](what-firms-need.md#a-message-they-can-act-on)),
+against what we predicted from the system's design:
 
-1. **Complain: "we never got that lead."** Silent loss is possible by design today, and firms notice before we do.
-2. **Complain: "our CRM stopped receiving leads."** Expired sign-ins are the most common failure in the copy we hold.
-3. **Complain: "why am I paying for this call?"** Hang-ups, sales calls and the 1.33 multiplier.
-4. **Complain: "I'm locked out."** Every edit to the terms of service made everyone accept again before signing in ([terms strategy](../terms/strategy.md)).
-5. **Cancel:** after a discovered lost lead, after a bill dispute, or when the CRM offers intake of its own.
-6. **Upgrade:** more numbers or languages, live transfer to the firm, a CRM connection.
+| Predicted | What the tickets show |
+|---|---|
+| "We never got that lead" would lead | **3 of 480.** Not a felt complaint, or invisible to firms |
+| "Our CRM stopped receiving leads" | 7 CRM integration *requests*; no breakage pattern |
+| "Why am I paying for this call?" | 16 billing tickets |
+| — (not predicted) | **287 "Message concern" (60%):** the quality of what we captured |
+| — (not predicted) | 27 call forwarding, 9 translation, 7 ring time or hold |
 
-**This is the first thing to replace with facts.** One afternoon with the support
-queue and the cancellation list will confirm or overturn most of this page. Each
-reason for leaving points to a different investment:
+Our design-led prediction was wrong about what firms feel: it pointed at delivery,
+and they point at the message.
+
+**Cancellations and upgrades are still unknown.** This copy cannot show churn reasons
+(firms stopping is an upper bound of about 3.7% a month), so the cancellation list
+remains **the first thing to replace with facts.** Each reason for leaving points to
+a different investment:
 
 | If firms leave because of | Then invest in |
 |---|---|
@@ -242,6 +252,7 @@ client never called back."*
 
 | If we find | Then |
 |---|---|
+| **Found (Feb–May 2024):** firms complain about message quality, not delivery, and two in three live transfers find nobody | Invest first in message quality (accuracy, review, the intake questions) and in reaching someone when the firm cannot answer; sell dependable delivery as part of that, not as its own tier |
 | Few leads are actually lost or late | Delivery assurance is a feature, not a product; sell answering and insight |
 | Firms do not notice or care about losses | Lead with the bill and the weekly report, not with proof |
 | Cancellations cluster around CRM-bundled intake | Lean into cross-system coordination and CRM neutrality, sooner |
@@ -253,33 +264,40 @@ client never called back."*
 The first tells us what customers **have done**; the second, **why**; the third,
 what they **will pay for**.
 
-1. **Commercial reality: what they have done.** The last year of cancellations, upgrades, support issues and recurring revenue, per firm and plan. Find the most common reasons firms buy, leave and expand. Alongside it, the production feed: how many leads are lost or late, and how many firms use a CRM.
+1. **Commercial reality: what they have done.** Partly done from the api-2 copy: volume, call mix, timing, live transfers, portal use and support tickets ([what firms need](what-firms-need.md)). Still needed: cancellations and their reasons, upgrades, and recurring revenue per firm and plan (billing records); and the production feed for lost and late leads and CRM usage.
 2. **Customer workflows: why.** Ten firm conversations across the small and growing segments: where staff time goes, how a prospective client is handled, and what they would call an unacceptable failure. Use the [discovery scenarios](../discovery/scenarios.md) and the five questions above.
 3. **Pricing behaviour: what they will pay for.** Offers A and B, at real prices, to matched sets of existing customers.
 
 ## Commercial evidence ledger
 
-Every claim on this page, and how sure we are of it. **Confirmed** means shown by our
-own code or records (noting that the data copy we hold is mostly test traffic).
-**Inferred** means reasoned from evidence but not observed in production.
-**Untested** means a belief. A claim moves up only with the observation in the last
-column.
+Every claim on this page, and how sure we are of it. **Confirmed**: shown by our own
+code or production records. **Contradicted**: production records say otherwise.
+**Inferred**: reasoned from evidence, not observed directly. **Untested**: a belief. A
+claim moves only with the observation in the last column. Production figures are
+February–May 2024 ([what firms need](what-firms-need.md)).
 
 | Claim | Status | Basis | What would change it |
 |---|---|---|---|
 | Today's production can lose a lead with no record | Confirmed | The api-2 code: one attempt, no record of skipped leads ([production-today.md](../lead-delivery/production-today.md)) | The feed showing production intake takes another, safer path |
-| Firms already pay us to answer their calls | Confirmed | Our billing | — |
-| Firms use us mainly for new-client calls | Confirmed (configuration) | 99.8% of active call types mean "new matter" | The production call mix (configuration is not traffic) |
-| Some customers are trades businesses, not law firms | Confirmed | Our call data | — |
-| Leads are lost or late often enough to matter | Untested | — | The production feed's lost and late leads per firm |
-| Most firms take leads by email, not a CRM | Inferred | 8 of 444 CRM rows enabled, in a mostly-test copy | The feed's CRM usage per firm |
-| CRM connections break silently, mostly on expired sign-ins | Inferred | Clio: 0 of 71 accepted in the copy | The feed's failures by cause |
-| Firms learn of a lost lead before we do | Inferred | Alerting covers all firms with one check, weekdays 8–4 | "We never got that lead" tickets, and who raised them |
-| Most customers are small firms | Inferred | Few CRMs, email delivery | Firm size in billing records |
-| Firms buy to win clients they would lose (not to save time or interruptions) | Untested | — | Interviews; cancellation and purchase reasons |
-| Bills cause disputes | Inferred | The legacy formula (×1.33, charged hang-ups) | Dispute tickets and credits issued |
-| Terms re-acceptance locked users out | Confirmed | [Terms strategy §1](../terms/strategy.md) | — |
-| Firms will pay more for verified delivery on its own | Untested | — | Offer A against offer B, at real prices |
+| Firms already pay us to answer their calls | Confirmed | Billing; 2,498 firms with leads in four months | — |
+| Firms use us mainly for new-client calls | **Contradicted** | 21% of answered calls are labelled new matters; 39% no charge; 29% general messages | — |
+| Firms use us mainly during the working day | Confirmed | 83% of billable calls on weekdays, 8 am–6 pm Eastern | Per-firm time zones, if they shift it |
+| The hand-off fails mostly at the firm | Confirmed | Two in three live transfers find nobody (128,000 attempts) | — |
+| Firms' main complaint is message quality | Confirmed | 287 of 480 tickets are "Message concern" | Cancellation reasons, which tickets do not show |
+| Firms complain about not receiving leads | **Contradicted** | 3 of 480 tickets | Loss being invisible to firms (the production feed would show it) |
+| Leads are lost or late often enough to matter | Untested | Possible in the code; not visible in tickets | The production feed's lost and late leads per firm |
+| Firms read their leads in the portal | **Contradicted** | 8.6% of portal leads ever marked read; 30% of users ever activated | — |
+| Most firms take leads by email, not a CRM | Inferred | 8 of 444 CRM rows enabled; 7 tickets asking for an integration | The feed's CRM usage per firm |
+| CRM connections break silently, mostly on expired sign-ins | Inferred | Clio: 0 of 71 accepted (CRM rows are mostly test traffic) | The feed's failures by cause |
+| Most customers are small firms | Confirmed (by volume) | Median 44 calls a month; 76% of firms under 100 | Firm size in billing records |
+| Volume is concentrated in a fifth of firms | Confirmed | 23% of firms (100+ a month) make two-thirds of calls | — |
+| Some customers are not law firms | Confirmed | 8% of active firms on Ring Savvy | — |
+| Firms buy to win clients they would lose | Untested, and weaker | The usage pattern fits "a receptionist while we work" better | Interviews; purchase and cancellation reasons |
+| Bills cause disputes | Inferred, weak | 16 of 480 tickets are billing | Credits issued; cancellation reasons |
+| Two in five calls earn nothing | Confirmed | 39% of answered calls marked "No charge" by the operator | — |
+| Terms re-acceptance locked users out | Confirmed | [Terms strategy §1](../terms/strategy.md): firms pushed back | — |
+| Firms stop at about 3.7% a month or less | Inferred | 11% of February's firms had no leads in May (some quiet, not gone) | Cancellations in billing records |
+| Firms will pay more for verified delivery on its own | Untested, and weaker | Delivery is not what firms complain about | Offer A against offer B, at real prices |
 | Today's bill is the right price anchor | Inferred | Billing plan's side-by-side bills | The side-by-side months; offer acceptance |
 | CRM vendors' own intake is taking customers | Untested | Competitor announcements, not verified | Cancellation reasons naming a CRM |
 | Proof, fallback and escalation work | Confirmed in the lab only | 30 scenarios and the interleaving check | A production pilot |

@@ -19,8 +19,10 @@ what we still assume.
 
 **How this was formed.** From the code of the source systems and a development
 copy of their data, through this lab; not from conversations with firms or the
-operations team. That copy may be a scrubbed restore and is mostly test traffic,
-so every figure here is a signal to check, not a fact. The read-only production
+operations team. Its CRM deliveries are mostly test traffic; its leads and calls are
+production-scale for January to May 2024, and what they show about how firms use us
+is summed up in [what firms need](../business/what-firms-need.md). Every figure here
+is still a signal to check, not a fact. The read-only production
 feed, the roadmap's first step, replaces them with production numbers (section 8).
 
 ## 1. In one sentence
