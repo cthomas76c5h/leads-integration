@@ -3,6 +3,7 @@
 What the business should do this year, and what we ask leadership to decide. It builds
 on [what firms need](what-firms-need.md) and the [commercial case](commercial-case.md);
 how the lab's way of working serves it is in [from technical correctness to commercial value](what-the-lab-taught-us.md).
+The short version for leadership is [the leadership brief](leadership-brief.md).
 
 ## In three sentences
 
@@ -19,7 +20,9 @@ We do not have a technology gap. We have a product, ownership and commercial gap
 
 Most of what firms need already exists somewhere in the company. The AI voice platform
 follows each firm's rules, involves a person when needed, records every call and
-delivers leads dependably. The human service still serves most firms. Several other
+delivers leads with retries and a reconciliation sweep, though whether production runs
+the sweep is not yet verified (see "Straight away"). The human service still serves
+most firms. Several other
 projects overlap them, and nobody owns the caller's whole journey across all of it.
 
 So the question for the year is not what to build next. It is **how to turn what we
@@ -81,6 +84,10 @@ checks wrongly pass a bad call, especially a serious one: a checker that reports
 well while missing real failures is worse than none. We do not claim the results until
 the checks agree with people.
 
+So checking starts small: validate it against independently reviewed real conversations
+first (the chat pilot), and expand coverage only once it reliably catches the failures
+that affect customers.
+
 ## The economics we still need
 
 The strategy is clear on the problem, the product and the method. It still lacks the
@@ -96,33 +103,38 @@ Keep three kinds of value apart, because each needs different proof:
 
 Never add them into one return-on-investment figure.
 
-**The first-quarter deliverable is a customer and unit-economics analysis.** For each
-firm: what it pays, its calls and how many are billable, human handling time, AI cost,
-escalations, support tickets, credits, and whether it stayed. Then group the firms by
-volume, practice area and how they are served. Start with the busiest firms, alongside
+**The first-quarter deliverable is a customer-segment contribution-margin analysis.**
+For each firm: what it pays, its calls and how many are billable, human handling time,
+AI cost, escalations, support tickets, credits, and whether it stayed. Then group the
+firms into segments (solo attorneys, growing practices with intake staff, higher-volume
+firms), and by practice area and how they are served. Rank segments by contribution
+margin, never by revenue or call volume alone. Start with the busiest firms, alongside
 a fair sample of smaller ones: the most valuable firms may be the ones combining
 volume, high expectations and good margins, not simply the busiest. The data lives in
 the billing system, the legacy answering platform and the voice platform, so it needs
 their owners.
 
-The question it answers: **which firms can we serve better with AI and people
-together, at a better margin, without losing more of them?**
+The question it answers: **which segment gives us the best chance to improve quality and
+economics at the same time, serving firms better with AI and people together, without
+losing more of them?** The answer could change the roadmap, because segments may need
+different mixes of AI and people.
 
 ## What to do, in order
 
 **Straight away**
 
 - Fix the security issues the review turned up.
-- Name one owner for the caller's whole journey: voice, chat, human reception and delivery.
+- Name one accountable owner for the caller's whole journey: voice, chat, human reception and delivery.
+- **Verify production delivery.** The voice platform has retries, a reconciliation sweep and a staff retry, but the sweep and the staff retry are off by default, and nothing records whether production has them on. Confirm the deployed settings, how failures become visible, and who acts on them; do the same for the legacy and human-service delivery paths. The absence of complaints does not prove delivery works.
 - Pause new work that overlaps the voice platform, without throwing anything away yet.
 
 **First**
 
-- Build the customer and unit-economics analysis.
+- Build the customer-segment contribution-margin analysis.
 - Talk to customers: current firms, recent cancellations, and firms that turned down the AI service. Why they bought, what they value, why they leave, and which calls they trust to AI. What we know about firms is not recent, so this comes first.
-- Check that the voice platform is ready to be the foundation.
-- Start checking the quality of every call.
-- Make sure every failed transfer has someone responsible for the follow-up.
+- Assess the voice platform against explicit operational, quality and economic acceptance criteria (see the first quarter below), so it is not chosen just because it exists.
+- Validate quality checking against independently reviewed real conversations, then expand coverage.
+- Agree callback ownership and escalation rules with firms, then implement and measure them. The firm controls whether its people act, so the rule must be the firm's.
 - Try consultation booking with a few firms: it is already built and aimed at a top complaint.
 
 **Next**
@@ -142,9 +154,19 @@ Run them with real firms, alongside the engineering:
 - **Missed transfers recovered:** when nobody answers, the call does not just disappear. Does every failed transfer get a next step?
 - **Consultations booked:** qualified callers book without waiting for your staff. How many bookings complete?
 
-Each pilot also asks whether support work falls, whether firms are happier, what it
-costs, and whether they would pay to keep it. Where we can, we compare against calls
-handled by the human service.
+Every pilot, and the economic analysis, is judged on the same four dimensions. They are
+reported side by side, never added into one figure, so a gain on one cannot hide a loss
+on another: booking that works but needs too much human help, or AI that cuts cost but
+raises complaints.
+
+| Dimension | Measured by |
+|---|---|
+| **Service quality** | Material errors per 1,000 calls, from validated checks |
+| **Operational effectiveness** | Unfinished calls with an assigned, notified owner and a documented next action |
+| **Customer value** | Complaints, credits, satisfaction, retention |
+| **Unit economics** | Contribution margin per firm; cost per correctly handled call |
+
+Where we can, we compare against calls handled by the human service.
 
 ## The demonstration
 
@@ -155,13 +177,15 @@ next step, and the firm can see exactly what happened.
 
 ## The year, and what each quarter must prove
 
-Each quarter ends with a decision. Finishing the work does not earn the next step;
-the evidence does.
+Each quarter ends with a decision, and each gate can expand, revise or stop the work.
+Finishing the work does not earn the next step; the evidence does.
 
-- **First quarter: is the voice platform the right foundation, and where is the money?** We need to know it is ready for production, matches what firms rely on today, and has someone running it. From the economics: which firms are most profitable and worth serving better. And from talking to customers: which firms suit which way of serving them.
-- **Second quarter: is the improved service better than today's?** Call quality, missed transfers recovered, bookings, what firms say, and what it costs per call.
-- **Third quarter: which customers and features justify a higher price?** Firms paying in the pilots, staying, and the margin on them.
-- **Fourth quarter: what do we scale, move across, or retire?** Economics that repeat, operations that hold up, and customers who accept the change.
+| Quarter | The question | Evidence required | Decision |
+|---|---|---|---|
+| First | Is the voice platform the right foundation, and where is the money? | Current economics by segment, customer discovery, delivery baselines, and the voice platform's readiness against operational, quality and economic criteria: ready for production, matching what firms rely on today, with someone running it | Choose target segments; accept or reject the voice platform as the foundation |
+| Second | Is the improved service better than today's? | Independently validated quality improvements, callback outcomes, cost compared with today | Expand, revise or stop each pilot |
+| Third | Which customers and features justify a higher price? | Actual willingness to pay, retention evidence, contribution margin | Approve packaging and pricing |
+| Fourth | What do we scale, move across, or retire? | Repeatable quality, reliability, margins, and customers accepting the move | Scale selectively, keep hybrid arrangements, or retire systems |
 
 ## Targets
 
@@ -177,9 +201,18 @@ financial model. Setting them before that would be guessing.
 
 ## What we ask leadership to decide
 
-1. **One direction:** dependable intake by AI and people together, built on what we already have.
-2. **One owner** for the caller's whole journey.
-3. **Invest on evidence:** spend where it measurably improves accuracy, calls handled through to their next step, retention, cost, and what firms will pay, and pass each quarter's gate before committing more.
+For the direction above (dependable intake by AI and people together, built on what we
+already have):
+
+1. **Authorise a focused first-quarter validation effort:** the economics by segment, customer discovery, production delivery verification, the platform assessment and the chat pilot.
+2. **Appoint one accountable owner** for the caller's whole journey.
+3. **Agree in advance what evidence permits further investment,** using the quarterly gates and the pilots' scorecard.
+
+| | Status |
+|---|---|
+| **The customer problem and proposition** | Clear and ready to present |
+| **The strategic direction** | A strong hypothesis, supported by historical evidence; needs current customer and production validation |
+| **Authorising a substantial engineering roadmap** | Not yet: needs baselines, owners, verified platform readiness and pilot results |
 
 Bringing the systems together is the means, not the goal: on its own, it does not make
 a product firms want.
