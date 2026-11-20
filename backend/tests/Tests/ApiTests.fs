@@ -331,4 +331,38 @@ let tests =
                   Expect.notEqual (d1.Item(0).GetProperty("id").GetString()) (d2.Item(0).GetProperty("id").GetString()) "offset moves the window"
               finally
                   app.StopAsync().Wait()
+          }
+
+          test "a firm user signs in with a token and sees only its own firm's leads; every refusal is audited" {
+              use t = new TempDb()
+              Import.apply t.Db origin (batch Domain.Source.api2 [ firm "1" "Firm A" "ka" [ conn "10" "email" [] ]; firm "2" "Firm B" "kb" [] ]) |> ignore
+              let firmA, firmB =
+                  Db.read t.Db (fun s ->
+                      let fs = Store.allFirms s
+                      (fs |> Array.find (fun f -> f.Name = "Firm A")).Id, (fs |> Array.find (fun f -> f.Name = "Firm B")).Id)
+              let app, client = server t.Db
+              try
+                  let issued = json (post client $"/api/firms/{firmB}/users" """{"name":"Blake","role":"member"}""")
+                  let tokenB = issued.GetProperty("token").GetString()
+                  let tokenA = (json (post client $"/api/firms/{firmA}/users" """{"name":"Avery"}""")).GetProperty("token").GetString()
+                  Expect.isFalse (Db.read t.Db (fun (s: Db.Session) -> s.TryOne "SELECT 1 FROM firm_users WHERE token_hash=$1" [ tokenB ] (fun _ -> true)) |> Option.isSome) "the token itself is never stored"
+                  let leadA = (json (post client $"/api/firms/{firmA}/leads" "{}")).GetProperty("event").GetProperty("id").GetString()
+                  let as' (token: string) (method: HttpMethod) (path: string) =
+                      use req = new HttpRequestMessage(method, path)
+                      if not (isNull token) then req.Headers.Authorization <- Headers.AuthenticationHeaderValue("Bearer", token)
+                      int (client.SendAsync(req).Result.StatusCode)
+                  Expect.equal (as' null HttpMethod.Get $"/api/portal/leads/{leadA}") 401 "no token, no answer"
+                  Expect.equal (as' "fut_wrong" HttpMethod.Get $"/api/portal/leads/{leadA}") 401 "an unknown token"
+                  Expect.equal (as' tokenA HttpMethod.Get $"/api/portal/leads/{leadA}") 200 "its own firm's lead"
+                  Expect.equal (as' tokenB HttpMethod.Get $"/api/portal/leads/{leadA}") 404 "another firm's lead does not exist for it"
+                  Expect.equal (as' tokenB HttpMethod.Get "/api/portal/leads/evt_nonexistent") 404 "the same answer as a lead that does not exist"
+                  Expect.equal (as' tokenB HttpMethod.Get $"/api/portal/leads?firmId={firmA}") 403 "nor another firm's list"
+                  Expect.equal (as' tokenB HttpMethod.Get $"/api/portal/leads/{leadA}/export") 404 "nor its export"
+                  Expect.equal (as' tokenB HttpMethod.Post $"/api/portal/leads/{leadA}/resend") 404 "nor a resend"
+                  let refused = Access.refusals t.Db
+                  Expect.equal (refused |> Array.map _.Boundary) [| "read"; "read"; "list"; "export"; "resend" |] "every refusal audited"
+                  Expect.isTrue (refused |> Array.forall (fun r -> r.FirmId = firmB)) "as the asking firm"
+                  Expect.equal (Db.read t.Db (fun s -> (Store.leadOrFail s leadA).Deliveries.Length)) 1 "the refused resend made nothing"
+              finally
+                  app.StopAsync().Wait()
           } ]

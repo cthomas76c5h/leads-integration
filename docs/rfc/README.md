@@ -37,7 +37,7 @@ What stakeholders are asked to approve:
 | Delivery and concurrency guarantees | Ready, as specifications |
 | Executable scenario contracts | Ready; the lab passes every `lab` scenario, and each `proposed` one shows the gap its slice closes |
 | Receiver deduplication | Unresolved by design: `unknown` until each receiver is shown, in its sandbox, to handle repeats and ambiguous timeouts |
-| Security requirements | Specified; implementation evidence pending |
+| Security requirements | Specified; firm isolation proved in the lab (`cross-firm-read`), the rest pending |
 | Commercial model (RFC-003) | Proposed; needs Product and Finance approval |
 | Effort estimates | Planning estimates, not commitments |
 | Production deployment | Not approved |

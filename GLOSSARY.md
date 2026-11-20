@@ -294,3 +294,7 @@ _Avoid_: super admin
 **Firm contact**:
 The person at the firm who approves changes and reconnects destinations.
 _Avoid_: client, customer, user
+
+**Firm user**:
+Someone at a firm who signs in to the firm portal and sees only that firm's leads. Signs in with a token an operator issues; another firm's lead is answered as if it did not exist, and every such refusal is audited. *Lab.*
+_Avoid_: customer, account

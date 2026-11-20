@@ -470,6 +470,14 @@ non-alphanumerics turned into `_` and trimmed ("Date of accident?" →
 | GET | `/api/terms/{version}/acceptances?limit=50` | | `{ version, firmId, firmName, userId, role, at }[]` |
 | GET | `/api/portal/terms?firm=&role=admin\|member\|new` | | `TermsGate` for the lab's synthetic user (`new`: never signed in) |
 | POST | `/api/portal/terms/accept` | `{ firmId, role, version }` | `TermsGate` after recording the acceptance |
+| POST | `/api/firms/{id}/users` | `{ name, role?: 'admin' \| 'member' }` | 201 `{ user: { id, firmId, name, role }, token }`. An operator issues a firm user's sign-in token. It is shown this once; only a salted hash is kept |
+| GET | `/api/portal/leads?q=&category=&outcome=&limit=&offset=` | | `{ total, items: LeadSummary[] }`, the signed-in firm's production leads only. `firmId` naming another firm: **403**, audited |
+| GET | `/api/portal/leads/{id}` | | `LeadDetail` of the signed-in firm's lead. Another firm's lead, a test lead or an unknown id: the same **404**, audited (RFC-008 §9) |
+| GET | `/api/portal/leads/{id}/export` | | The lead as a file (`Content-Disposition: attachment`); scoped as above |
+| POST | `/api/portal/leads/{id}/resend` | | 202 `{ resent: string[] }`: the firm asks for its lead again where it was refused, cancelled or unknown; never an accepted delivery. Scoped as above |
+| GET | `/api/access/refusals` | | `{ at, userId, firmId, boundary, target, outcome }[]`: every refused firm request, oldest first (operator) |
+
+Every `/api/portal/leads` route needs `Authorization: Bearer {token}` (401 without a valid one), and answers for the token's firm only (Access.fs). A refusal emits `AccessRefused`. The terms routes above still take the firm from the request: they predate sign-in.
 | GET | `/api/overview` | | `Overview` |
 | GET | `/api/firms?q=&kind=&source=&issues=1&limit=50&offset=0` | | `{ total: number, items: FirmSummary[] }`; by name, or with `q` best matches first (active firms with live destinations, then names starting with `q`) |
 | GET | `/api/firms/{id}` | | `FirmDetail` |

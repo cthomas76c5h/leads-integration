@@ -3,11 +3,10 @@
   "name": "cross-firm-read",
   "story": "A user of Firm B asks for Firm A's lead at every public boundary: read it, find it in a list, export it, resend it. Every request is refused and audited, and the resend creates nothing. Firm A's own user reads it.",
   "slice": 0,
-  "model": "proposed",
+  "model": "lab",
   "proves": [
     "docs/rfc/008_delivery_guarantees_and_evidence.md#9-security-gates-from-the-first-slice (firm isolation, enforced and proved at every public boundary)"
   ],
-  "today": "The lab's API has no firm sign-in and no access control: any caller can read, list, export or resend any firm's lead. It is an operator console, and its firm portal page chooses a firm by id.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [

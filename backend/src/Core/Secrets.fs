@@ -28,6 +28,10 @@ let matchHash (value: string) : string =
 let newSigningSecret () =
     "whsec_" + Convert.ToBase64String(RandomNumberGenerator.GetBytes 24)
 
+/// A firm user's sign-in token as it is stored: a salted hash, never the token.
+let tokenHash (token: string) : string =
+    if isPresent token then sha256Hex ("token:" + token.Trim()) else null
+
 let newToken () =
     Convert.ToBase64String(RandomNumberGenerator.GetBytes 16).Replace('+', '-').Replace('/', '_').TrimEnd('=')
 

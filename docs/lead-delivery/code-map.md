@@ -96,6 +96,10 @@ The frontend only renders it:
 Only a webhook with a setup takes our mapping as its body (`Onboarding.enforced`);
 every other kind's body is fixed in `Payloads.build`.
 
+### Firm access
+
+The firm portal's API ([Portal.fs](../../backend/src/Api/Portal.fs)) is separate from the operator console. `Access.issue` gives a firm user a token, kept as `Secrets.tokenHash`; `Access.signedIn` reads the bearer token; `Access.leadFor` answers only for the token's firm, and otherwise records the refusal (`access_audit`, `AccessRefused`) and answers 404, the same as for an unknown lead. A list naming another firm is refused 403. The operator console's routes are unchanged: the lab has no operator sign-in.
+
 ## 4b. Window to act and fallback
 
 1. `Urgency.windowMs` gives each call category its window to act (72 hours; 24 for emergencies and custody) and `Urgency.fallbackAfterMs` its fallback delay (1 hour; 15 minutes): two separate clocks, read by `Timing` from [delivery-timing.json](delivery-timing.json), which also holds the retry schedule `Policy.retryScheduleMs` reads. Set by Answering AI; `DELIVERY_TIMING_FILE` points a deployment at its own copy. `Urgency.handOffState` says on time, expired or waiting.

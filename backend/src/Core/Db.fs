@@ -240,6 +240,27 @@ CREATE TABLE IF NOT EXISTS credits (
   at INTEGER NOT NULL
 );
 
+-- People at a firm who sign in to the firm portal (RFC-008 §9). The token is shown once, kept as a hash.
+CREATE TABLE IF NOT EXISTS firm_users (
+  id TEXT PRIMARY KEY,
+  firm_id TEXT NOT NULL REFERENCES firms(id),
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,          -- admin | member
+  token_hash TEXT NOT NULL UNIQUE,
+  created_at INTEGER NOT NULL
+);
+
+-- Every refused request at a firm boundary (RFC-008 §9): who asked, as which firm, for what.
+CREATE TABLE IF NOT EXISTS access_audit (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  at INTEGER NOT NULL,
+  user_id TEXT NOT NULL,
+  firm_id TEXT NOT NULL,       -- the requester's firm
+  boundary TEXT NOT NULL,      -- read | list | export | resend
+  target TEXT NULL,            -- the lead or firm asked for
+  outcome TEXT NOT NULL        -- refused
+);
+
 CREATE TABLE IF NOT EXISTS received (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   at INTEGER NOT NULL,

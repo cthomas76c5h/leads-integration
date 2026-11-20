@@ -36,6 +36,7 @@
     <Compile Include="Report.fs" />
     <Compile Include="Billing.fs" />
     <Compile Include="Corrections.fs" />
+    <Compile Include="Access.fs" />
     <Compile Include="Terms.fs" />
     <Compile Include="Seed.fs" />
     <Compile Include="Simulate.fs" />

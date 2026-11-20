@@ -94,6 +94,16 @@ class Api:
         except urllib.error.HTTPError as e:
             return e.code
 
+    def call_as(self, method: str, path: str, token: str) -> int:
+        """A firm user's request, signed in with a bearer token: the status only."""
+        req = urllib.request.Request(self.base + path, data=b"" if method == "POST" else None, method=method)
+        req.add_header("Authorization", f"Bearer {token}")
+        try:
+            with urllib.request.urlopen(req, timeout=60) as res:
+                return res.status
+        except urllib.error.HTTPError as e:
+            return e.code
+
     def ok(self, method: str, path: str, body=None):
         status, payload = self.call(method, path, body)
         if status >= 300:
@@ -121,7 +131,9 @@ class LabAdapter:
         self.dest_kind = {}
         self.leads = {}         # scenario lead id -> lab event id
         self.sent = {}  # scenario lead id -> (firm id, intake body, conversation): what the channel keeps
-        self.told = {}  # what intake answered the channel when it repeated a lead's event
+        self.told = {}
+        self.tokens = {}  # scenario firm -> a signed-in firm user's token
+        self.access = {}  # (firm, lead, boundary) -> allowed | refused  # what intake answered the channel when it repeated a lead's event
         self.pending_mapping = {}
         self.refs = None
 
@@ -189,6 +201,8 @@ class LabAdapter:
             self._action(step["action"])
         elif "fault" in step:
             self._fault(step["fault"])
+        elif "access" in step:
+            self._access(step["access"])
         elif "cycleCloses" in step:
             self.api.ok("POST", f"/api/test/firms/{self.firms[step['cycleCloses']['firm']]}/close-cycle")
         else:
@@ -228,6 +242,25 @@ class LabAdapter:
             raise RuntimeError(f"intake -> {status}: {res}")
         self.told[lead_id] = "recorded"
         self.leads[lead_id] = res["event"]["id"]
+
+    def _token(self, firm):
+        """A signed-in user of the firm, issued once per run by an operator."""
+        if firm not in self.tokens:
+            res = self.api.ok("POST", f"/api/firms/{self.firms[firm]}/users", {"name": f"Scenario user of {firm}", "role": "member"})
+            self.tokens[firm] = res["token"]
+        return self.tokens[firm]
+
+    def _access(self, x):
+        """A firm user asks for a lead through one boundary; the answer is kept for the access expectation."""
+        lead_id = self.leads[x["lead"]]
+        detail = self._lead_detail(x["lead"])
+        paths = {"read": ("GET", f"/api/portal/leads/{lead_id}"),
+                 "list": ("GET", f"/api/portal/leads?firmId={detail['firmId']}"),
+                 "export": ("GET", f"/api/portal/leads/{lead_id}/export"),
+                 "resend": ("POST", f"/api/portal/leads/{lead_id}/resend")}
+        method, path = paths[x["boundary"]]
+        status = self.api.call_as(method, path, self._token(x["firm"]))
+        self.access[(x["firm"], x["lead"], x["boundary"])] = "allowed" if status < 300 else "refused" if status in (403, 404) else f"HTTP {status}"
 
     def _fault(self, f):
         if f["kind"] == "intake-event-repeated" and f["lead"] not in self.leads:
@@ -496,6 +529,18 @@ class LabAdapter:
                     problems.append(f"{n} leads for conversation {conv}, expected {x['count']}")
             if "channelTold" in x and self.told.get(x["lead"]) != x["channelTold"]:
                 problems.append(f"the channel was told {self.told.get(x['lead'])}, expected {x['channelTold']}")
+            return (not problems), "; ".join(problems)
+        if kind == "access":
+            got = self.access.get((x["firm"], x["lead"], x["boundary"]))
+            problems = [] if got == x["is"] else [f"{got}, expected {x['is']}"]
+            if "audited" in x:
+                firm_id = self.firms[x["firm"]]
+                lead_id = self.leads[x["lead"]]
+                lead_firm = self._lead_detail(x["lead"])["firmId"]
+                rows = [r for r in self.api.ok("GET", "/api/access/refusals")
+                        if r["firmId"] == firm_id and r["boundary"] == x["boundary"] and r["target"] in (lead_id, lead_firm)]
+                if bool(rows) != x["audited"]:
+                    problems.append(f"audited {bool(rows)}, expected {x['audited']}")
             return (not problems), "; ".join(problems)
         if kind == "classification":
             v = self.api.ok("GET", f"/api/leads/{self.leads[x['lead']]}/classification")
