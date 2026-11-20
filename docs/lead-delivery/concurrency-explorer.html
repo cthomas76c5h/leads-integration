@@ -212,7 +212,10 @@ footer { font-size: 0.86rem; color: var(--muted) }
 
 <script>
 // ----- Data: actors, races, states, transactions. Kept in step with docs/lead-delivery/concurrency.md -----
-const LANES = { A: 'Worker A', B: 'Worker B', O: 'Operator / channel', D: 'Database', R: 'Receiver' };
+const LANES = {
+  A: 'Worker A', B: 'Worker B', O: 'Operator / channel', D: 'Database', R: 'Receiver',
+  W: 'Worker', S: 'Slow CRM', Q: 'Quick receiver', P1: 'Process 1', P2: 'Process 2',
+};
 
 // kind: tx (write transaction) | net (network, no transaction) | none (no state change) | bad (refused/stopped)
 const RACES = [
@@ -371,6 +374,48 @@ const RACES = [
     ],
     outcome: { ok: true, text: 'Email retries. The CRM is never sent the lead a second time without a person checking first.' } },
 
+  { id: 'slow-destination', label: 'A slow destination', proof: 'WorkerTests (fails under the old batch-at-a-time loop)',
+    story: "Firm A's CRM has stopped answering promptly: each request waits for the full 10-second timeout. Firm B's email is fine. Leads keep arriving for both. One slow destination must delay only its own deliveries.",
+    lanes: ['W', 'D', 'S', 'Q'],
+    steps: [
+      { from: 'W', to: 'D', kind: 'tx', label: 'claim: 4 CRM, 1 email', fn: 'Store.claimDue', checks: 'Due, nearest deadline first; at most 4 leases at once per destination (Store.inFlightPerDestination)', writes: 'leases on 4 CRM deliveries and 1 email', why: "The CRM has more due, but 4 is its share: a destination that does not answer can tie up at most 4 of the worker's 20 send slots." },
+      { from: 'W', to: 'S', kind: 'net', label: 'POST ×4 (no answer yet)', fn: 'Dispatch.send', writes: '—', why: 'Four requests wait on the CRM, each for up to 10 s, outside any transaction.' },
+      { from: 'W', to: 'Q', kind: 'net', label: 'POST email', fn: 'Dispatch.send', writes: '—', why: 'Sent at the same time, in its own slot.' },
+      { from: 'Q', to: 'W', kind: 'net', label: '201', fn: 'Dispatch.send', writes: '—', why: '' },
+      { from: 'W', to: 'D', kind: 'tx', label: 'complete email', fn: 'Dispatch.complete', writes: "status='delivered'", events: 'DeliveryAccepted', why: 'A slot is free again.' },
+      { from: 'W', to: 'D', kind: 'tx', label: 'claim again at once', fn: 'Dispatch.work → Dispatch.startDue → Store.claimDue', checks: 'A send finished, so claim now, not when the whole batch is done. The CRM already holds 4 leases: its next lead waits', writes: 'a lease on a lead for Firm B that fell due meanwhile', why: "Before this change the worker waited for every send in its batch, so this lead sat behind the CRM's 10-second timeouts." },
+      { from: 'W', to: 'Q', kind: 'net', label: 'POST', fn: 'Dispatch.send', writes: '—', why: '' },
+      { from: 'Q', to: 'W', kind: 'net', label: '201', fn: 'Dispatch.send', writes: '—', why: '' },
+      { from: 'W', to: 'D', kind: 'tx', label: 'complete', fn: 'Dispatch.complete', writes: "status='delivered'", events: 'DeliveryAccepted', why: "Delivered while the CRM's four requests are still waiting." },
+      { from: 'S', to: 'W', kind: 'net', label: 'answers (or times out)', fn: 'Dispatch.send', writes: '—', why: "Only now do the CRM's own next leads get slots: its slowness is its own." },
+    ],
+    outcome: { ok: true, text: "A slow destination delays only its own deliveries. Every other firm's leads keep moving." } },
+
+  { id: 'busy-firm', label: 'A firm with a backlog', proof: 'WorkerTests',
+    story: 'After an outage, Firm A has 30 emergency leads due at once. Firm B has one routine lead, due later. Deadline order alone would give Firm A every slot and leave Firm B waiting.',
+    lanes: ['O', 'D', 'W'],
+    steps: [
+      { from: 'O', to: 'D', kind: 'tx', label: '30 emergencies for Firm A', fn: 'Dispatch.intake', writes: '30 leads, each with its hand-off due at +24 h', why: 'The deadline is fixed at intake (events.handoff_due_at).' },
+      { from: 'O', to: 'D', kind: 'tx', label: '1 routine lead for Firm B', fn: 'Dispatch.intake', writes: '1 lead, due at +72 h', why: "Later than every one of Firm A's." },
+      { from: 'W', to: 'D', kind: 'tx', label: 'claim 20: rank everything due', fn: 'Store.claimDue', checks: 'One SQL query over everything due: by deadline; at most 4 leases per destination (a window function per destination); at most a quarter of the claim per firm while others are due (one per firm)', writes: "4 leases for Firm A's destination, 1 for Firm B", why: "Firm B's lead is claimed in the same pass, though all 30 of Firm A's are more urgent." },
+      { from: 'W', to: 'D', kind: 'bad', label: 'claim again → none for Firm A', fn: 'Store.claimDue', checks: "Firm A's destination holds 4 live leases", writes: '—', why: 'Its next leads go as its sends finish. Spare slots are never wasted: with no other firm due, a firm takes them all.' },
+      { from: 'W', to: 'W', kind: 'none', label: 'before: the first 80 only', fn: '(the earlier claimDue)', writes: '—', why: "The earlier version read the first 80 due and sorted them in memory: behind a backlog of 80 more urgent leads, Firm B's lead was never even considered." },
+    ],
+    outcome: { ok: true, text: "Urgent first, but no firm and no destination takes every slot, and no lead is hidden behind another firm's backlog." } },
+
+  { id: 'two-processes', label: 'Two processes, one file', proof: 'WorkerTests (six writers, 400 leads)',
+    story: "Two worker processes share one SQLite file. Each has its own in-process write lock, so they meet only at SQLite's file lock.",
+    lanes: ['P1', 'D', 'P2'],
+    steps: [
+      { from: 'P1', to: 'D', kind: 'tx', label: 'BEGIN IMMEDIATE: claim', fn: 'Db.write → Store.claimDue', checks: "IMMEDIATE takes the file's write lock at the start of the transaction", writes: 'leases', why: 'Microsoft.Data.Sqlite begins every write transaction IMMEDIATE by default.' },
+      { from: 'P2', to: 'D', kind: 'none', label: 'BEGIN IMMEDIATE: waits', fn: 'Db.write (busy_timeout 5 s)', writes: '—', why: 'It waits for the lock instead of reading a snapshot that could go stale before its first write. Our docs said these transactions were deferred: wrong, and corrected.' },
+      { from: 'P1', to: 'D', kind: 'tx', label: 'commit', fn: 'Db.write', writes: 'the claim is durable', why: '' },
+      { from: 'P2', to: 'D', kind: 'tx', label: 'claim: the next ones', fn: 'Store.tryClaim', checks: "Process 1's deliveries are no longer claimable: the conditional UPDATE matches nothing", writes: 'leases on other deliveries', why: 'Correct across processes because a claim is one conditional write.' },
+      { from: 'P1', to: 'D', kind: 'tx', label: 'begin, send, complete', fn: 'Dispatch.beginAttempt, Dispatch.complete', checks: 'Its lease version', writes: 'attempts, delivered', why: '' },
+      { from: 'P2', to: 'D', kind: 'tx', label: 'begin, send, complete', fn: 'Dispatch.beginAttempt, Dispatch.complete', checks: 'Its lease version', writes: 'attempts, delivered', why: '' },
+    ],
+    outcome: { ok: true, text: 'Six writers, 400 leads, one file: no write failed, every lead sent once, none lost. Shown on one machine; separate machines or a network file system were not tested.' } },
+
   { id: 'intake', label: 'A channel repeats a call', proof: 'duplicate-intake · IntakeTests',
     story: 'The voice channel sends a call\'s completion event twice, possibly at the same moment.',
     lanes: ['O', 'D', 'A'],
@@ -478,7 +523,9 @@ function drawSequence() {
     if (s.from === s.to) {
       const cx = x(s.from);
       g.append(el('rect', { class: 'self', x: cx - 8, y: y - 14, width: 16, height: 22 }));
-      g.append(el('text', { x: cx + 14, y: y + 1 }, s.label));
+      // On the rightmost lane the note reads leftwards, so it stays inside the diagram.
+      const last = lanes.indexOf(s.from) === lanes.length - 1;
+      g.append(el('text', last ? { x: cx - 14, y: y + 1, 'text-anchor': 'end' } : { x: cx + 14, y: y + 1 }, s.label));
     } else {
       const x1 = x(s.from), x2 = x(s.to), dir = Math.sign(x2 - x1);
       g.append(el('line', { x1, x2: x2 - dir * 7, y1: y, y2: y }));
