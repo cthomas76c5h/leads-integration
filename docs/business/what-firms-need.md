@@ -13,9 +13,14 @@ cannot take. After-hours cover matters, but it is the smaller part.
 ## A message they can act on
 
 Firms judge us by the message we take. Most of what they raise with us, well over
-half, is about a message: a detail wrong or missing, or a call handled differently
-than they wanted. Getting the details right matters more to them than anything else we
-do.
+half, is about a message, and those complaints are mostly not about wrong details.
+More than a third are about a call handled differently than the firm asked: how to
+book a consultation, what to tell callers about fees, when to put a call through.
+About a quarter are calls the firm did not want, or wants credited. Only about one in
+ten is a wrong or missing detail.
+
+Each firm has its own way of handling calls, and it expects us to follow it every
+time. That matters more to them than anything else we do.
 
 ## The right person, reached in time
 
@@ -56,7 +61,7 @@ ten are law firms; the rest are other businesses using the same service.
 
 ## What this means for us
 
-- **Message quality comes first.** It is what firms notice and judge.
+- **Message quality comes first, and it means following each firm's own rules,** applied the same way every time, more than hearing callers better.
 - **Reaching someone when the firm cannot answer is the hand-off that matters most.**
 - **Proof and dependability belong inside the service,** shown in the email and text firms already read, not sold as a separate product.
 - **Billing should follow the calls that matter,** decided by clear rules, not a label chosen during the call.
