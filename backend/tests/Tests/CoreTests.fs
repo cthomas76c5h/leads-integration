@@ -30,6 +30,17 @@ let tests =
               Expect.isTrue (match c None with Policy.Retry _ -> true | _ -> false) "no answer retries"
           }
 
+          test "only a senior operator resends an accepted lead, and says why" {
+              let as' role why : Resend = { By = "Sam"; Role = role; Why = why }
+              Expect.isOk (Dispatch.resendAllowed false false (as' "operator" null)) "any operator resends one that was not accepted"
+              Expect.isOk (Dispatch.resendAllowed false false Unchecked.defaultof<Resend>) "without saying who (the bulk resend)"
+              Expect.isError (Dispatch.resendAllowed true false (as' "operator" "missing")) "an operator may not resend an accepted lead"
+              Expect.isError (Dispatch.resendAllowed true false Unchecked.defaultof<Resend>) "nor anyone unnamed"
+              Expect.isError (Dispatch.resendAllowed true false (as' "senior-operator" " ")) "a senior operator gives the reason"
+              Expect.isOk (Dispatch.resendAllowed true false (as' "senior-operator" "firm confirmed the record is missing")) "and then may"
+              Expect.isOk (Dispatch.resendAllowed true true (as' "operator" null)) "a test lead is the operator's own check"
+          }
+
           test "a timeout is retried only where a second copy is harmless; elsewhere it is unknown" {
               let timedOut = Policy.classify None "no answer in 10000 ms" null 0L
               use t = new Support.TempDb()

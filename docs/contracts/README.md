@@ -165,7 +165,7 @@ field gives.
 | [redirect](scenarios/redirect.json) | 3 | `lab` | 301 is refused, never followed; 5 in a row switch off; reactivate and resend under the same identity |
 | [switch-off](scenarios/switch-off.json) | 3 | `lab` | An accepted delivery resets the streak; 5 refused in a row switch off |
 | [lead-problem](scenarios/lead-problem.json) | 3 | `lab` | A hang-up to a CRM that needs a name is not sent, as a lead problem, and never counts toward the streak |
-| [resend-accepted](scenarios/resend-accepted.json) | 3 | `proposed` | Only a senior operator resends an accepted lead; a new delivery, same identity, the newest counts |
+| [resend-accepted](scenarios/resend-accepted.json) | 3 | `lab` | An operator's resend of an accepted lead is refused; a senior operator's, with the reason, is a new delivery, same identity, the newest counts |
 | [routing-by-category](scenarios/routing-by-category.json) | 4 | `lab` | A CRM that takes new matters only: a billing question is not sent there, and reaches the firm by email |
 | [mapping-gap](scenarios/mapping-gap.json) | 5 | `lab` | A live mapping missing a required field is refused as configuration; revised, approved, resent, accepted |
 | [both-routes-down](scenarios/both-routes-down.json) | 6 | `lab` | Every route down: the firm with a fallback is reached a third into the window; the firm without expires |

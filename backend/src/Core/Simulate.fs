@@ -524,6 +524,7 @@ let run (db: Db.Database) (opts: Options) : Summary =
                       Decision = decision
                       NextAttemptAt = Nullable()
                       ReplayOf = replayOf
+                      Resend = (if isNull replayOf then Unchecked.defaultof<Resend> else { By = "Lab operator"; Role = "operator"; Why = "the destination was fixed" })
                       CreatedAt = t
                       Attempts = [||]
                       Diagnosis = null }

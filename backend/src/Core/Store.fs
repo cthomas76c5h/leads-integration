@@ -282,7 +282,7 @@ let attemptsOf (s: Session) (deliveryId: string) =
         readAttempt
 
 let private deliveryCols =
-    "d.id, d.event_id, d.connection_id, c.name, c.kind, f.id, f.name, d.test, d.status, d.reason, d.next_attempt_at, d.replay_of, d.created_at, d.template, d.has_template, d.decision"
+    "d.id, d.event_id, d.connection_id, c.name, c.kind, f.id, f.name, d.test, d.status, d.reason, d.next_attempt_at, d.replay_of, d.created_at, d.template, d.has_template, d.decision, d.resend"
 
 let private deliveryFrom =
     "FROM deliveries d JOIN connections c ON c.id = d.connection_id JOIN firms f ON f.id = c.firm_id"
@@ -308,6 +308,10 @@ let private readDelivery (s: Session) (r: DbDataReader) : DeliveryRow =
             | json -> Json.deserialize json
           NextAttemptAt = Read.int64N r 10
           ReplayOf = Read.str r 11
+          Resend =
+            match Read.str r 16 with
+            | null -> Unchecked.defaultof<Resend>
+            | json -> Json.deserialize json
           CreatedAt = Read.int64 r 12
           Attempts = [||]
           Diagnosis = null }
@@ -650,11 +654,12 @@ let leadOrFail (s: Session) (id: string) : LeadDetail =
 
 let insertDelivery (s: Session) (d: Delivery) (template: string option) =
     s.Execute
-        """INSERT INTO deliveries (id, event_id, connection_id, test, status, reason, template, has_template, next_attempt_at, replay_of, created_at, decision)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)"""
+        """INSERT INTO deliveries (id, event_id, connection_id, test, status, reason, template, has_template, next_attempt_at, replay_of, created_at, decision, resend)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)"""
         [ d.Id; d.EventId; d.ConnectionId; d.Test; d.Status; d.Reason; Option.toObj template; template.IsSome
           (if d.NextAttemptAt.HasValue then box d.NextAttemptAt.Value else null); d.ReplayOf; d.CreatedAt
-          (if isNull (box d.Decision) then null else Json.serialize d.Decision) ]
+          (if isNull (box d.Decision) then null else Json.serialize d.Decision)
+          (if isNull (box d.Resend) then null else Json.serialize d.Resend) ]
     |> ignore
 
 /// Missed leads: the firm's production leads since this destination's first

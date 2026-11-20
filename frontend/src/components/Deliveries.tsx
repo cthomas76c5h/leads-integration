@@ -128,36 +128,76 @@ export function ProblemPanel({ d, destinationStopped, setup, onResend, onChanged
   );
 }
 
+/**
+ * Resending an accepted lead can put a duplicate in the firm's CRM: only a senior operator may, with the
+ * firm's reason (docs/lead-delivery/answers.md). The lab has no sign-in, so the role is declared here.
+ */
+function ResendAccepted({ d, onDone, onCancel }: { d: Delivery; onDone: () => void; onCancel: () => void }) {
+  const { act } = useToast();
+  const [by, setBy] = useState('');
+  const [why, setWhy] = useState('');
+  const [senior, setSenior] = useState(false);
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void act(() => api.replay(d.id, { by: by.trim() || null, role: senior ? 'senior-operator' : 'operator', why: why.trim() }), 'Resent with the same lead identity')
+      .then(onDone);
+  };
+  return (
+    <form className="problem warn resend-accepted" onSubmit={submit}>
+      <strong>{d.connectionName} already accepted this lead.</strong>
+      <span>Resending can create a duplicate. Only a senior operator may, once the firm confirms the record is missing.</span>
+      <label className="field">Your name<input value={by} onChange={(e) => setBy(e.target.value)} autoComplete="name" /></label>
+      <label className="field">Why (the firm's words)<input required value={why} onChange={(e) => setWhy(e.target.value)} placeholder="Firm confirmed the record is missing" /></label>
+      <label><input type="checkbox" checked={senior} onChange={(e) => setSenior(e.target.checked)} /> I am a senior operator</label>
+      <div className="problem-actions">
+        <button type="submit" className="btn primary" disabled={!senior || !why.trim()}>Resend</button>
+        <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
+const roleLabel = (role: string) => (role === 'senior-operator' ? 'senior operator' : 'operator');
+
 /** Expandable list of deliveries with the journey, the problem, attempts and Resend. */
 export function DeliveryList({ rows, showConnection = false, showFirm = false, empty = 'Nothing sent yet.', onChanged }: {
   rows: Delivery[]; showConnection?: boolean; showFirm?: boolean; empty?: string; onChanged?: () => void;
 }) {
   const { act } = useToast();
+  const [asking, setAsking] = useState<string | null>(null);
   if (!rows.length) return <p className="muted">{empty}</p>;
   return (
     <div className="deliveries">
       {rows.map((d) => {
         const next = nextAction(d);
         return (
-          <details key={d.id} className={`delivery ${d.status}`}>
+          <div key={d.id}>
+          <details className={`delivery ${d.status}`}>
             <summary>
               <span className="dot" aria-hidden="true" />
               <span className="grow ellipsis">
                 <span className="mono">{leadNo(d.eventId)}</span>
                 {d.test && <> <span className="chip">test</span></>}
-                {d.replayOf && <> <span className="chip">resend</span></>}
+                {d.replayOf && <> <span className="chip" title={d.resend ? `By ${d.resend.by ?? 'an operator'} (${roleLabel(d.resend.role)})${d.resend.why ? `: ${d.resend.why}` : ''}` : undefined}>resend</span></>}
                 {showFirm && <> · {d.firmName}</>}
                 {showConnection && <> · {d.connectionName}</>}
               </span>
               <span className="muted">{STAGE[d.stage]} · {plural(d.attempts.length, 'try', 'tries')} · {ago(d.createdAt)}</span>
               {canReplay(d) && (
                 <button type="button" className="btn small-btn"
-                  onClick={(e) => { e.preventDefault(); void act(() => api.replay(d.id), 'Resent with the same lead identity').then(() => onChanged?.()); }}>
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (d.status === 'delivered') setAsking(d.id);
+                    else void act(() => api.replay(d.id), 'Resent with the same lead identity').then(() => onChanged?.());
+                  }}>
                   Resend
                 </button>
               )}
             </summary>
             <Journey d={d} />
+            {d.resend && (
+              <p className="small muted">Resent by {d.resend.by ?? 'an operator'} ({roleLabel(d.resend.role)}){d.resend.why ? `: ${d.resend.why}` : ''}</p>
+            )}
             {d.diagnosis && !d.diagnosis.retrying && (
               <div className={`problem ${CLASS[d.diagnosis.class].tone}`}>
                 <span className={`badge ${CLASS[d.diagnosis.class].tone}`}>{CLASS[d.diagnosis.class].label}</span>
@@ -167,6 +207,8 @@ export function DeliveryList({ rows, showConnection = false, showFirm = false, e
             )}
             <Attempts d={d} />
           </details>
+          {asking === d.id && <ResendAccepted d={d} onCancel={() => setAsking(null)} onDone={() => { setAsking(null); onChanged?.(); }} />}
+          </div>
         );
       })}
     </div>

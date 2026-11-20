@@ -342,6 +342,7 @@ let openDatabase (path: string) : Database =
           "deliveries", "lease_owner", "TEXT NULL"
           "deliveries", "lease_until", "INTEGER NULL"
           "deliveries", "lease_version", "INTEGER NOT NULL DEFAULT 0"
+          "deliveries", "resend", "TEXT NULL" // who resent it, as what, and why (JSON)
           // The hand-off (RFC-008 §3.2): fixed at intake from the category, then what happened to it.
           "events", "ack_token", "TEXT NULL" // the lead's acknowledgement link; never in the operator API
           "events", "ack_required", "INTEGER NOT NULL DEFAULT 0"

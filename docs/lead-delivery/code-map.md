@@ -86,7 +86,7 @@ The frontend only renders it:
 
 | Action | UI | Backend |
 |---|---|---|
-| Resend | `ProblemPanel`; bulk in the Delivery Center | `Handlers.replay` → `Dispatch.replay`: a new delivery for the same lead, `replayOf` set |
+| Resend | `ProblemPanel`; bulk in the Delivery Center; `ResendAccepted` for an accepted one | `Handlers.replay` → `Dispatch.replay`: a new delivery for the same lead, `replayOf` and `resend` (who, role, why) set; `Dispatch.resendAllowed` refuses an accepted lead (403) unless a senior operator gives the reason |
 | Pause, resume, reactivate | `ProblemPanel`; Destinations `Row` | `Handlers.patchConnection` records or clears `pausedAt`. Leads recorded while paused are held when planned (`Dispatch.publish`); a delivery already waiting is held at send time (`Dispatch.attempt`). Resuming or reactivating releases both (`Store.releaseHeld`). Held deliveries are `stage: held`, not retrying or late (`Store.sendingOrRetrying`). Test leads still go |
 | Send a test lead | same | `Handlers.testConnection` → `Dispatch.testConnection` (a test lead to this destination only) |
 | Send missed leads | Destinations `Row` | `Handlers.sendMissed` → `Dispatch.sendMissed`, over `Store.missedEvents`; routing applies |

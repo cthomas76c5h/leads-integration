@@ -1,6 +1,7 @@
 // Small typed client for docs/api.md. Only the routes listed there.
 
 import type {
+  Resend,
   BillingAccountRow, ChangeKind, PortalRole, Price, Require, Statement, TermsAcceptance, TermsCoverage, TermsGate, TermsVersion,
   CallMapping, ClientSetup, Connection, Delivery, DeliveryDetail, DeliveryQuery, DeliverySummary, DestinationList, FirmReport, DestinationQuery, FirmDetail, FirmQuery, FirmSummary, Kind, MapRow,
   LeadDetail, LeadQuery, LeadSummary, Overview, Page, Preview, ReceivedRequest, ReferenceLead, SendLeadBody, SendLeadResult, Setup,
@@ -83,7 +84,7 @@ export const api = {
   delivery: (id: string) => request<DeliveryDetail>('GET', `/api/deliveries/${enc(id)}`),
   deliverySummary: (q: { test?: boolean; firmId?: string; since?: number } = {}) =>
     request<DeliverySummary>('GET', `/api/deliveries/summary${qs({ ...q })}`),
-  replay: (id: string) => request<Delivery>('POST', `/api/deliveries/${enc(id)}/replay`),
+  replay: (id: string, who?: Partial<Resend>) => request<Delivery>('POST', `/api/deliveries/${enc(id)}/replay`, who),
   received: (limit = 50) => request<ReceivedRequest[]>('GET', `/api/received${qs({ limit })}`),
 
   setups: () => request<Setup[]>('GET', '/api/setups'),

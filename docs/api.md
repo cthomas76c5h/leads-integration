@@ -178,6 +178,7 @@ interface Delivery {
   decision: RoutingDecision | null;
   nextAttemptAt: number | null;
   replayOf: string | null;
+  resend: { by: string | null; role: 'operator' | 'senior-operator'; why: string | null } | null;  // who resent it, as what, and why
   createdAt: number;
   attempts: Attempt[];
   /** What is wrong and why, worked out by the server (docs/lead-delivery). Null when nothing is. */
@@ -485,7 +486,7 @@ non-alphanumerics turned into `_` and trimmed ("Date of accident?" →
 | GET | `/api/deliveries?status=&firmId=&connectionId=&test=&limit=100&offset=0` | | `Delivery[]` newest first. `status` also takes `attention` (see `DeliverySummary.needsAttention`) and `late` |
 | GET | `/api/deliveries/summary?test=false&firmId=&since=` | | `DeliverySummary`; `since` defaults to 24 hours ago |
 | GET | `/api/deliveries/{id}` | | `Delivery` + `{ event: LeadEvent }` |
-| POST | `/api/deliveries/{id}/replay` | | `Delivery` (new delivery, same event id, `replayOf` set) |
+| POST | `/api/deliveries/{id}/replay` | `{ by?, role?: 'operator' \| 'senior-operator', why? }` (empty: an operator) | `Delivery` (new delivery, same event id, `replayOf` and `resend` set). 403 when the lead was already accepted at that destination, unless `role` is `senior-operator` and `why` is given. The lab has no sign-in, so the role is declared here; with sign-in it comes from the session |
 | GET | `/api/received?limit=50` | | `ReceivedRequest[]` newest first |
 | GET | `/api/setups` | | `Setup[]` |
 | GET | `/api/setups/{id}/fields` | | `{ key, label }[]` mapping sources for this firm |

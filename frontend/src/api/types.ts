@@ -172,6 +172,9 @@ export interface Attempt {
   nextAttemptInMs: number | null;
 }
 
+/** An operator's resend. The lab has no sign-in: the role is declared with the request. */
+export interface Resend { by: string | null; role: 'operator' | 'senior-operator'; why: string | null }
+
 export interface Delivery {
   id: string;
   eventId: string;
@@ -189,6 +192,7 @@ export interface Delivery {
   decision: RoutingDecision | null;
   nextAttemptAt: number | null;
   replayOf: string | null;
+  resend: Resend | null;   // who resent it, as what, and why
   createdAt: number;
   attempts: Attempt[];
   /** What is wrong and why, worked out by the server. Null when nothing is. */

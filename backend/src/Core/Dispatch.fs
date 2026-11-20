@@ -59,6 +59,7 @@ let private newDelivery (event: LeadEvent) (c: Connection) status reason (decisi
       Decision = decision
       NextAttemptAt = (if status = "pending" then Nullable nowMs else Nullable())
       ReplayOf = null
+      Resend = Unchecked.defaultof<Resend>
       CreatedAt = nowMs
       Attempts = [||]
       Diagnosis = null }
@@ -128,12 +129,32 @@ let testConnection (db: Database) (connectionId: string) (lead: Lead) (template:
     ds[0]
 
 /// Send an event to a connection again as a new delivery (same event id, so the receiver can dedupe).
-let replay (db: Database) (deliveryId: string) =
+/// Resending a lead its destination already accepted can put a duplicate in the CRM: only a senior
+/// operator may, with the reason (answers.md, "Who may resend a lead that was already accepted?").
+/// Any operator may resend one that was not accepted. A test lead is an operator's own check.
+let resendAllowed (accepted: bool) (test: bool) (r: Resend) : Result<unit, string> =
+    let role = if isNull (box r) || isNull r.Role then "operator" else r.Role
+    let why = if isNull (box r) then null else r.Why
+    if not accepted || test then Ok()
+    elif role <> "senior-operator" then Error "this lead was accepted: only a senior operator may resend it, once the firm confirms the record is missing"
+    elif String.IsNullOrWhiteSpace why then Error "say why: resending an accepted lead needs the firm's reason (for example, the record is missing)"
+    else Ok()
+
+let replay (db: Database) (deliveryId: string) (resend: Resend) =
     let id =
         write db (fun s ->
             let old = Store.deliveryOrFail s deliveryId
             let c = (Store.connectionOrFail s old.Delivery.ConnectionId).Connection
             if c.Status <> "active" then fail 409 "the connection is disabled; reactivate it first"
+            let accepted =
+                s.TryOne
+                    "SELECT 1 FROM deliveries WHERE event_id=$1 AND connection_id=$2 AND status='delivered'"
+                    [ old.Delivery.EventId; old.Delivery.ConnectionId ]
+                    (fun _ -> true)
+                |> Option.isSome
+            match resendAllowed accepted old.Delivery.Test resend with
+            | Error reason -> fail 403 reason
+            | Ok() -> ()
             let t = now ()
             let fresh =
                 { old.Delivery with
@@ -142,6 +163,7 @@ let replay (db: Database) (deliveryId: string) =
                     Reason = null
                     NextAttemptAt = Nullable t
                     ReplayOf = old.Delivery.Id
+                    Resend = (if isNull (box resend) then { By = null; Role = "operator"; Why = null } else resend)
                     CreatedAt = t
                     Attempts = [||]
                     Diagnosis = null }

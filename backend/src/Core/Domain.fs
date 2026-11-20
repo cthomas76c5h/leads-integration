@@ -119,6 +119,10 @@ type RoutingDecision =
       /// Why not sent, in the firm's words. Null when planned.
       Reason: string }
 
+/// An operator's resend (docs/lead-delivery/operations.md#resend). Role: operator | senior-operator.
+/// The lab has no sign-in, so the role is declared with the request; with sign-in it comes from the session.
+type Resend = { By: string; Role: string; Why: string }
+
 type Delivery =
     { Id: string
       EventId: string
@@ -136,6 +140,8 @@ type Delivery =
       Decision: RoutingDecision
       NextAttemptAt: Nullable<int64>
       ReplayOf: string
+      /// Who resent it, as what, and why (invariant 10: every operator action recorded). Null unless a resend.
+      Resend: Resend
       CreatedAt: int64
       Attempts: Attempt[]
       Diagnosis: Diagnosis }

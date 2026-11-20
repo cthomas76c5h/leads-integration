@@ -245,7 +245,13 @@ class LabAdapter:
             ds = self._newest(a["lead"], dest)
             if not ds:
                 raise RuntimeError(f"resend: no delivery of {a['lead']} to {dest}")
-            self.api.ok("POST", f"/api/deliveries/{ds[0]['id']}/replay")
+            who = {"by": f"scenario {a['by']}", "role": a["by"], "why": a.get("why")}
+            status, payload = self.api.call("POST", f"/api/deliveries/{ds[0]['id']}/replay", who)
+            if a.get("refused"):
+                if status != 403:
+                    raise RuntimeError(f"resend by {a['by']} was not refused: {status}")
+            elif status >= 300:
+                raise RuntimeError(f"resend -> {status}: {payload}")
         elif do in ("reactivate", "reconnect"):
             # The lab has no sign-in flow: the firm reconnecting is a reactivation once its receiver answers again.
             self.api.ok("PATCH", f"/api/connections/{cid}", {"reactivate": True})

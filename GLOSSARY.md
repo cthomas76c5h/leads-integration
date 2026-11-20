@@ -284,7 +284,7 @@ An Answering AI staff member who watches delivery and acts on what needs attenti
 _Avoid_: agent (that word means the AI on the call), admin, support
 
 **Senior operator**:
-An operator allowed to take the riskier actions: resending an accepted lead, changing a connection, overriding approval.
+An operator allowed to take the riskier actions: resending an accepted lead, changing a connection, overriding approval. *Lab for resending an accepted lead, with the reason recorded; the role is declared, as the lab has no sign-in.*
 _Avoid_: super admin
 
 **Firm contact**:

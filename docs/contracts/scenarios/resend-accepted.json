@@ -1,14 +1,13 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "resend-accepted",
-  "story": "A firm says a lead never appeared in its CRM, although MyCase accepted it. Only a senior operator may resend an accepted lead, because it can create a duplicate; the resend is a new delivery under the same lead identity, and the newest delivery is the one that counts.",
+  "story": "A firm says a lead never appeared in its CRM, although MyCase accepted it. An operator tries to resend it and is refused: resending an accepted lead can create a duplicate, so only a senior operator may, with the firm's reason. The senior operator's resend is a new delivery under the same lead identity, records who and why, and the newest delivery is the one that counts.",
   "slice": 3,
-  "model": "proposed",
+  "model": "lab",
   "proves": [
     "docs/lead-delivery/answers.md#routing-and-integrations (who may resend an accepted lead)",
     "docs/lead-delivery/README.md#6-invariants (invariants 3 and 10: same lead; every operator action recorded)"
   ],
-  "today": "The lab records the resend (LeadResent) under the same lead identity, so its expectations pass, but it lets anyone resend an accepted delivery and records neither who nor why. The scenario does not yet assert the senior-operator rule, so it stays proposed.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [
@@ -37,6 +36,16 @@
       }
     },
     {
+      "at": "+30m",
+      "action": {
+        "by": "operator",
+        "do": "resend",
+        "destination": "crm",
+        "lead": "lead-1",
+        "refused": true
+      }
+    },
+    {
       "at": "+1h",
       "action": {
         "by": "senior-operator",
@@ -50,6 +59,15 @@
   "then": [
     {
       "at": "+5m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "accepted",
+        "count": 1
+      }
+    },
+    {
+      "at": "+35m",
       "delivery": {
         "lead": "lead-1",
         "destination": "crm",

@@ -128,7 +128,7 @@ let tests =
                   let d: Delivery =
                       { Id = Secrets.newId "dlv"; EventId = e.Id; ConnectionId = c.Id; ConnectionName = c.Name; Kind = c.Kind; FirmId = firmId
                         FirmName = c.FirmName; Test = false; Status = "delivered"; Stage = ""; Reason = null; NextAttemptAt = Nullable()
-                        ReplayOf = null; CreatedAt = e.CreatedAt; Attempts = [||]; Diagnosis = null; Decision = Unchecked.defaultof<RoutingDecision> }
+                        ReplayOf = null; Resend = Unchecked.defaultof<Resend>; CreatedAt = e.CreatedAt; Attempts = [||]; Diagnosis = null; Decision = Unchecked.defaultof<RoutingDecision> }
                   Store.insertDelivery s d None
                   Store.insertAttempt s d.Id
                       { N = 1; At = e.CreatedAt + 80L * hour; DurationMs = 10L; Url = c.DeliveryUrl; Status = Nullable 201; Error = null

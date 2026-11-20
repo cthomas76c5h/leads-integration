@@ -113,7 +113,8 @@ so a destination that dedupes recognises it. (The code still calls it
 - **Never resend while it is still retrying.** The schedule is already doing it.
 - **Resending an accepted delivery** can create a duplicate record in the CRM.
   Senior operator only, and only when the firm contact confirms the record is
-  missing.
+  missing. The lab enforces it: Resend on an accepted delivery asks for the reason and
+  the senior-operator role, and records both with your name on the new delivery.
 - **After an outage or reconnection,** resend in bulk: select the refused and
   gave-up deliveries for that destination in the Delivery Center.
 - A successful resend clears the original from "needs attention": the newest

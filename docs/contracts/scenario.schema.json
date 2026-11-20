@@ -409,6 +409,11 @@
             "why": {
               "type": "string"
             },
+            "refused": {
+              "type": "boolean",
+              "default": false,
+              "description": "The actor lacks the permission: the action must be refused and change nothing"
+            },
             "mapping": {
               "type": "array",
               "items": {

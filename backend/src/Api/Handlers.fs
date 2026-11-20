@@ -401,7 +401,12 @@ let delivery (c: Ctx) (id: string) : EndpointHandler =
         ctx.Response.ContentType <- "application/json; charset=utf-8"
         ctx.Response.WriteAsync(o.ToJsonString())
 
-let replay (c: Ctx) (id: string) : EndpointHandler = fun ctx -> accepted (Dispatch.replay c.Db id) ctx
+let replay (c: Ctx) (id: string) : EndpointHandler =
+    fun ctx ->
+        task {
+            let! b = body { By = null; Role = null; Why = null } ctx
+            return! accepted (Dispatch.replay c.Db id b) ctx
+        }
 
 let received (c: Ctx) : EndpointHandler =
     fun ctx -> ok (Db.read c.Db (fun s -> Store.listReceived s (queryInt ctx "limit" 50))) ctx
