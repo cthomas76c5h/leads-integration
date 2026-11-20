@@ -2,17 +2,25 @@
 
 An MVP for lead delivery
 
+> **Status: the direction has moved on.** What firms told us changed the plan: lead
+> delivery is the invisible foundation of a dependable intake service, not the
+> product, and the next year builds on the voice platform rather than building
+> delivery new. The current direction is in [docs/business/](docs/business/), starting
+> with [what-firms-need.md](docs/business/what-firms-need.md). This lab stays as an
+> experimental tool and a record of its method. The vision summary and RFC-001 to
+> RFC-010 are the earlier proposal: read them as evidence, not as the plan.
+
 ## Start here
 
-New to this work? Read these in order. The first six are enough to build a
-slice; the rest are for when you need them.
+New to this work? Read these in order. The first three are the current direction;
+the rest describe this lab, for when you need them.
 
 **What is agreed and what is draft.** Not everything here has the same standing:
 
 | Agreed: build on it | Draft: expect it to change |
 |---|---|
 | The glossary, and the decisions in [answers.md](docs/lead-delivery/answers.md) (each marked *Decided*) | [RFC-001 to RFC-010](docs/rfc/README.md): proposed, awaiting approval. RFC-007 (the model and build order) and RFC-008 (the guarantees and evidence, which revises RFC-007) set the build; RFC-009 (routing by category) and RFC-010 (one lead, two lifecycles) are the newest |
-| The product is **built new, to the domain model**, in RFC-007's slices; ([answers](docs/lead-delivery/answers.md#routing-and-integrations)); the milestones are the [roadmap](docs/lead-delivery/strategy.md#5-roadmap) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a draft, with 31 scenarios (including RFC-008's ten failure-injection scenarios) and a receiver contract for every catalog kind; the runner plays them against the lab (`python tools/run_scenarios.py`); no CRM contract confirmed against its sandbox |
+| The direction in [docs/business/](docs/business/): a dependable intake service built on what we already have, the voice platform first. (The earlier decision to build the product new, in RFC-007's slices, is superseded; see [next-12-months.md](docs/business/next-12-months.md#where-we-are)) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a draft, with 31 scenarios (including RFC-008's ten failure-injection scenarios) and a receiver contract for every catalog kind; the runner plays them against the lab (`python tools/run_scenarios.py`); no CRM contract confirmed against its sandbox |
 | Every rule in the [domain model](docs/lead-delivery/README.md) marked *Lab* or *Production* | Every rule marked *Proposed*: agreed direction, not built |
 
 A scenario marked `"model": "proposed"` is expected to fail against the lab
@@ -22,17 +30,19 @@ says how the lab differs. It is not a bug.
 
 | # | Read | To learn | Time |
 |---|---|---|---|
-| 1 | [vision-meeting/summary.md](docs/vision-meeting/summary.md) | What firms buy from us, what goes wrong today, and what we will do | 5 min |
-| 2 | [GLOSSARY.md](GLOSSARY.md) | The words. Code, screens and docs use them as written | 15 min |
-| 3 | [lead-delivery/README.md](docs/lead-delivery/README.md) | The delivery model: a lead's journey, lifecycles, policies, invariants, events | 30 min |
-| 4 | [RFC-007](docs/rfc/007_domain_model_and_build_order.md) | The whole product's contexts, what any implementation must guarantee, the order to build features in, and how each is built | 30 min |
-| 5 | [RFC-008](docs/rfc/008_delivery_guarantees_and_evidence.md) | What each guarantee means at each boundary, evidence for a hand-off, who owns a destination's state, and the failure scenarios that gate production | 25 min |
-| 6 | [contracts/](docs/contracts/README.md) | The checks a feature must pass, as scenario and receiver files | 10 min |
-| 7 | [lead-delivery/answers.md](docs/lead-delivery/answers.md) | Every decision, why, and what would change it | 15 min |
-| 8 | [lead-delivery/operations.md](docs/lead-delivery/operations.md) | What operators do, screen by screen | 15 min |
-| 9 | [lead-delivery/code-explorer.html](docs/lead-delivery/code-explorer.html) (open in a browser), then [code-map.md](docs/lead-delivery/code-map.md) | The lab's code functionally: the data model, every flow from input to rows written, an example lead followed step by step; then where each flow lives (only if you work on the lab) | 25 min |
+| 1 | [business/what-firms-need.md](docs/business/what-firms-need.md) | What firms use us for and complain about. Everything else follows from it | 5 min |
+| 2 | [business/commercial-case.md](docs/business/commercial-case.md) | Who buys, why, and what we changed our minds about | 15 min |
+| 3 | [business/next-12-months.md](docs/business/next-12-months.md), then [what-the-lab-taught-us.md](docs/business/what-the-lab-taught-us.md) | The plan for the year, in order, and what of this lab carries over | 20 min |
+| 4 | [GLOSSARY.md](GLOSSARY.md) | The words. Code, screens and docs use them as written | 15 min |
+| 5 | [lead-delivery/README.md](docs/lead-delivery/README.md) | The delivery model: a lead's journey, lifecycles, policies, invariants, events | 30 min |
+| 6 | [RFC-007](docs/rfc/007_domain_model_and_build_order.md) | The whole product's contexts, what any implementation must guarantee, the order to build features in, and how each is built (its build order is superseded) | 30 min |
+| 7 | [RFC-008](docs/rfc/008_delivery_guarantees_and_evidence.md) | What each guarantee means at each boundary, evidence for a hand-off, who owns a destination's state, and the failure scenarios that gate production | 25 min |
+| 8 | [contracts/](docs/contracts/README.md) | The checks a feature must pass, as scenario and receiver files | 10 min |
+| 9 | [lead-delivery/answers.md](docs/lead-delivery/answers.md) | Every decision, why, and what would change it | 15 min |
+| 10 | [lead-delivery/operations.md](docs/lead-delivery/operations.md) | What operators do, screen by screen | 15 min |
+| 11 | [lead-delivery/code-explorer.html](docs/lead-delivery/code-explorer.html) (open in a browser), then [code-map.md](docs/lead-delivery/code-map.md) | The lab's code functionally: the data model, every flow from input to rows written, an example lead followed step by step; then where each flow lives (only if you work on the lab) | 25 min |
 
-Later, by need: the direction and roadmap ([strategy.md](docs/lead-delivery/strategy.md)),
+Later, by need: the earlier proposal to leadership ([vision-meeting/summary.md](docs/vision-meeting/summary.md), superseded by docs/business/), the lab's direction and roadmap ([strategy.md](docs/lead-delivery/strategy.md)),
 what building the lab taught us ([lessons.md](docs/lead-delivery/lessons.md)), what
 today's production system does, as evidence ([production-today.md](docs/lead-delivery/production-today.md)),
 the proposal for each area ([rfc/](docs/rfc/README.md)), and the real situations to walk through with operations and firms to test what the decisions assume ([discovery scenarios](docs/discovery/scenarios.md)).
