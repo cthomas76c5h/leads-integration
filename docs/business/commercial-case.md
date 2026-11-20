@@ -12,17 +12,27 @@ say so. Decisions stay in [answers.md](../lead-delivery/answers.md); the product
 engineering direction stays in [strategy.md](../lead-delivery/strategy.md). This page
 asks whether that direction is worth paying for.
 
-## The answer in one paragraph
+## The hypothesis (version 1)
 
-Our customers are small and growing law firms that already pay us to answer their
-calls. They are not buying calls answered; they are buying **new clients they would
-otherwise lose**. Their most expensive problem is one they mostly cannot see: a new
-client who called, was answered, and never reached anyone in time. We should sell
-**dependable answering with proof that every new client reached them** (a premium
-answering service) as the entry point, upgrade firms to **delivery assurance** (the
-Deliver tier) when they adopt a CRM or lose a lead, and grow toward **coordinating the
-intake journey across their systems** only when firms show they want it. The proof is
-the product: today we cannot show it, and that is the gap to close first.
+**Dependable, managed intake for small and growing law firms.**
+
+| | |
+|---|---|
+| **Customer** | Small and growing law firms that lack the staff, time or tools to handle every inquiry consistently |
+| **Problem** | Answering, qualifying, passing on and following up inquiries takes staff time, and every step is a chance to miss one |
+| **Solution** | A managed AI-and-human intake service that handles the routine, works with the firm's existing systems, escalates the exceptions, and makes every outcome visible |
+| **Economic value** | Fewer interruptions, less administrative work, dependable handling of every inquiry, and possibly more retained clients |
+| **Differentiator to prove** | More dependable intake at a lower total cost, not cheaper AI conversations |
+
+**Preventing lost new clients is our leading value proposition, not yet a known reason
+to buy.** The economics point to it, but firms may buy for other reasons: freedom from
+interruptions, predictable staffing costs, bilingual coverage, or a more professional
+first impression. Recovering lost clients may be the benefit underneath without being
+what makes a firm sign. Our reliability work serves all of these; which one firms pay
+for decides how we sell it.
+
+Two things we know for certain: the firms already pay us to answer their calls, and
+today we cannot show them what happened to each inquiry. Closing that gap comes first.
 
 ## The questions
 
@@ -45,7 +55,10 @@ suggests small, low-tooling firms ([strategy §2.4](../lead-delivery/strategy.md
 
 ### What is their expensive problem?
 
-**A new client who called and was never reached in time.** In law, a caller who is not
+**Our leading candidate: a new client who called and was never reached in time.**
+The alternatives a firm may feel more directly are interruptions, staff time spent on
+intake, and coverage out of hours or in another language. Interviews and cancellation
+reasons decide which leads. In law, a caller who is not
 called back within minutes or hours calls the next firm. For a personal-injury or
 criminal-defence practice, one lost retained client can cost more than a year of our
 service.
@@ -137,7 +150,21 @@ serve.
 
 **Confidence:** low on price points (they are illustrative); medium on structure.
 
-**Confirm:** a priced Deliver offer to a cohort of firms that have CRMs, measuring take-up.
+**The open question is whether dependable delivery is a tier or a baseline.** If most
+firms take leads by email and are content, a separately priced reliability tier may
+not resonate. It may sell better as a guarantee built into answering, with premiums for
+what firms see directly: qualification, scheduling, urgent escalation, other languages
+and reporting. Test both, at real prices, with similar firms:
+
+| Offer | Positioning | What it tells us |
+|---|---|---|
+| **A** | Premium answering with a guaranteed hand-off and proof | Whether reliability strengthens the product firms already buy |
+| **B** | Advanced intake coordination: CRM, escalation, ownership of each lead | Whether firms pay separately for workflow |
+
+Whether firms accept the terms tells us far more than whether they like the concept.
+The [billing strategy](../billing/strategy.md) has decided on a separate Deliver tier;
+if offer A wins, that decision is revised in
+[answers.md](../lead-delivery/answers.md#billing).
 
 ### Why do customers cancel, complain or upgrade?
 
@@ -152,7 +179,20 @@ system's design, ranked by how strongly the evidence points to them:
 6. **Upgrade:** more numbers or languages, live transfer to the firm, a CRM connection.
 
 **This is the first thing to replace with facts.** One afternoon with the support
-queue and the cancellation list will confirm or overturn most of this page.
+queue and the cancellation list will confirm or overturn most of this page. Each
+reason for leaving points to a different investment:
+
+| If firms leave because of | Then invest in |
+|---|---|
+| Price | Service economics and a simpler price |
+| Bad call experiences | Voice quality, qualification and escalation |
+| Missing leads | Delivery reliability and proof (the lab's work) |
+| Staff still doing too much | Intake workflow automation |
+| Their CRM vendor's own intake | Hybrid service, and coordination across systems |
+| Poor lead quality | Qualification and intake policy |
+
+The technology that took the most engineering is not necessarily the one firms value
+most.
 
 ## How we would sell it
 
@@ -208,10 +248,47 @@ client never called back."*
 | Firms with CRMs value a working integration above all | Certify the top CRMs first; that is the Deliver tier's core |
 | Trades customers grow faster than law firms | Bring the vertical-neutral core forward |
 
-## The next 30 days, in order
+## The next 30 days: three investigations
 
-1. **The support queue and the cancellation list:** answers "why do they complain, cancel, upgrade" in an afternoon.
-2. **Billing records:** firm size, plan and spend per firm, to place each firm in a segment and anchor prices.
-3. **The production feed:** how many leads are lost or late, and how many firms use a CRM. This settles whether silent loss is real at scale.
-4. **Ten firm conversations,** across the three segments, starting with the [first five discovery scenarios](../discovery/scenarios.md) and the five questions above.
-5. **A priced Deliver offer** to firms that have a CRM connection, to test willingness to pay.
+The first tells us what customers **have done**; the second, **why**; the third,
+what they **will pay for**.
+
+1. **Commercial reality: what they have done.** The last year of cancellations, upgrades, support issues and recurring revenue, per firm and plan. Find the most common reasons firms buy, leave and expand. Alongside it, the production feed: how many leads are lost or late, and how many firms use a CRM.
+2. **Customer workflows: why.** Ten firm conversations across the small and growing segments: where staff time goes, how a prospective client is handled, and what they would call an unacceptable failure. Use the [discovery scenarios](../discovery/scenarios.md) and the five questions above.
+3. **Pricing behaviour: what they will pay for.** Offers A and B, at real prices, to matched sets of existing customers.
+
+## Commercial evidence ledger
+
+Every claim on this page, and how sure we are of it. **Confirmed** means shown by our
+own code or records (noting that the data copy we hold is mostly test traffic).
+**Inferred** means reasoned from evidence but not observed in production.
+**Untested** means a belief. A claim moves up only with the observation in the last
+column.
+
+| Claim | Status | Basis | What would change it |
+|---|---|---|---|
+| Today's production can lose a lead with no record | Confirmed | The api-2 code: one attempt, no record of skipped leads ([production-today.md](../lead-delivery/production-today.md)) | The feed showing production intake takes another, safer path |
+| Firms already pay us to answer their calls | Confirmed | Our billing | — |
+| Firms use us mainly for new-client calls | Confirmed (configuration) | 99.8% of active call types mean "new matter" | The production call mix (configuration is not traffic) |
+| Some customers are trades businesses, not law firms | Confirmed | Our call data | — |
+| Leads are lost or late often enough to matter | Untested | — | The production feed's lost and late leads per firm |
+| Most firms take leads by email, not a CRM | Inferred | 8 of 444 CRM rows enabled, in a mostly-test copy | The feed's CRM usage per firm |
+| CRM connections break silently, mostly on expired sign-ins | Inferred | Clio: 0 of 71 accepted in the copy | The feed's failures by cause |
+| Firms learn of a lost lead before we do | Inferred | Alerting covers all firms with one check, weekdays 8–4 | "We never got that lead" tickets, and who raised them |
+| Most customers are small firms | Inferred | Few CRMs, email delivery | Firm size in billing records |
+| Firms buy to win clients they would lose (not to save time or interruptions) | Untested | — | Interviews; cancellation and purchase reasons |
+| Bills cause disputes | Inferred | The legacy formula (×1.33, charged hang-ups) | Dispute tickets and credits issued |
+| Terms re-acceptance locked users out | Confirmed | [Terms strategy §1](../terms/strategy.md) | — |
+| Firms will pay more for verified delivery on its own | Untested | — | Offer A against offer B, at real prices |
+| Today's bill is the right price anchor | Inferred | Billing plan's side-by-side bills | The side-by-side months; offer acceptance |
+| CRM vendors' own intake is taking customers | Untested | Competitor announcements, not verified | Cancellation reasons naming a CRM |
+| Proof, fallback and escalation work | Confirmed in the lab only | 30 scenarios and the interleaving check | A production pilot |
+
+## The question this page must answer
+
+> **Which segment will pay materially more for something only our technology enables,
+> and keep paying once the novelty wears off?**
+
+Until there is an evidence-backed answer, this is a hypothesis document, not the
+business strategy. Positioning, packaging, the sales demonstration, pricing and the
+engineering roadmap all follow from that answer.
