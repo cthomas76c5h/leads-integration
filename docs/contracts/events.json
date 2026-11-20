@@ -120,6 +120,30 @@
     "AccessRefused": {
       "source": "contracts",
       "meaning": "A request for another firm's data was refused and audited (RFC-008 §9)"
+    },
+    "FollowUpOwed": {
+      "source": "RFC-010",
+      "meaning": "A conversation ended with a callback owed to the caller, under the firm's intake policy (RFC-010 §3.2); never waits for delivery"
+    },
+    "FollowUpAssigned": {
+      "source": "RFC-010",
+      "meaning": "Someone was made responsible for a follow-up (RFC-010 §3.2)"
+    },
+    "ResponsibilityAccepted": {
+      "source": "RFC-010",
+      "meaning": "The person responsible accepted the follow-up; not a delivery being received, which is HandOffAcknowledged (RFC-010 §3.2)"
+    },
+    "CallbackCompleted": {
+      "source": "RFC-010",
+      "meaning": "The caller was called back, reached or not (RFC-010 §3.2)"
+    },
+    "FollowUpResolved": {
+      "source": "RFC-010",
+      "meaning": "A follow-up was closed, with how it ended (RFC-010 §3.2)"
+    },
+    "FollowUpEscalated": {
+      "source": "RFC-010",
+      "meaning": "A follow-up passed one of the firm's deadlines and went to its escalation contact; not a delivery escalation (RFC-010 §3.4 invariant 3)"
     }
   }
 }

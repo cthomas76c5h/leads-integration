@@ -1,0 +1,109 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "follow-up-without-delivery",
+  "story": "A personal-injury caller is promised a call back after the intake team did not answer; the firm's intake policy makes its intake manager responsible, to accept within 15 minutes and call back within the hour. Both the firm's email and its SMS fallback are down. The follow-up is owed at once anyway, and when nobody accepts it within 15 minutes it escalates to the managing attorney. That is a follow-up escalation, not a delivery one: a new matter's delivery escalates only through its fallback, an hour in.",
+  "slice": 6,
+  "model": "proposed",
+  "proves": [
+    "docs/rfc/010_one_lead_two_lifecycles.md#33-invariants (1: a follow-up never waits for delivery; 3: each lifecycle escalates under its own name)",
+    "docs/rfc/010_one_lead_two_lifecycles.md#32-two-lifecycles-one-lead-id (FollowUpOwed, FollowUpEscalated)"
+  ],
+  "given": {
+    "clock": "2026-11-18T12:00:00-06:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      },
+      {
+        "id": "sms",
+        "firm": "firm-a",
+        "kind": "sms",
+        "role": "fallback"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "email",
+        "answers": {
+          "mode": "down"
+        }
+      }
+    },
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "sms",
+        "answers": {
+          "mode": "down"
+        }
+      }
+    },
+    {
+      "at": "+1m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "personal-injury",
+        "followUp": {
+          "owed": true,
+          "ownerRole": "intake manager",
+          "acceptWithinMinutes": 15,
+          "callBackWithinMinutes": 60,
+          "escalateTo": "managing attorney"
+        }
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+2m",
+      "event": {
+        "name": "FollowUpOwed",
+        "lead": "lead-1",
+        "count": 1
+      }
+    },
+    {
+      "at": "+2m",
+      "noEvent": {
+        "name": "HandOffReached",
+        "lead": "lead-1"
+      }
+    },
+    {
+      "at": "+17m",
+      "event": {
+        "name": "FollowUpEscalated",
+        "lead": "lead-1",
+        "count": 1
+      }
+    },
+    {
+      "at": "+17m",
+      "noEvent": {
+        "name": "HandOffEscalated",
+        "lead": "lead-1"
+      }
+    },
+    {
+      "at": "+17m",
+      "noEvent": {
+        "name": "ResponsibilityAccepted",
+        "lead": "lead-1"
+      }
+    }
+  ]
+}

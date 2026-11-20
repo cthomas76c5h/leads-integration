@@ -17,6 +17,7 @@ with why and what would change them, live in
 | [007](007_domain_model_and_build_order.md) | The Domain Model and the Order to Build It | Engineering / Product | Nine bounded contexts; the hand-off as an aggregate; classification at intake; billing from conversations; thirteen slices and one method per feature; six guarantees any implementation keeps; scenarios and receiver contracts as language-neutral files |
 | [008](008_delivery_guarantees_and_evidence.md) | Delivery Guarantees, Concurrency and End-to-End Evidence | Engineering / Product | Evidence levels and the two-level number; honest guarantees at each boundary; desired state and observed health; a classification policy; security and failure-injection gates; revises RFC-007's build order |
 | [009](009_routing_by_category.md) | Routing by Call Category | Product / Engineering | A closed routing rule per destination; a routing decision recorded apart from the delivery; destination routing, staff assignment and escalation kept apart; rules seeded from today's active call types (118 of 122 CRM firms unchanged) |
+| [010](010_one_lead_two_lifecycles.md) | One Lead, Two Lifecycles | Product / Engineering | The lead as the contract between Intake and Delivery (category, `taken`, outcome, urgency signals with their source, follow-up owed); a follow-up lifecycle beside delivery, with its own events and escalation; *acknowledged* keeps meaning *received* |
 
 ## Review status
 

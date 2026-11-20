@@ -165,11 +165,11 @@ Someone (the firm, or an API that allows it) confirmed the record exists in the 
 
 **Acknowledged**:
 A person at the firm, or a workflow the firm authorised, confirmed receipt of a lead: a reply to the text, a click on the signed link, the lead opened in the firm portal. *Lab for the link in an email or SMS: opening it shows a button, and only pressing it counts, since mail scanners open links on their own.*
-_Avoid_: read (opening an email is not counted), seen
+_Avoid_: read (opening an email is not counted), seen, accepted (someone taking on a callback is **responsibility accepted**, a follow-up step)
 
 **Escalated**:
 An emergency or custody lead that no one at the firm acknowledged within its fallback delay (15 minutes): an operator calls the firm. Happens once per lead, and stays on its record even if the firm confirms later. *Lab.*
-_Avoid_: alert, page
+_Avoid_: alert, page, follow-up escalation (a callback past the firm's own deadline; see Follow-up)
 
 **Delivery contract**:
 What one destination kind requires and how it answers, how it handles a repeat and settles an unknown outcome, the strongest evidence it can give, and whether it reaches a person. One file per kind in `docs/contracts/receivers/`; the tests hold the code to it. *Lab; each kind's values are confirmed against its sandbox one at a time (`toConfirm`).*
@@ -231,6 +231,26 @@ _Avoid_: replay, repost, retry (retrying is automatic)
 
 **Lead outcome**:
 One summary of where a lead got to across all its destinations, judged on the newest delivery to each.
+
+## Follow-up
+
+**Follow-up**:
+The obligation to call a caller back after a conversation that could not be finished: a transfer nobody answered, a booking that failed, a caller who left, or a message the firm wants returned. It has an owner, deadlines and an escalation contact, all set by the firm's intake policy. It runs beside delivery on the same lead and never waits for it. *Proposed (RFC-010).*
+_Avoid_: hand-off (getting the lead to the firm is delivery's job), callback task
+
+**Responsibility accepted**:
+The person responsible for a follow-up accepted it. *Proposed (RFC-010).*
+_Avoid_: acknowledged (that is a lead being received), accepted alone (a destination accepts a delivery)
+
+**Callback completed**:
+The caller was called back, reached or not. Called back is not resolved. *Proposed (RFC-010).*
+
+**Follow-up resolved**:
+A follow-up closed, with how it ended. *Proposed (RFC-010).*
+
+**Follow-up escalation**:
+A follow-up passed one of the firm's deadlines and went to the firm's escalation contact. A different failure from a delivery escalation: the lead may have arrived long ago. *Proposed (RFC-010).*
+_Avoid_: escalated alone
 
 ## Failure classes
 

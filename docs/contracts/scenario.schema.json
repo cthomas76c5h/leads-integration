@@ -348,6 +348,19 @@
             "conversation": {
               "type": "string",
               "description": "The channel's own conversation id, the key that makes intake idempotent (RFC-008 §4.1)"
+            },
+            "followUp": {
+              "description": "Proposed (RFC-010): the callback intake says is owed, under the firm's intake policy. Runs beside delivery and never waits for it",
+              "type": "object",
+              "required": ["owed"],
+              "additionalProperties": false,
+              "properties": {
+                "owed": { "type": "boolean" },
+                "ownerRole": { "type": "string" },
+                "acceptWithinMinutes": { "type": "integer", "minimum": 1 },
+                "callBackWithinMinutes": { "type": "integer", "minimum": 1 },
+                "escalateTo": { "type": "string" }
+              }
             }
           }
         },
