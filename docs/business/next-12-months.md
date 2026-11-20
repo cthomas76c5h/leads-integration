@@ -1,120 +1,155 @@
 # The next 12 months
 
-What the business should do this year, and what leadership is asked to decide. It
-builds on [what firms need](what-firms-need.md) and the
-[commercial case](commercial-case.md). The figures are rough: they describe the shape
-of the business, not exact measurements.
+What the business should do this year, and what we ask leadership to decide. It builds
+on [what firms need](what-firms-need.md) and the [commercial case](commercial-case.md).
+
+## In three sentences
+
+> We already have much of the technology needed for a substantially better answering
+> service, but it is spread across separate projects and its performance is not
+> consistently measured. Over the next 12 months we will come together around one
+> product direction, prove that AI and people together improve accuracy and
+> follow-through, and find out which customers will pay for that. We will scale and move
+> customers across only where customer outcomes, reliability and economics justify it.
 
 ## Where we are
 
 We do not have a technology gap. We have a product, ownership and commercial gap.
 
-Much of what firms need is already built, but spread across separate projects:
+Most of what firms need already exists somewhere in the company. The AI voice platform
+follows each firm's rules, involves a person when needed, records every call and
+delivers leads dependably. The human service still serves most firms. Several other
+projects overlap them, and nobody owns the caller's whole journey across all of it.
 
-- **The AI voice platform** already applies each firm's rules as structured configuration, escalates to human receptionists, records every call, and delivers leads dependably.
-- **The legacy human service** still serves most firms, with instructions held as free text that operators read mid-call.
-- **Several other efforts** overlap it: a rebuild of the legacy platform, an integration bus, a chat rewrite, and this lead-delivery lab. No one owns the caller's whole journey across them.
-
-So the question for the year is not "what should we build to make lead delivery
-reliable?" It is **"how do we turn what we already have into the most dependable
-intake service for the firms we already serve?"**
+So the question for the year is not what to build next. It is **how to turn what we
+already have into the most dependable intake service for the firms we already serve.**
 
 ## The product
 
 > **A dependable receptionist that follows your firm's instructions, knows when to
 > involve a person, and makes sure every call reaches its next action.**
 
-Three promises, each one we must be able to show, not just claim:
+It makes three promises we must be able to show, not just claim:
 
-- **Consistency:** the receptionist followed the firm's instructions.
-- **Accuracy:** it captured what the caller said correctly.
-- **Continuity:** when a transfer failed or a caller needed more, someone took responsibility.
+- **Consistency:** the firm's instructions were followed.
+- **Accuracy:** the caller's details were captured correctly.
+- **Continuity:** when a call could not be finished, someone took responsibility for it.
 
-Lead delivery, routing and the platform underneath are the invisible foundation.
+And a fourth that leadership judges the year by:
 
-## Measuring every call
+- **Commercial performance:** the better service keeps customers, earns upgrades, and costs less per call handled well.
 
-Structured rules make consistency possible; they do not guarantee it. A call can go
-wrong in three different places, and each needs its own measure:
+A better receptionist that loses customers to cheaper ones is not a success, so the
+commercial measure sits beside the other three, not below them.
 
-- **Configuration:** the firm's instructions were set up wrongly.
-- **Execution:** the receptionist did not follow them during the call.
-- **Completion:** the call went well, but the next step (a transfer, a callback, a booking) never happened.
+Everything underneath, from lead delivery to the platforms themselves, stays
+invisible.
 
-Every call gets a quality record:
+## Three ways to serve a firm
 
-| Check | The question |
-|---|---|
-| **Configuration** | Were the right, approved rules in force? |
-| **Adherence** | Were the required questions asked and the instructions followed? |
-| **Accuracy** | Does what we captured match what the caller said? |
-| **Outcome** | Did the transfer, message, booking or escalation actually happen? |
-| **Continuity** | Does every unfinished action have someone responsible for it? |
+Replacing people with AI is not the goal. A better service at good economics is. The
+service should work in three modes, chosen by each firm's needs, the kind of call, the
+quality evidence and the cost:
 
-The recording, the transcript and the snapshot of the rules each call used make
-automatic checking possible. The checker also needs the record of transfers, bookings
-and deliveries, and a sample of calls reviewed by people. **We do not advertise
-"verified" until the automatic checks agree with people's judgement.** "A material
-error" gets a written definition before anyone counts them.
+- **AI first:** routine calls, messages, simple qualification and booking.
+- **AI-assisted people:** the AI gathers the details, and a person handles what is complex, sensitive or unusual.
+- **People first:** the firms or calls where a person clearly does better.
 
-## Priorities
+The platform supports all three, and the evidence decides which firms and calls go
+where.
 
-| Priority | Action | Why |
-|---|---|---|
-| **Now** | Rotate the credentials found in plain text, and check whether they were misused | A security risk today |
-| **Now** | Name one product owner for the caller's whole journey: voice, chat, human reception and delivery | Stops conflicting investment |
-| **Now** | Freeze new work that overlaps the voice platform (the legacy rebuild, the integration bus); keep what is reusable | Stops five architectures growing apart, without throwing anything away yet |
-| **First** | Assess whether the voice platform is ready to be the foundation, technically and operationally | Before committing to it |
-| **First** | Build the per-call quality record and checker | Shows how good the service really is |
-| **First** | Give every unsuccessful transfer an owner and a follow-up | The weakest point firms experience |
-| **First** | Pilot consultation booking with a few firms | Already built, switched off, and aimed at the top complaint |
-| **Next** | One lead contract across voice, chat and the human service | Lets the systems converge gradually |
-| **Next** | Versioned, firm-approved configuration | Correct rules, and a record of who changed what |
-| **Later** | Move legacy workflows across and retire duplicate systems | Only once the voice platform matches them and has proven itself |
+## Knowing how good we are
+
+Following rules by design is not the same as following them on every call. A call can
+go wrong because the firm's instructions were set up wrongly, because they were not
+followed in the conversation, or because the next step never happened afterwards.
+
+So every call should be checked: the right rules in force, the instructions followed,
+the details right, the next step done, and someone responsible for anything left open.
+Much of this can be checked automatically from the recording and the rules each call
+used, but no single check is the truth. An AI reviewer can misread a call, misunderstand
+a rule with conditions, or miss that a step never happened. So we combine simple
+rule-based checks, an AI reviewer, the record of what each call actually did, and
+people reviewing a sample without knowing the AI's verdict. We track how often the
+checks wrongly pass a bad call, especially a serious one: a checker that reports all is
+well while missing real failures is worse than none. We do not claim the results until
+the checks agree with people.
+
+## What to do, in order
+
+**Straight away**
+
+- Fix the security issues the review turned up.
+- Name one owner for the caller's whole journey: voice, chat, human reception and delivery.
+- Pause new work that overlaps the voice platform, without throwing anything away yet.
+
+**First**
+
+- Talk to customers: current firms, recent cancellations, and firms that turned down the AI service. Why they bought, what they value, why they leave, and which calls they trust to AI. What we know about firms is not recent, so this comes first.
+- Check that the voice platform is ready to be the foundation.
+- Start checking the quality of every call.
+- Make sure every failed transfer has someone responsible for the follow-up.
+- Try consultation booking with a few firms: it is already built and aimed at a top complaint.
+
+**Next**
+
+- One shared description of a lead across voice, chat and the human service.
+- Firm rules with a history of changes, approved by the firm.
+
+**Later**
+
+- Move firms across and retire duplicate systems, once the new path has proven itself.
 
 ## Three pilots
 
-Run alongside the engineering, with real firms:
+Run them with real firms, alongside the engineering:
 
-| Pilot | The promise | Measured by |
-|---|---|---|
-| **Message accuracy** | Your instructions followed, your messages right | Material errors per thousand calls |
-| **Missed transfer recovery** | When nobody answers, the call does not just disappear | Share of failed transfers with a completed, acknowledged next step |
-| **Consultation booking** | Qualified callers can book without waiting for your staff | Completed bookings per hundred chances to book |
+- **Accurate messages:** your instructions followed and your messages right. Do errors fall?
+- **Missed transfers recovered:** when nobody answers, the call does not just disappear. Does every failed transfer get a next step?
+- **Consultations booked:** qualified callers book without waiting for your staff. How many bookings complete?
 
-Each pilot also tracks support load, firm satisfaction, cost to serve, and whether the
-firm would pay to keep the capability. Where possible, compare against similar calls
-handled by the human service. That means reviewing a sample of human-handled calls by
-hand, since the human service keeps no transcripts or rule snapshots to compare
-automatically.
+Each pilot also asks whether support work falls, whether firms are happier, what it
+costs, and whether they would pay to keep it. Where we can, we compare against calls
+handled by the human service.
 
 ## The demonstration
 
-**An attorney is in court and cannot take a new client's call.** The receptionist
-answers using the firm's approved instructions, captures what it needs, recognises the
-kind of call, and tries the agreed transfer. Nobody is available, so it starts the
-firm's agreed follow-up. The right person gets an accurate message with a clear next
-step, and the firm can see exactly what happened, including whether its instructions
-were followed.
+An attorney is in court and cannot take a new client's call. The receptionist answers
+the firm's way, captures what it needs, tries the agreed transfer, finds nobody, and
+starts the firm's follow-up. The right person gets an accurate message with a clear
+next step, and the firm can see exactly what happened.
 
-It addresses firms' two biggest complaints, the message and the missed transfer, and
-the engineering underneath stays invisible.
+## The year, and what each quarter must prove
 
-## The quarters
+Each quarter ends with a decision. Finishing the work does not earn the next step;
+the evidence does.
 
-- **First quarter:** security fix, owner named, overlapping work frozen, the voice platform assessed, the quality checker started, the three pilots designed and the first firms chosen.
-- **Second quarter:** the pilots running; the quality checker compared against human review; ownership after missed transfers live for pilot firms.
-- **Third quarter:** pricing tested on what the pilots proved; the lead contract agreed; firm-approved configuration.
-- **Fourth quarter:** packaging decided on evidence; the plan to move firms from the human service to AI with human escalation, and to retire duplicate systems.
+- **First quarter: is the voice platform the right foundation?** We need to know it is ready for production, matches what firms rely on today, and has someone running it. And from talking to customers: which firms suit which way of serving them.
+- **Second quarter: is the improved service better than today's?** Call quality, missed transfers recovered, bookings, what firms say, and what it costs per call.
+- **Third quarter: which customers and features justify a higher price?** Firms paying in the pilots, staying, and the margin on them.
+- **Fourth quarter: what do we scale, move across, or retire?** Economics that repeat, operations that hold up, and customers who accept the change.
+
+## Targets
+
+Leadership should approve the plan with targets, not just activities:
+
+- fewer complaints about messages;
+- more missed transfers followed through to a next step;
+- better retention, and more firms paying for more;
+- a lower cost per call handled well, without losing quality.
+
+The numbers come after the first quarter, once we have today's baselines and a
+financial model. Setting them before that would be guessing.
 
 ## What we ask leadership to decide
 
-1. **One product direction:** dependable, managed intake by AI and people together, with the existing voice platform as the leading candidate foundation.
-2. **One accountable owner** for the caller's whole journey, not for one codebase.
-3. **Evidence-driven investment:** engineering is prioritised by its proven effect on message accuracy, calls handled through to their next step, retention, cost to serve, and what firms will pay.
+1. **One direction:** dependable intake by AI and people together, built on what we already have.
+2. **One owner** for the caller's whole journey.
+3. **Invest on evidence:** spend where it measurably improves accuracy, calls handled through to their next step, retention, cost, and what firms will pay, and pass each quarter's gate before committing more.
 
-Merging the systems does not by itself make a product firms want. The year succeeds if
-we can say, and show:
+Bringing the systems together is the means, not the goal: on its own, it does not make
+a product firms want. The
+year succeeds if we can say, and show:
 
-> **"We follow your firm's instructions, get your messages right, and make sure
-> callers are not abandoned when your staff are busy, and here is the evidence."**
+> **"We follow your instructions, get your messages right, and make sure callers are
+> not abandoned when your staff are busy, and here is the evidence."**
