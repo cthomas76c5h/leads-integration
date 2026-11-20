@@ -272,6 +272,9 @@ let transition (current: Connection) (test: bool) (n: int) (outcome: Policy.Outc
         | Some delay -> { Outcome = $"retry: {reason}"; NextInMs = Some delay; Status = "pending"; Reason = reason; Connection = None; HoldPending = false }
         | None -> failed $"gave up after {n} attempts: {reason}"
     | Policy.Failed reason -> failed reason
+    | Policy.Unknown reason ->
+        // Not a failure of the destination, and not retried: the streak is untouched.
+        { Outcome = "unknown: no answer"; NextInMs = None; Status = "unknown"; Reason = reason; Connection = None; HoldPending = false }
 
 /// How long a lease lasts: longer than any one attempt (the request timeout), so a live worker
 /// does not lose it mid-send.
@@ -290,6 +293,19 @@ let duplicatesOf (c: Connection) =
 /// After an unknown outcome, send again only where a second copy cannot do harm (RFC-008 §4.3).
 /// Everywhere else an operator checks the destination first.
 let retryAfterUnknown (duplicates: string) = duplicates = "harmless" || duplicates = "idempotency-key"
+
+/// Why a delivery waits as unknown, for the operator.
+let unknownReason (duplicates: string) =
+    $"Sent, but no answer was recorded, and this destination cannot be trusted to ignore a second copy ({duplicates} duplicate handling). Check whether it has the lead, then resend or close it"
+
+/// The answer's outcome, given the destination. A request that timed out may have arrived (RFC-008 §4.2):
+/// retried as transient only where a second copy is harmless, otherwise unknown. A refused connection,
+/// a DNS or TLS failure sent nothing, so it stays transient.
+let outcomeOf (c: Connection) (timedOut: bool) (classified: Policy.Outcome) =
+    match classified with
+    | Policy.Retry(reason, _) when timedOut && not (retryAfterUnknown (duplicatesOf c)) ->
+        Policy.Unknown(unknownReason (duplicatesOf c) + $" ({reason})")
+    | o -> o
 
 /// Faults the scenario runner injects through test control (RFC-008 §10). Empty unless test control set one.
 module Faults =
@@ -350,19 +366,20 @@ type private Answer =
       RetryAfter: string
       Response: string
       Refused: bool
+      TimedOut: bool
       DurationMs: int64 }
 
 let private send (http: HttpClient) (opts: Options) (c: Store.ConnectionRow) (e: LeadEvent) (built: Payloads.Built) (started: int64) =
     task {
         let watch = Diagnostics.Stopwatch.StartNew()
         let url = c.Connection.DeliveryUrl
-        let! status, error, retryAfter, response, refused =
+        let! status, error, retryAfter, response, refused, timedOut =
             task {
                 match Address.checkShape opts.Address url with
-                | Error reason -> return None, $"address refused: {reason}", null, "", true
+                | Error reason -> return None, $"address refused: {reason}", null, "", true, false
                 | Ok uri ->
                     match! Address.checkResolves opts.Address uri with
-                    | Error reason -> return None, $"address refused: {reason}", null, "", true
+                    | Error reason -> return None, $"address refused: {reason}", null, "", true, false
                     | Ok uri ->
                         try
                             use req = new HttpRequestMessage(HttpMethod.Post, uri)
@@ -379,10 +396,10 @@ let private send (http: HttpClient) (opts: Options) (c: Store.ConnectionRow) (e:
                                 | ra when ra.Delta.HasValue -> string ra.Delta.Value.TotalSeconds
                                 | ra when ra.Date.HasValue -> ra.Date.Value.ToString "R"
                                 | _ -> null
-                            return Some(int res.StatusCode), null, retryAfter, snippet text, false
+                            return Some(int res.StatusCode), null, retryAfter, snippet text, false, false
                         with
-                        | :? OperationCanceledException -> return None, $"no answer in {opts.TimeoutMs} ms", null, "", false
-                        | :? HttpRequestException as ex -> return None, ex.Message, null, "", false
+                        | :? OperationCanceledException -> return None, $"no answer in {opts.TimeoutMs} ms", null, "", false, true
+                        | :? HttpRequestException as ex -> return None, ex.Message, null, "", false, false
             }
         return
             { Status = status
@@ -390,6 +407,7 @@ let private send (http: HttpClient) (opts: Options) (c: Store.ConnectionRow) (e:
               RetryAfter = retryAfter
               Response = response
               Refused = refused
+              TimedOut = timedOut
               DurationMs = watch.ElapsedMilliseconds }
     }
 
@@ -397,10 +415,12 @@ let private send (http: HttpClient) (opts: Options) (c: Store.ConnectionRow) (e:
 /// decides it. A worker that lost its lease keeps the answer as evidence on its own attempt, and never
 /// changes the delivery a newer lease owns; an accepted late answer settles a delivery left unknown.
 let private complete (db: Database) (opts: Options) (random: unit -> float) (deliveryId: string) (version: int64) (connectionId: string) (n: int) (started: int64) (a: Answer) =
-    let outcome = if a.Refused then Policy.Failed a.Error else Policy.classify a.Status a.Error a.RetryAfter (now ())
     write db (fun s ->
         let d = (Store.deliveryOrFail s deliveryId).Delivery
         let current = (Store.connectionOrFail s connectionId).Connection
+        let outcome =
+            if a.Refused then Policy.Failed a.Error
+            else Policy.classify a.Status a.Error a.RetryAfter (now ()) |> outcomeOf current a.TimedOut
         let t = transition current d.Test n outcome (fun ra -> Policy.nextDelayMs n opts.TimeScale ra random)
         let toNullable = function Some (v: int64) -> Nullable v | None -> Nullable()
         let record outcomeText (next: Nullable<int64>) =
@@ -426,6 +446,7 @@ let private complete (db: Database) (opts: Options) (random: unit -> float) (del
             | "failed" when t.Reason <> null && t.Reason.StartsWith "gave up" -> emitFor s "DeliveryGaveUp" d
             | "failed" -> emitFor s "DeliveryRefused" d
             | "pending" when t.NextInMs.IsNone -> emitFor s "Held" d
+            | "unknown" -> emitFor s "DeliveryUnknown" d
             | _ -> ()
         else
             Store.finishAttempt s d.Id (record $"unknown, then a late answer: {t.Outcome}" (Nullable()))
@@ -467,12 +488,7 @@ let private recover (db: Database) (claim: Store.Claim) : bool =
             let duplicates = duplicatesOf c
             if retryAfterUnknown duplicates then true
             else
-                Store.setDeliveryState
-                    s
-                    d.Id
-                    "unknown"
-                    $"Sent, but no answer was recorded, and this destination cannot be trusted to ignore a second copy ({duplicates} duplicate handling). Check whether it has the lead, then resend or close it"
-                    (Nullable())
+                Store.setDeliveryState s d.Id "unknown" (unknownReason duplicates) (Nullable())
                 false)
 
 let private runClaim (db: Database) (http: HttpClient) (opts: Options) (random: unit -> float) (claim: Store.Claim) : Task<unit> =

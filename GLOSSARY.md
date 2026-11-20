@@ -153,7 +153,7 @@ A worker's time-limited claim on one delivery, with a version that every claim i
 _Avoid_: lock, flag
 
 **Unknown outcome**:
-An attempt that was sent but never answered: a timeout while waiting, a reset connection, a worker lost mid-send. The destination may or may not have the lead; what follows depends on how that destination kind handles duplicates: sent again where a second copy is harmless, otherwise held for an operator to check. *Lab for a worker that lost its lease; a timeout is still retried as transient.*
+An attempt that was sent but never answered: a timeout while waiting, a reset connection, a worker lost mid-send. The destination may or may not have the lead; what follows depends on how that destination kind handles duplicates: sent again where a second copy is harmless, otherwise held for an operator to check. *Lab, for a worker that lost its lease and for a timeout; a reset connection is still retried as transient.*
 _Avoid_: timeout (that is one cause), transient failure (that is for attempts that cannot have arrived)
 
 **Accepted**:

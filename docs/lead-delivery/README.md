@@ -232,7 +232,8 @@ record afterwards: the most serious outcome, shown first.
 | Answer | Class | What happens |
 |---|---|---|
 | 2xx | | Accepted |
-| No answer (timeout, DNS, refused connection) | Transient | Retry |
+| No connection (DNS, refused connection): nothing sent | Transient | Retry |
+| Timeout: sent, no answer, may have arrived | Transient or unknown | Retry where a second copy is harmless (email, SMS, Slack, or a destination confirmed to deduplicate); otherwise *Outcome unknown*, not sent again until an operator checks (RFC-008 §4.2). *Lab* |
 | 408, 425, 429, 5xx | Transient | Retry, never sooner than `Retry-After` |
 | 3xx | Configuration | Refused: redirects are not followed |
 | 410 | Connection | Needs reconnection; the delivery and later leads held. *Lab* |

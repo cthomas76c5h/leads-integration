@@ -3,6 +3,7 @@ module LeadIntegrations.Tests.CoreTests
 open System.Collections.Generic
 open Expecto
 open LeadIntegrations
+open LeadIntegrations.Domain
 
 [<Tests>]
 let tests =
@@ -27,6 +28,26 @@ let tests =
               Expect.isTrue (match c (Some 302) with Policy.Failed _ -> true | _ -> false) "redirects are not followed"
               Expect.isTrue (match c (Some 422) with Policy.Failed _ -> true | _ -> false) "4xx fails"
               Expect.isTrue (match c None with Policy.Retry _ -> true | _ -> false) "no answer retries"
+          }
+
+          test "a timeout is retried only where a second copy is harmless; elsewhere it is unknown" {
+              let timedOut = Policy.classify None "no answer in 10000 ms" null 0L
+              use t = new Support.TempDb()
+              Import.apply t.Db Support.origin (Support.batch Source.api2 [ Support.firm "1" "Timeout Firm" "k" [ Support.conn "10" "email" []; Support.conn "11" "mycase" [] ] ]) |> ignore
+              let rows = Db.read t.Db (fun s -> Store.allConnections s)
+              let conn kind (settings: Map<string, string>) =
+                  let c = (rows |> Array.find (fun (r: Store.ConnectionRow) -> r.Connection.Kind = kind)).Connection
+                  let d = System.Collections.Generic.Dictionary<string, string>(c.Settings)
+                  for KeyValue(k, v) in settings do d[k] <- v
+                  { c with Settings = d }
+              let isUnknown o = match o with Policy.Unknown _ -> true | _ -> false
+              Expect.isFalse (isUnknown (Dispatch.outcomeOf (conn "email" Map.empty) true timedOut)) "email retries"
+              Expect.isTrue (isUnknown (Dispatch.outcomeOf (conn "mycase" Map.empty) true timedOut)) "a CRM waits for an operator"
+              Expect.isFalse (isUnknown (Dispatch.outcomeOf (conn "mycase" (Map.ofList [ "duplicates", "idempotency-key" ])) true timedOut)) "unless it deduplicates"
+              Expect.isFalse (isUnknown (Dispatch.outcomeOf (conn "mycase" Map.empty) false timedOut)) "a refused connection sent nothing: transient"
+              let t = Dispatch.transition (conn "mycase" Map.empty) false 1 (Dispatch.outcomeOf (conn "mycase" Map.empty) true timedOut) (fun _ -> Some 1000L)
+              Expect.equal t.Status "unknown" "not retried"
+              Expect.isNone t.Connection "the failure streak is untouched"
           }
 
           test "Retry-After in seconds and as a date" {

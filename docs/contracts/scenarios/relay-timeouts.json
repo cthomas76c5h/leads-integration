@@ -1,11 +1,11 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "relay-timeouts",
-  "story": "The email relay stops answering for 90 minutes. Each attempt times out with no answer, which is a transient failure, so the lead is retried and accepted once the relay answers again.",
+  "story": "The email relay stops answering for 90 minutes. Each attempt times out with no answer. The relay may have the lead, but a second email is harmless, so the lead is retried and accepted once the relay answers again.",
   "slice": 3,
   "model": "lab",
   "proves": [
-    "docs/lead-delivery/README.md#retry (no answer is transient and retried)"
+    "docs/lead-delivery/README.md#retry (no answer from a destination where a second copy is harmless is retried)"
   ],
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",

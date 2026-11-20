@@ -62,7 +62,7 @@ is also a reading order: each file uses only those above it.
    - `Dispatch.buildFor` → `Payloads.build` (a webhook with a setup renders its template with `Template.render`); a body that cannot be built → `failed "body: …"` (**our fault**, no attempt);
    - POST to the destination's URL. In the lab that is `Receivers.handle`, which checks the body with `FakeCrm.checkWith` (the kind's required fields plus any `?require=`), then answers as its mode says (ok, reject, flaky, gone, slow, down).
 5. `Dispatch.complete` records the answer only if the lease version still holds; a worker that lost its lease keeps the answer as evidence on its own attempt (and an accepted late answer settles an `unknown` delivery). Every step emits its domain event (`Store.emit`: `AttemptMade`, `DeliveryAccepted`, `Held`, `LeaseRecovered`, …).
-6. `Policy.classify` turns the answer into `Delivered`, `Retry`, `Failed` or `NeedsReconnection`.
+6. `Policy.classify` turns the answer into `Delivered`, `Retry`, `Failed` or `NeedsReconnection`; `Dispatch.outcomeOf` makes a timeout `Unknown` where a second copy is not safe (the same `retryAfterUnknown` as a recovered lease).
 7. `Dispatch.transition` is the whole state machine, shared by the worker and the simulator:
    - `Retry` → `pending` again, next time from `Policy.nextDelayMs` (`Policy.retryScheduleMs`, never sooner than `Retry-After`);
    - out of attempts, or refused → `failed`; a production failure adds to the **failure streak**, and at `Policy.disableAfterConsecutiveFailures` the destination is **switched off**;

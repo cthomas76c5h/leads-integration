@@ -159,7 +159,8 @@ field gives.
 | [test-lead-isolation](scenarios/test-lead-isolation.json) | 0 | `lab` | A test lead goes only to the destination under test and never counts toward its streak |
 | [chat-leads-refused](scenarios/chat-leads-refused.json) | 2 | `lab` | A destination that refuses chat leads gets not sent, with a reason; email still has it |
 | [platform-outage](scenarios/platform-outage.json) | 3 | `lab` | 429 then 503 for 2½ hours: retried, never sooner than Retry-After; accepted after; streak stays zero |
-| [relay-timeouts](scenarios/relay-timeouts.json) | 3 | `lab` | No answer is transient: retried and accepted once the relay answers |
+| [relay-timeouts](scenarios/relay-timeouts.json) | 3 | `lab` | No answer from email is retried (a second copy is harmless) and accepted once the relay answers |
+| [crm-timeout](scenarios/crm-timeout.json) | 3 | `lab` | A timeout is unknown: email is retried, the CRM waits for an operator and is never sent again |
 | [dead-endpoint](scenarios/dead-endpoint.json) | 3 | `lab` | About 69 hours of retries, then gave up; 5 in a row switch the destination off |
 | [redirect](scenarios/redirect.json) | 3 | `lab` | 301 is refused, never followed; 5 in a row switch off; reactivate and resend under the same identity |
 | [switch-off](scenarios/switch-off.json) | 3 | `lab` | An accepted delivery resets the streak; 5 refused in a row switch off |
@@ -182,6 +183,7 @@ durable state, emitted events and prohibited effects.
 | RFC-008 §10 scenario | File | Slice | Events asserted | Prohibited effects |
 |---|---|---|---|---|
 | crash-after-send | [crash-after-send.json](scenarios/crash-after-send.json) | 3 | `DeliveryUnknown`, `DeliveryAccepted` | No attempt to the CRM after the crash; the CRM never accepted twice |
+| crm-timeout | [crm-timeout.json](scenarios/crm-timeout.json) | 3 | `DeliveryUnknown` | No second attempt to the CRM after its timeout |
 | double-claim | [double-claim.json](scenarios/double-claim.json) | 3 | `LeaseRecovered`, exactly one `AttemptMade`, `DeliveryAccepted` | No attempt after the stalled worker wakes |
 | pause-during-send | [pause-during-send.json](scenarios/pause-during-send.json) | 3 | `DesiredStateChanged` (three), `Held`, `FallbackUsed` | Race before send: no attempt while paused. On the wire: the attempt finishes accepted, is not held, and no further attempt follows |
 | routing-change-during-outage | [routing-change-during-outage.json](scenarios/routing-change-during-outage.json) | 5 | `RevisionWentLive`, `DeliveryCancelled`, `NotSent` | No attempt for a cancelled or not-sent delivery |

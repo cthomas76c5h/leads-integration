@@ -561,7 +561,9 @@ let run (db: Db.Database) (opts: Options) : Summary =
                             match FakeCrm.checkWith (FakeCrm.requiredByUrl c.DeliveryUrl) c.Kind built.ContentType built.Body with
                             | [] -> Some 201, null, null, "accepted", 60L + int64 (rnd.Next 400)
                             | problems -> Some 422, null, null, String.Join("; ", problems), 40L + int64 (rnd.Next 200)
-                    let outcome = Policy.classify status error retryAfter t
+                    // As Dispatch.complete: no answer here is a timeout, unknown where a second copy is not safe.
+                    let timedOut = match scenario with Some(_, NoAnswer _) -> true | _ -> false
+                    let outcome = Policy.classify status error retryAfter t |> Dispatch.outcomeOf c timedOut
                     let tr = Dispatch.transition c sim.D.Test n outcome (fun ra -> Policy.nextDelayMs n 1.0 ra rnd.NextDouble)
                     sim.Attempts.Add
                         { N = n

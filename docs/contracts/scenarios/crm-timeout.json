@@ -1,0 +1,142 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "crm-timeout",
+  "story": "A new matter goes to the firm's CRM and email. Neither answers within the timeout. The request may have arrived, so what follows depends on each kind's duplicate handling: email, where a second copy is harmless, is retried and accepted once it answers; the CRM, which cannot tell a duplicate, is not sent again but waits as unknown for an operator to check.",
+  "slice": 3,
+  "model": "lab",
+  "proves": [
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#42-an-unknown-outcome (a timeout is unknown, not transient)",
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#43-duplicate-handling-per-destination-kind (what follows an unknown outcome, per kind)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "mycase",
+        "role": "usual",
+        "routing": {
+          "categories": [
+            "new-matter"
+          ]
+        }
+      },
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "crm",
+        "answers": {
+          "noAnswer": true
+        }
+      }
+    },
+    {
+      "at": "+0m",
+      "receiver": {
+        "destination": "email",
+        "answers": {
+          "noAnswer": true
+        }
+      }
+    },
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "personal-injury"
+      }
+    },
+    {
+      "at": "+20m",
+      "receiver": {
+        "destination": "email",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    },
+    {
+      "at": "+20m",
+      "receiver": {
+        "destination": "crm",
+        "answers": {
+          "mode": "ok"
+        }
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+10m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "unknown",
+        "attempts": 1,
+        "outcomes": [
+          "unknown"
+        ]
+      }
+    },
+    {
+      "at": "+10m",
+      "event": {
+        "name": "DeliveryUnknown",
+        "lead": "lead-1",
+        "destination": "crm",
+        "count": 1
+      }
+    },
+    {
+      "at": "+10m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "retrying",
+        "failureClass": "transient"
+      }
+    },
+    {
+      "at": "+2h",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "accepted"
+      }
+    },
+    {
+      "at": "+2h",
+      "noAttempt": {
+        "destination": "crm",
+        "lead": "lead-1",
+        "after": "+1m"
+      }
+    },
+    {
+      "at": "+2h",
+      "destination": {
+        "id": "crm",
+        "state": "live",
+        "failureStreak": 0
+      }
+    }
+  ]
+}

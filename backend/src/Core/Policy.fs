@@ -10,6 +10,9 @@ type Outcome =
     | Retry of reason: string * retryAfterMs: int64 option
     | Failed of reason: string // this delivery stops; the connection stays on
     | NeedsReconnection of reason: string // the connection stopped working (401, 403, 410): only the firm can fix it
+    /// Sent, never answered, and the destination cannot be trusted to ignore a second copy (RFC-008 §4.2, §4.3):
+    /// an operator checks before it is sent again. Never from `classify`: `Dispatch.outcomeOf` decides it.
+    | Unknown of reason: string
 
 let parseRetryAfter (value: string) (nowMs: int64) : int64 option =
     if String.IsNullOrWhiteSpace value then None
@@ -21,7 +24,7 @@ let parseRetryAfter (value: string) (nowMs: int64) : int64 option =
             | true, at -> Some(max 0L (at.ToUnixTimeMilliseconds() - nowMs))
             | _ -> None
 
-/// status None: no HTTP answer (timeout, DNS, refused, TLS).
+/// status None: no HTTP answer (timeout, DNS, refused, TLS). A timeout may still be unknown: `Dispatch.outcomeOf`.
 let classify (status: int option) (error: string) (retryAfter: string) (nowMs: int64) : Outcome =
     match status with
     | None -> Retry((if String.IsNullOrEmpty error then "no answer" else error), None)
