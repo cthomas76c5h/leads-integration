@@ -119,9 +119,10 @@ let leadProblem (c: Store.ConnectionRow) (lead: Lead) : string list =
 
 /// The decision for one production lead and one destination. Test leads are not
 /// routed: they go only to the destination under test.
-let decide (firm: Store.FirmRow) (c: Store.ConnectionRow) (lead: Lead) : RoutingDecision =
+/// The decision under a given classification: a corrected one, when an operator is offered the
+/// destinations a lead now matches (RFC-008 §6.2).
+let decideAs (m: Categories.CallMapping) (firm: Store.FirmRow) (c: Store.ConnectionRow) (lead: Lead) : RoutingDecision =
     let conn = c.Connection
-    let m = Categories.classify lead.CallType
     let decision outcome matchedOn reason =
         { Outcome = outcome
           Rule = describe conn
@@ -156,3 +157,7 @@ let decide (firm: Store.FirmRow) (c: Store.ConnectionRow) (lead: Lead) : Routing
         | [] -> decision "planned" matchedOn null
         | fields ->
             decision "not-sent-lead" null $"{Diagnose.leadProblemPrefix}the lead has no {joined fields}, which this destination requires"
+
+/// The decision for one lead, under its classification at intake.
+let decide (firm: Store.FirmRow) (c: Store.ConnectionRow) (lead: Lead) : RoutingDecision =
+    decideAs (Categories.classify lead.CallType) firm c lead

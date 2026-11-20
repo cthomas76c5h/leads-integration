@@ -415,6 +415,20 @@ let delivery (c: Ctx) (id: string) : EndpointHandler =
         ctx.Response.WriteAsync(o.ToJsonString())
 
 [<CLIMutable>]
+type Correction = { Category: string; PracticeArea: string; By: string; Source: string }
+
+let classification (c: Ctx) (id: string) : EndpointHandler = fun ctx -> ok (Corrections.view c.Db id) ctx
+
+let leadBilling (c: Ctx) (id: string) : EndpointHandler = fun ctx -> ok (Corrections.billing c.Db id) ctx
+
+let correctClassification (c: Ctx) (id: string) : EndpointHandler =
+    fun ctx ->
+        task {
+            let! b = body { Category = null; PracticeArea = null; By = null; Source = null } ctx
+            return! ok (Corrections.correct c.Db id b.Category b.PracticeArea b.Source b.By) ctx
+        }
+
+[<CLIMutable>]
 type RoutingChange = { Categories: string[]; PracticeAreas: string[]; By: string }
 
 [<CLIMutable>]

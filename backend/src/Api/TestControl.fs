@@ -200,12 +200,18 @@ let private fault (c: Ctx) : EndpointHandler =
             | _ -> return! ok {| ok = true |} ctx
         }
 
+/// The firm's billing cycle closes now: its conversations so far are rated and kept (Billing.closeCycle),
+/// as when a cycle's statement is locked at its end. A scenario cannot wait a month.
+let private closeCycle (c: Ctx) (firmId: string) : EndpointHandler =
+    fun ctx -> ok {| rated = Db.write c.Db (fun s -> Billing.closeCycle s firmId (now ())) |} ctx
+
 let private events (c: Ctx) : EndpointHandler = fun ctx -> ok (Db.read c.Db Store.domainEvents) ctx
 
 let endpoints (c: Ctx) : Endpoint list =
     let g = guard
     [ GET [ route "/api/test/events" (g (events c)) ]
-      POST [ route "/api/test/clock" (g setClock); route "/api/test/advance" (g (advance c)); route "/api/test/faults" (g (fault c)) ]
+      POST [ route "/api/test/clock" (g setClock); route "/api/test/advance" (g (advance c)); route "/api/test/faults" (g (fault c))
+             routef "/api/test/firms/{%s}/close-cycle" (fun id -> g (closeCycle c id)) ]
       PUT
           [ routef "/api/test/receivers/{%s}" (fun key -> g (setReceiver key))
             routef "/api/test/connections/{%s}" (fun id -> g (setConnection c id))

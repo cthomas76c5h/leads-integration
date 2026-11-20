@@ -517,6 +517,18 @@
       }
     },
     {
+      "id": "vendor",
+      "why": "A sales call: free, never a lead, and never sent to a CRM.",
+      "expect": { "category": "vendor", "practiceArea": null, "modifiers": [], "crm": "skip" },
+      "lead": {
+        "firstName": "Casey", "lastName": "Marlow", "phone": "+15555550147", "email": "casey.marlow@example.com",
+        "callType": "*Vendor/Solicitation Calls",
+        "message": "Selling a legal research subscription; asked for the office manager.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [ { "label": "Call Back", "data": "Any time" } ]
+      }
+    },
+    {
       "id": "general",
       "why": "Catch-all on 2,700+ firms. Firms whose only type is General send everything; others don't.",
       "expect": { "category": "general", "practiceArea": null, "modifiers": [], "crm": "review" },

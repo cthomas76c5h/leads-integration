@@ -191,7 +191,8 @@ let setConnectionTemplate (s: Session) (id: string) (template: string) =
 /// A lead is classified at intake: whether its hand-off needs acknowledgement, and when its window
 /// to act closes, are fixed then. A test lead owes no hand-off, and has no acknowledgement link.
 let insertEvent (s: Session) (e: LeadEvent) =
-    let category = (Categories.classify e.Lead.CallType).Category
+    let m = Categories.classify e.Lead.CallType
+    let category = m.Category
     s.Execute
         """INSERT INTO events (id, firm_id, test, lead, created_at, ack_token, ack_required, handoff_due_at)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)"""
@@ -200,6 +201,25 @@ let insertEvent (s: Session) (e: LeadEvent) =
           (not e.Test && Urgency.needsAcknowledgement category)
           (if e.Test then null else box (e.CreatedAt + Urgency.windowMs category)) ]
     |> ignore
+    s.Execute
+        "INSERT INTO classifications (event_id, seq, category, practice_area, source, by, at, taxonomy_version) VALUES ($1,1,$2,$3,'intake',NULL,$4,$5)"
+        [ e.Id; category; m.PracticeArea; e.CreatedAt; Categories.version () ]
+    |> ignore
+
+/// Each lead's current category where it was corrected (RFC-008 §6.2), for the firm's leads.
+let corrected (s: Session) (firmId: string) : Map<string, string> =
+    s.Query
+        """SELECT k.event_id, k.category FROM classifications k JOIN events e ON e.id = k.event_id
+           WHERE e.firm_id = $1 AND k.source <> 'intake'
+             AND k.seq = (SELECT MAX(x.seq) FROM classifications x WHERE x.event_id = k.event_id)"""
+        [ firmId ]
+        (fun r -> Read.str r 0, Read.str r 1)
+    |> Map.ofArray
+
+/// A mapping with its category corrected: the taxonomy's CRM default for the new category.
+let correctedMapping (m: Categories.CallMapping) (category: string) (practiceArea: string) : Categories.CallMapping =
+    let crm = Categories.taxonomy.Value.Categories |> Array.tryFind (fun c -> c.Id = category) |> Option.map _.Crm |> Option.toObj
+    { m with Category = category; PracticeArea = (if category = "new-matter" then practiceArea else null); Crm = crm }
 
 /// The lead already recorded for a channel's conversation, if any (RFC-008 §4.1).
 let eventForConversation (s: Session) (firmId: string) (conversationId: string) : string option =
@@ -573,7 +593,9 @@ let private leadSql =
               COALESCE(SUM(d.status = 'pending' AND d.next_attempt_at IS NULL), 0),
               e.ack_required, e.acknowledged_at, e.escalated_at,
               EXISTS (SELECT 1 FROM attempts a JOIN deliveries x ON x.id = a.delivery_id WHERE x.event_id = e.id),
-              e.conversation_id
+              e.conversation_id,
+              (SELECT k.category FROM classifications k WHERE k.event_id = e.id AND k.source <> 'intake' ORDER BY k.seq DESC LIMIT 1),
+              (SELECT k.practice_area FROM classifications k WHERE k.event_id = e.id AND k.source <> 'intake' ORDER BY k.seq DESC LIMIT 1)
        FROM events e
        JOIN firms f ON f.id = e.firm_id
        LEFT JOIN deliveries d ON d.event_id = e.id
@@ -591,14 +613,19 @@ let private readLead (r: DbDataReader) : LeadSummary * Lead =
           Pending = Read.int r 10
           Held = Read.int r 14 }
     let createdAt = Read.int64 r 5
-    let mapping = Categories.classify lead.CallType
+    // The window to act stands as judged at intake; everything else reads the current classification.
+    let atIntake = Categories.classify lead.CallType
+    let mapping =
+        match Read.str r 20 with
+        | null -> atIntake
+        | category -> correctedMapping atIntake category (Read.str r 21)
     // No hand-off is owed for a test lead, nor for one the firm's routing sends nowhere on purpose
     // (every destination excluded it): it cannot be late or missed, and is not in the in-time numbers.
     let excludedByRouting = counts.Total > 0 && Read.int r 13 = counts.Total
     let handOff =
         if Read.bool r 3 || excludedByRouting then Unchecked.defaultof<HandOff>
         else
-            let window = Urgency.windowMs mapping.Category
+            let window = Urgency.windowMs atIntake.Category
             let at = Read.int64N r 11
             let by = Read.str r 12
             let viaFallback = not (isNull by) && by.EndsWith "|fallback"

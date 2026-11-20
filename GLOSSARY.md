@@ -261,8 +261,12 @@ The published, versioned list of plans, included volumes and rates. Every accoun
 _Avoid_: rate card per account
 
 **Usage ledger**:
-The append-only record of every conversation, from which every invoice can be recomputed.
+The append-only record of every conversation, from which every invoice can be recomputed. *Lab: each conversation is kept as rated when its cycle closes; a later correction that lowers the charge is a credit in the next cycle, never a new charge.*
 _Avoid_: billing export
+
+**Correction**:
+A new classification record for a lead, by a reviewer or the firm, that supersedes the one before; every record is kept. It never resends or recalls a delivery: the destinations the lead now matches are offered to an operator. *Lab.*
+_Avoid_: reclassify (in place), edit
 
 ## Terms of service
 

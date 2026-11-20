@@ -135,12 +135,16 @@ let seconds (e: LeadEvent) (category: string) =
         | "line-handling" -> between 10 60
         | _ -> between 60 240
 
-/// Each production lead as a conversation, with the rule that made it free, oldest first.
-let conversations (events: LeadEvent[]) : Conversation[] =
+/// Each production lead as a conversation, with the rule that made it free, oldest first. `corrected`:
+/// a lead's current category where it was corrected (Store.corrected); else its category at intake.
+let conversationsWith (corrected: Map<string, string>) (events: LeadEvent[]) : Conversation[] =
     let ordered = events |> Array.sortBy _.CreatedAt
     ordered
     |> Array.mapi (fun i e ->
-        let category = (Categories.classify e.Lead.CallType).Category
+        let category =
+            match corrected.TryFind e.Id with
+            | Some c -> c
+            | None -> (Categories.classify e.Lead.CallType).Category
         let secs = seconds e category
         let hangUp = String.IsNullOrWhiteSpace e.Lead.FirstName && secs < 20
         let repeat =
@@ -160,6 +164,8 @@ let conversations (events: LeadEvent[]) : Conversation[] =
           Rule = rule
           // Fair use: a conversation over 20 minutes counts as two.
           Units = (if isNull rule then (if secs > 1200 then 2 else 1) else 0) })
+
+let conversations (events: LeadEvent[]) = conversationsWith Map.empty events
 
 // ----- Cycles -----
 
@@ -270,7 +276,7 @@ let rate (s: Session) (a: Account) (from: int64) (until: int64) (nowMs: int64) :
                 |> List.filter (isNull >> not)
                 |> String.concat "; " },
             p)
-    let cs = conversations (eventsBetween s a.FirmId from (min until nowMs))
+    let cs = conversationsWith (Store.corrected s a.FirmId) (eventsBetween s a.FirmId from (min until nowMs))
     let billable = cs |> Array.filter _.Billable
     let units = billable |> Array.sumBy _.Units
     let included = segments |> Array.sumBy (fun (x, _) -> x.Included)
@@ -329,6 +335,28 @@ let rate (s: Session) (a: Account) (from: int64) (until: int64) (nowMs: int64) :
       Legacy = legacy a cs
       Checks = checks }
 
+/// One conversation rated now from its current classification, with the 10 minutes before it
+/// (the repeat rule's reach) as context.
+let conversationOf (s: Session) (e: LeadEvent) : Conversation =
+    let context = eventsBetween s e.FirmId (e.CreatedAt - 10L * minute) (e.CreatedAt + 1L)
+    conversationsWith (Store.corrected s e.FirmId) context |> Array.find (fun c -> c.EventId = e.Id)
+
+/// Close a cycle's usage (RFC-003): each conversation before `until` not yet rated is rated from its
+/// current classification and kept as it was (UsageRated). Called when a cycle's statement is locked;
+/// test control closes one early. Returns how many were rated.
+let closeCycle (s: Session) (firmId: string) (until: int64) : int =
+    let unrated =
+        s.Query
+            "SELECT id FROM events WHERE firm_id=$1 AND test=0 AND created_at < $2 AND id NOT IN (SELECT event_id FROM usage)"
+            [ firmId; until ]
+            (fun r -> Read.str r 0)
+        |> Array.choose (Store.tryEvent s)
+    let cs = conversationsWith (Store.corrected s firmId) unrated
+    for c in cs do
+        s.Execute "INSERT INTO usage (event_id, cycle_until, billable, rule, rated_at) VALUES ($1,$2,$3,$4,$5)" [ c.EventId; until; c.Billable; c.Rule; now () ] |> ignore
+        Store.emit s "UsageRated" firmId c.EventId null
+    cs.Length
+
 /// "current" or "previous". A closed cycle is rated once and kept: its statement never
 /// changes with later plan or price changes.
 let statement (s: Session) (firmId: string) (which: string) (nowMs: int64) : Statement =
@@ -342,6 +370,7 @@ let statement (s: Session) (firmId: string) (which: string) (nowMs: int64) : Sta
         | Some(json, at) -> { Json.deserialize<Statement> json with LockedAt = Nullable at }
         | None ->
             let st = rate s a from until nowMs
+            closeCycle s firmId until |> ignore
             s.Execute "INSERT INTO invoices (firm_id, cycle_from, cycle_to, statement, locked_at) VALUES ($1,$2,$3,$4,$5)" [ firmId; from; until; Json.serialize st; nowMs ] |> ignore
             { st with LockedAt = Nullable nowMs }
 

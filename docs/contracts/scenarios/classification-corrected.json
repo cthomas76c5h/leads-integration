@@ -3,11 +3,10 @@
   "name": "classification-corrected",
   "story": "Three calls are corrected. A general call corrected to a new matter while the cycle is open: both records kept, still billable, and the CRM it now matches is offered to an operator, not sent. After the cycle closes, a call billed as a new matter is corrected to a vendor solicitation: a credit next cycle. And a call left free as a vendor is corrected to a new matter: it stays free, because nothing is charged after a cycle closes.",
   "slice": 9,
-  "model": "proposed",
+  "model": "lab",
   "proves": [
     "docs/rfc/008_delivery_guarantees_and_evidence.md#62-corrections (supersede; offer, never resend; credit, never a new charge after close)"
   ],
-  "today": "The lab derives the category from the firm's label each time it reads a lead. There is no classification record, no review and no correction, and billing (Billing.conversations) is built from leads, so nothing is re-rated or credited.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [
@@ -173,9 +172,11 @@
     },
     {
       "at": "+4h",
-      "noDelivery": {
+      "delivery": {
         "lead": "lead-3",
-        "destination": "crm"
+        "destination": "crm",
+        "state": "not-sent",
+        "count": 1
       }
     },
     {

@@ -209,6 +209,37 @@ CREATE TABLE IF NOT EXISTS receiver_records (
   at INTEGER NOT NULL
 );
 
+-- A lead's classification records (RFC-008 §6.2): the one made at intake, then each correction,
+-- which supersedes the one before it. None is ever changed or deleted.
+CREATE TABLE IF NOT EXISTS classifications (
+  event_id TEXT NOT NULL REFERENCES events(id),
+  seq INTEGER NOT NULL,
+  category TEXT NOT NULL,
+  practice_area TEXT NULL,
+  source TEXT NOT NULL,        -- intake | reviewer | firm-contact
+  by TEXT NULL,
+  at INTEGER NOT NULL,
+  taxonomy_version INTEGER NOT NULL,
+  PRIMARY KEY (event_id, seq)
+);
+
+-- Each conversation as a closed cycle rated it (RFC-003): never changed after.
+CREATE TABLE IF NOT EXISTS usage (
+  event_id TEXT PRIMARY KEY REFERENCES events(id),
+  cycle_until INTEGER NOT NULL,
+  billable INTEGER NOT NULL,
+  rule TEXT NULL,
+  rated_at INTEGER NOT NULL
+);
+
+-- A correction after the cycle closed that lowers its charge: credited in the next cycle.
+CREATE TABLE IF NOT EXISTS credits (
+  event_id TEXT PRIMARY KEY REFERENCES events(id),
+  cycle_from INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS received (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   at INTEGER NOT NULL,

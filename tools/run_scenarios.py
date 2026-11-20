@@ -189,6 +189,8 @@ class LabAdapter:
             self._action(step["action"])
         elif "fault" in step:
             self._fault(step["fault"])
+        elif "cycleCloses" in step:
+            self.api.ok("POST", f"/api/test/firms/{self.firms[step['cycleCloses']['firm']]}/close-cycle")
         else:
             kind = next(k for k in step if k != "at")
             detail = step[kind].get("kind", "") if isinstance(step[kind], dict) else ""
@@ -305,6 +307,9 @@ class LabAdapter:
         elif do == "change-mapping":
             # The lab's real path is a setup revision; the scenario folds test and confirm into approve.
             self.pending_mapping[dest] = a["mapping"]
+        elif do == "correct-classification":
+            self.api.ok("POST", f"/api/leads/{self.leads[a['lead']]}/classification",
+                        {"category": a["category"], "practiceArea": a.get("practiceArea"), "source": a["by"], "by": f"scenario {a['by']}"})
         elif do == "change-routing":
             self.api.ok("POST", f"/api/connections/{cid}/routing",
                         {"categories": a["routing"].get("categories"), "practiceAreas": a["routing"].get("practiceAreas"), "by": a["by"]})
@@ -492,6 +497,21 @@ class LabAdapter:
             if "channelTold" in x and self.told.get(x["lead"]) != x["channelTold"]:
                 problems.append(f"the channel was told {self.told.get(x['lead'])}, expected {x['channelTold']}")
             return (not problems), "; ".join(problems)
+        if kind == "classification":
+            v = self.api.ok("GET", f"/api/leads/{self.leads[x['lead']]}/classification")
+            problems = []
+            if v["category"] != x["category"]:
+                problems.append(f"category {v['category']}, expected {x['category']}")
+            if "records" in x and len(v["records"]) != x["records"]:
+                problems.append(f"{len(v['records'])} records, expected {x['records']}")
+            if "offered" in x:
+                want = sorted(self.dests[d] for d in x["offered"])
+                if sorted(v["offered"]) != want:
+                    problems.append(f"offered {v['offered']}, expected {want}")
+            return (not problems), "; ".join(problems)
+        if kind == "billing":
+            v = self.api.ok("GET", f"/api/leads/{self.leads[x['lead']]}/billing")
+            return v["is"] == x["is"], f"billing {v['is']}, expected {x['is']}"
         if kind == "outcome":
             got = OUTCOMES.get(self._lead_detail(x["lead"])["outcome"], "?")
             return got == x["is"], f"outcome {got}, expected {x['is']}"
