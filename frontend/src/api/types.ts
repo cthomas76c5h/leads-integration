@@ -156,8 +156,8 @@ export interface ReferenceLead {
   lead: Lead;
 }
 
-export type DeliveryStatus = 'pending' | 'delivering' | 'delivered' | 'failed' | 'cancelled' | 'skipped';
-export type DeliveryStage = 'queued' | 'held' | 'accepted' | 'refused' | 'not-sent';
+export type DeliveryStatus = 'pending' | 'delivering' | 'delivered' | 'failed' | 'cancelled' | 'skipped' | 'unknown';
+export type DeliveryStage = 'queued' | 'held' | 'accepted' | 'refused' | 'not-sent' | 'unknown';
 
 export interface Attempt {
   n: number;
@@ -206,7 +206,7 @@ export interface RoutingDecision {
 }
 
 /** GLOSSARY.md failure classes, plus 'routing' (not sent on purpose) and 'stopped' (destination stopped first). */
-export type FailureClass = 'transient' | 'lead' | 'configuration' | 'connection' | 'ours' | 'routing' | 'stopped';
+export type FailureClass = 'transient' | 'lead' | 'configuration' | 'connection' | 'ours' | 'routing' | 'stopped' | 'unknown';
 
 export interface Diagnosis {
   class: FailureClass;

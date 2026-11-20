@@ -18,6 +18,11 @@ type Kind =
 
 let private code system c = { System = system; Code = c }
 
+/// Kinds whose receiver contract declares `"duplicates": "harmless"` (docs/contracts/receivers/):
+/// a second copy costs nothing, so an unknown outcome is retried (RFC-008 §4.3). Every other
+/// kind is "unknown" until its sandbox shows otherwise. A test keeps this and the contracts agreeing.
+let harmlessDuplicates = set [ "email"; "sms"; "slack" ]
+
 let kinds: Kind[] =
     [| { Kind = "answering-legal"
          Label = "Answering Legal web leads"

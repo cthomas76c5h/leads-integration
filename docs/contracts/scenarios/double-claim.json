@@ -3,12 +3,11 @@
   "name": "double-claim",
   "story": "A worker claims a delivery and stalls just before its attempt starts. A second worker tries to claim it and gets nothing, because the first holds the lease. When the lease runs out, the delivery is recovered: no attempt had started, so nothing can have been sent, and it is simply claimed again and sent once. When the stalled worker wakes, its lease version is stale: it cannot start an attempt and sends nothing.",
   "slice": 3,
-  "model": "proposed",
+  "model": "lab",
   "proves": [
     "docs/rfc/008_delivery_guarantees_and_evidence.md#53-claims-and-revalidation (a lease, not a flag; only the holder records)",
     "docs/rfc/008_delivery_guarantees_and_evidence.md#42-an-unknown-outcome (an expired lease's attempt counts as unknown)"
   ],
-  "today": "Store.claimDue flips pending to delivering with no owner and no expiry. The lab runs one worker per API process, so a second claim is never exercised, and a stalled claim is recovered only by Store.requeueInterrupted on restart. The webhook's duplicate handling is assumed (idempotency-key): its receiver contract says unknown, since honouring our lead-id header is each receiver's choice.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [

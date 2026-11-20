@@ -20,6 +20,7 @@
     <Compile Include="DestinationsTests.fs" />
     <Compile Include="HandOffTests.fs" />
     <Compile Include="RoutingTests.fs" />
+    <Compile Include="LeaseTests.fs" />
     <Compile Include="BillingTests.fs" />
     <Compile Include="ImportTests.fs" />
     <Compile Include="OnboardingTests.fs" />

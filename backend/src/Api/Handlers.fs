@@ -205,6 +205,7 @@ let patchConnection (c: Ctx) (id: string) : EndpointHandler =
                         let settings = Collections.Generic.Dictionary<string, string>(x.Settings)
                         if b.Enabled.Value then settings.Remove Dispatch.pausedAtKey |> ignore
                         else settings[Dispatch.pausedAtKey] <- string (now ())
+                        Store.emit s "DesiredStateChanged" x.FirmId null x.Id
                         { x with Enabled = b.Enabled.Value; Settings = settings }
                 let x =
                     if String.IsNullOrWhiteSpace b.DeliveryUrl then x

@@ -57,6 +57,16 @@ let private newDelivery (event: LeadEvent) (c: Connection) status reason (decisi
       Attempts = [||]
       Diagnosis = null }
 
+let private emitFor (s: Session) (name: string) (d: Delivery) = Store.emit s name d.FirmId d.EventId d.ConnectionId
+
+/// The events a planned delivery starts with: planned, and held or not sent when so.
+let private emitPlanned (s: Session) (d: Delivery) =
+    match d.Status with
+    | "skipped" -> emitFor s "NotSent" d
+    | _ ->
+        emitFor s "DeliveryPlanned" d
+        if not d.NextAttemptAt.HasValue then emitFor s "Held" d
+
 /// A delivery planned, or not sent, as the routing decision says. Planned for a paused
 /// destination, it is held: pending with no next attempt, until the destination resumes.
 let private decided (event: LeadEvent) (c: Connection) (decision: RoutingDecision) (nowMs: int64) =
@@ -91,6 +101,7 @@ let publish (db: Database) (firmId: string) (lead: Lead) (test: bool) (onlyConne
                 | None ->
                     (c.Enabled || isPaused c) && (c.Status = "active" || needsReconnection c)
                     && setting c "stage" <> "setup" && setting c "role" <> "fallback")
+        if not test then Store.emit s "LeadRecorded" firmId event.Id null
         let deliveries =
             targets
             |> Array.map (fun row ->
@@ -99,6 +110,7 @@ let publish (db: Database) (firmId: string) (lead: Lead) (test: bool) (onlyConne
                     if test then newDelivery event row.Connection "pending" null Unchecked.defaultof<RoutingDecision> t
                     else decided event row.Connection (Routing.decide firm row lead) t
                 Store.insertDelivery s d (if d.Status = "pending" then template else None)
+                if not test then emitPlanned s d
                 d.Id)
         event, deliveries)
     |> fun (event, ids) -> event, ids |> Array.map (fun id -> read db (fun s -> (Store.deliveryOrFail s id).Delivery))
@@ -128,6 +140,7 @@ let replay (db: Database) (deliveryId: string) =
                     Attempts = [||]
                     Diagnosis = null }
             Store.insertDelivery s fresh old.Template
+            if not fresh.Test then emitFor s "LeadResent" fresh
             fresh.Id)
     read db (fun s -> (Store.deliveryOrFail s id).Delivery)
 
@@ -146,6 +159,7 @@ let sendMissed (db: Database) (connectionId: string) =
         for e in Store.missedEvents s connectionId do
             let d = decided e c (Routing.decide firm row e.Lead) t
             Store.insertDelivery s d None
+            emitPlanned s d
             if d.Status = "pending" then queued <- queued + 1 else notSent <- notSent + 1
         {| queued = queued; notSent = notSent |})
 
@@ -189,6 +203,7 @@ let runFallbacks (db: Database) (nowMs: int64) : int =
                 if allHeld || nowMs - e.CreatedAt >= Urgency.fallbackAfterMs (Categories.classify e.Lead.CallType).Category then
                     let c = (Store.connectionOrFail s connectionId).Connection
                     Store.insertDelivery s (newDelivery e c "pending" null Unchecked.defaultof<RoutingDecision> nowMs) None
+                    Store.emit s "FallbackUsed" e.FirmId e.Id c.Id
                     queued <- queued + 1
             | None -> ()
         queued)
@@ -258,93 +273,249 @@ let transition (current: Connection) (test: bool) (n: int) (outcome: Policy.Outc
         | None -> failed $"gave up after {n} attempts: {reason}"
     | Policy.Failed reason -> failed reason
 
-/// One attempt at one claimed delivery.
-let attempt (db: Database) (http: HttpClient) (opts: Options) (random: unit -> float) (deliveryId: string) : Task<unit> =
+/// How long a lease lasts: longer than any one attempt (the request timeout), so a live worker
+/// does not lose it mid-send.
+let leaseMs = 5L * 60_000L
+
+/// This process's worker identity, on every lease it takes.
+let workerId = Secrets.newId "wkr"
+
+/// How a destination handles a lead it may have seen (RFC-008 §4.3): the destination's own
+/// `duplicates` setting where its receiver was confirmed, else its kind's receiver contract.
+let duplicatesOf (c: Connection) =
+    match setting c "duplicates" with
+    | "" -> if Catalog.harmlessDuplicates.Contains c.Kind then "harmless" else "unknown"
+    | d -> d
+
+/// After an unknown outcome, send again only where a second copy cannot do harm (RFC-008 §4.3).
+/// Everywhere else an operator checks the destination first.
+let retryAfterUnknown (duplicates: string) = duplicates = "harmless" || duplicates = "idempotency-key"
+
+/// Faults the scenario runner injects through test control (RFC-008 §10). Empty unless test control set one.
+module Faults =
+    open System.Collections.Concurrent
+
+    /// (lead, destination) whose next claim stalls just before its attempt starts.
+    let stallBeforeStart = ConcurrentDictionary<struct (string * string), bool>()
+    /// Stalled workers, by delivery: the lease version each still believes it holds.
+    let stalled = ConcurrentDictionary<string, int64>()
+    /// (lead, destination) whose worker dies after sending, before recording the answer.
+    let crashAfterSend = ConcurrentDictionary<struct (string * string), bool>()
+    /// Destinations whose next answer is held: the attempt is on the wire until released.
+    let holdNextAnswer = ConcurrentDictionary<string, bool>()
+    let heldAnswers = ConcurrentDictionary<string, ResizeArray<unit -> unit>>()
+
+type private Begun =
+    | Started of Store.ConnectionRow * LeadEvent * Payloads.Built * int
+    | Stopped
+
+/// Start an attempt (RFC-008 §5.3): in one transaction, check the lease and eligibility, and record
+/// the attempt as started. The request is sent only after it commits. A pause or reconnection
+/// committed before this denies it; one committed after cannot recall it. SQLite's single writer
+/// serialises this with every change to the destination; a database with concurrent writers would
+/// lock the destination's row here.
+let private beginAttempt (db: Database) (deliveryId: string) (version: int64) : Begun =
+    write db (fun s ->
+        if not (Store.holdsLease s deliveryId version) then Stopped
+        else
+            let row = Store.deliveryOrFail s deliveryId
+            let d = row.Delivery
+            let stop status reason =
+                Store.setDeliveryState s d.Id status reason (Nullable())
+                // Pending with no next attempt is held, until the destination resumes or is reconnected.
+                if status = "pending" then emitFor s "Held" d
+                elif status = "cancelled" then emitFor s "DeliveryCancelled" d
+                Stopped
+            match Store.tryConnection s d.ConnectionId, Store.tryEvent s d.EventId with
+            | None, _ -> stop "cancelled" "connection removed"
+            | _, None -> stop "cancelled" "event missing"
+            | Some c, _ when needsReconnection c.Connection && not d.Test -> stop "pending" Store.reconnectReason
+            | Some c, _ when c.Connection.Status <> "active" -> stop "cancelled" $"connection disabled: {c.Connection.DisabledReason}"
+            // Paused since it was planned: held, unsent, until the destination resumes (Store.releaseHeld).
+            // A test lead is an operator's deliberate check, so it still goes.
+            | Some c, _ when not c.Connection.Enabled && not d.Test -> stop "pending" Store.heldReason
+            | Some c, Some e ->
+                match buildFor c row.Template e.Id e.Lead with
+                | Error errors ->
+                    Store.setDeliveryState s d.Id "failed" ("body: " + String.Join("; ", errors)) (Nullable()) // never fixes itself on retry
+                    Stopped
+                | Ok built ->
+                    let n = d.Attempts.Length + 1
+                    Store.startAttempt s d.Id n (now ()) c.Connection.DeliveryUrl built.Body
+                    Started(c, e, built, n))
+
+type private Answer =
+    { Status: int option
+      Error: string
+      RetryAfter: string
+      Response: string
+      Refused: bool
+      DurationMs: int64 }
+
+let private send (http: HttpClient) (opts: Options) (c: Store.ConnectionRow) (e: LeadEvent) (built: Payloads.Built) (started: int64) =
     task {
-        let row, conn, event =
-            read db (fun s ->
-                let d = Store.deliveryOrFail s deliveryId
-                d, Store.tryConnection s d.Delivery.ConnectionId, Store.tryEvent s d.Delivery.EventId)
-        let d = row.Delivery
-        let finish status reason =
-            write db (fun s -> Store.setDeliveryState s d.Id status reason (Nullable()))
-        match conn, event with
-        | None, _ -> finish "cancelled" "connection removed"
-        | _, None -> finish "cancelled" "event missing"
-        // Needs reconnection since this was planned: held, unsent, until the firm reconnects.
-        | Some c, _ when needsReconnection c.Connection && not d.Test -> finish "pending" Store.reconnectReason
-        | Some c, _ when c.Connection.Status <> "active" -> finish "cancelled" $"connection disabled: {c.Connection.DisabledReason}"
-        // Paused since this delivery was planned: hold it, unsent, until the destination resumes
-        // (Store.releaseHeld). Checked here, at send time, not only when the lead was recorded.
-        // A test lead is an operator's deliberate check, so it still goes.
-        | Some c, _ when not c.Connection.Enabled && not d.Test -> finish "pending" Store.heldReason
-        | Some c, Some event ->
-            match buildFor c row.Template event.Id event.Lead with
-            | Error errors -> finish "failed" ("body: " + String.Join("; ", errors)) // a broken body never fixes itself on retry
-            | Ok built ->
-                let n = d.Attempts.Length + 1
-                let started = now ()
-                let watch = Diagnostics.Stopwatch.StartNew()
-                let url = c.Connection.DeliveryUrl
-                let! status, error, retryAfter, response, refused =
-                    task {
-                        match Address.checkShape opts.Address url with
-                        | Error reason -> return None, $"address refused: {reason}", null, "", true
-                        | Ok uri ->
-                            match! Address.checkResolves opts.Address uri with
-                            | Error reason -> return None, $"address refused: {reason}", null, "", true
-                            | Ok uri ->
-                                try
-                                    use req = new HttpRequestMessage(HttpMethod.Post, uri)
-                                    req.Content <- new StringContent(built.Body, Encoding.UTF8)
-                                    req.Content.Headers.ContentType <- Headers.MediaTypeHeaderValue.Parse built.ContentType
-                                    for k, v in headersFor c built.ContentType event.Id built.Body opts.UserAgent started do
-                                        if k <> "content-type" then req.Headers.TryAddWithoutValidation(k, v) |> ignore
-                                    use cts = new CancellationTokenSource(opts.TimeoutMs)
-                                    use! res = http.SendAsync(req, cts.Token)
-                                    let! text = res.Content.ReadAsStringAsync()
-                                    let retryAfter =
-                                        match res.Headers.RetryAfter with
-                                        | null -> null
-                                        | ra when ra.Delta.HasValue -> string ra.Delta.Value.TotalSeconds
-                                        | ra when ra.Date.HasValue -> ra.Date.Value.ToString "R"
-                                        | _ -> null
-                                    return Some(int res.StatusCode), null, retryAfter, snippet text, false
-                                with
-                                | :? OperationCanceledException -> return None, $"no answer in {opts.TimeoutMs} ms", null, "", false
-                                | :? HttpRequestException as e -> return None, e.Message, null, "", false
-                    }
-                let outcome =
-                    if refused then Policy.Failed error else Policy.classify status error retryAfter (now ())
-                let record outcomeText (next: Nullable<int64>) =
-                    { N = n
-                      At = started
-                      DurationMs = watch.ElapsedMilliseconds
-                      Url = url
-                      Status = (match status with Some s -> Nullable s | None -> Nullable())
-                      Error = error
-                      Outcome = outcomeText
-                      RequestBody = built.Body
-                      ResponseSnippet = response
-                      NextAttemptInMs = next }
-                write db (fun s ->
-                    let current = (Store.connectionOrFail s c.Connection.Id).Connection
-                    let t = transition current d.Test n outcome (fun ra -> Policy.nextDelayMs n opts.TimeScale ra random)
-                    let toNullable = function Some (v: int64) -> Nullable v | None -> Nullable()
-                    Store.insertAttempt s d.Id (record t.Outcome (toNullable t.NextInMs))
-                    // Before this delivery's own state, so its reason (with the receiver's answer) is kept.
-                    if t.HoldPending then Store.holdPendingFor s current.Id
-                    Store.setDeliveryState s d.Id t.Status t.Reason (t.NextInMs |> Option.map (fun delay -> now () + delay) |> toNullable)
-                    t.Connection |> Option.iter (Store.updateConnection s))
+        let watch = Diagnostics.Stopwatch.StartNew()
+        let url = c.Connection.DeliveryUrl
+        let! status, error, retryAfter, response, refused =
+            task {
+                match Address.checkShape opts.Address url with
+                | Error reason -> return None, $"address refused: {reason}", null, "", true
+                | Ok uri ->
+                    match! Address.checkResolves opts.Address uri with
+                    | Error reason -> return None, $"address refused: {reason}", null, "", true
+                    | Ok uri ->
+                        try
+                            use req = new HttpRequestMessage(HttpMethod.Post, uri)
+                            req.Content <- new StringContent(built.Body, Encoding.UTF8)
+                            req.Content.Headers.ContentType <- Headers.MediaTypeHeaderValue.Parse built.ContentType
+                            for k, v in headersFor c built.ContentType e.Id built.Body opts.UserAgent started do
+                                if k <> "content-type" then req.Headers.TryAddWithoutValidation(k, v) |> ignore
+                            use cts = new CancellationTokenSource(opts.TimeoutMs)
+                            use! res = http.SendAsync(req, cts.Token)
+                            let! text = res.Content.ReadAsStringAsync()
+                            let retryAfter =
+                                match res.Headers.RetryAfter with
+                                | null -> null
+                                | ra when ra.Delta.HasValue -> string ra.Delta.Value.TotalSeconds
+                                | ra when ra.Date.HasValue -> ra.Date.Value.ToString "R"
+                                | _ -> null
+                            return Some(int res.StatusCode), null, retryAfter, snippet text, false
+                        with
+                        | :? OperationCanceledException -> return None, $"no answer in {opts.TimeoutMs} ms", null, "", false
+                        | :? HttpRequestException as ex -> return None, ex.Message, null, "", false
+            }
+        return
+            { Status = status
+              Error = error
+              RetryAfter = retryAfter
+              Response = response
+              Refused = refused
+              DurationMs = watch.ElapsedMilliseconds }
     }
 
-/// Claim and send everything due. Returns how many were sent.
+/// Record the answer (RFC-008 §5.3). While this lease version still holds the delivery, the answer
+/// decides it. A worker that lost its lease keeps the answer as evidence on its own attempt, and never
+/// changes the delivery a newer lease owns; an accepted late answer settles a delivery left unknown.
+let private complete (db: Database) (opts: Options) (random: unit -> float) (deliveryId: string) (version: int64) (connectionId: string) (n: int) (started: int64) (a: Answer) =
+    let outcome = if a.Refused then Policy.Failed a.Error else Policy.classify a.Status a.Error a.RetryAfter (now ())
+    write db (fun s ->
+        let d = (Store.deliveryOrFail s deliveryId).Delivery
+        let current = (Store.connectionOrFail s connectionId).Connection
+        let t = transition current d.Test n outcome (fun ra -> Policy.nextDelayMs n opts.TimeScale ra random)
+        let toNullable = function Some (v: int64) -> Nullable v | None -> Nullable()
+        let record outcomeText (next: Nullable<int64>) =
+            { N = n
+              At = started
+              DurationMs = a.DurationMs
+              Url = current.DeliveryUrl
+              Status = (match a.Status with Some code -> Nullable code | None -> Nullable())
+              Error = a.Error
+              Outcome = outcomeText
+              RequestBody = ""
+              ResponseSnippet = a.Response
+              NextAttemptInMs = next }
+        if Store.holdsLease s deliveryId version then
+            Store.finishAttempt s d.Id (record t.Outcome (toNullable t.NextInMs))
+            // Before this delivery's own state, so its reason (with the receiver's answer) is kept.
+            if t.HoldPending then Store.holdPendingFor s current.Id
+            Store.setDeliveryState s d.Id t.Status t.Reason (t.NextInMs |> Option.map (fun delay -> now () + delay) |> toNullable)
+            t.Connection |> Option.iter (Store.updateConnection s)
+            emitFor s "AttemptMade" d
+            match t.Status with
+            | "delivered" -> emitFor s "DeliveryAccepted" d
+            | "failed" when t.Reason <> null && t.Reason.StartsWith "gave up" -> emitFor s "DeliveryGaveUp" d
+            | "failed" -> emitFor s "DeliveryRefused" d
+            | "pending" when t.NextInMs.IsNone -> emitFor s "Held" d
+            | _ -> ()
+        else
+            Store.finishAttempt s d.Id (record $"unknown, then a late answer: {t.Outcome}" (Nullable()))
+            if d.Status = "unknown" && outcome = Policy.Delivered then
+                Store.setDeliveryState s d.Id "delivered" null (Nullable())
+                emitFor s "DeliveryAccepted" d)
+
+/// Start, send and record one attempt with this lease version. Faults, when test control set one,
+/// stop it where a crash or a held answer would.
+let private startAndSend (db: Database) (http: HttpClient) (opts: Options) (random: unit -> float) (deliveryId: string) (version: int64) : Task<unit> =
+    task {
+        match beginAttempt db deliveryId version with
+        | Stopped -> ()
+        | Started(c, e, built, n) ->
+            let started = now ()
+            let! answer = send http opts c e built started
+            let finish () = complete db opts random deliveryId version c.Connection.Id n started answer
+            if fst (Faults.crashAfterSend.TryRemove(struct (e.Id, c.Connection.Id))) then
+                () // The worker died after sending: the attempt stays started, the lease runs out, recovery decides.
+            elif fst (Faults.holdNextAnswer.TryRemove c.Connection.Id) then
+                Faults.heldAnswers.GetOrAdd(c.Connection.Id, fun _ -> ResizeArray()).Add finish
+            else finish ()
+    }
+
+/// A lease ran out and another worker took it (RFC-008 §5.3). With no attempt started, nothing can
+/// have been sent: carry on. With one started and unanswered, it is unknown; send again only where a
+/// second copy is harmless, otherwise wait for an operator. Returns whether to go on and send.
+let private recover (db: Database) (claim: Store.Claim) : bool =
+    write db (fun s ->
+        let d = (Store.deliveryOrFail s claim.DeliveryId).Delivery
+        emitFor s "LeaseRecovered" d
+        match Store.openAttempt s d.Id with
+        | None -> true
+        | Some n ->
+            Store.markAttemptUnknown s d.Id n
+            emitFor s "AttemptMade" d
+            emitFor s "DeliveryUnknown" d
+            let c = (Store.connectionOrFail s d.ConnectionId).Connection
+            let duplicates = duplicatesOf c
+            if retryAfterUnknown duplicates then true
+            else
+                Store.setDeliveryState
+                    s
+                    d.Id
+                    "unknown"
+                    $"Sent, but no answer was recorded, and this destination cannot be trusted to ignore a second copy ({duplicates} duplicate handling). Check whether it has the lead, then resend or close it"
+                    (Nullable())
+                false)
+
+let private runClaim (db: Database) (http: HttpClient) (opts: Options) (random: unit -> float) (claim: Store.Claim) : Task<unit> =
+    task {
+        if not claim.Recovered || recover db claim then
+            let d = read db (fun s -> (Store.deliveryOrFail s claim.DeliveryId).Delivery)
+            if fst (Faults.stallBeforeStart.TryRemove(struct (d.EventId, d.ConnectionId))) then
+                Faults.stalled[d.Id] <- claim.Version // holds the lease, starts nothing
+            else
+                do! startAndSend db http opts random claim.DeliveryId claim.Version
+    }
+
+/// Claim and send everything due. Returns how many were claimed.
 let runDue (db: Database) (http: HttpClient) (opts: Options) (random: unit -> float) (limit: int) : Task<int> =
     task {
-        let ids = write db (fun s -> Store.claimDue s (now ()) limit)
-        let! _ = Task.WhenAll(ids |> Array.map (fun id -> attempt db http opts random id))
-        return ids.Length
+        let claims = write db (fun s -> Store.claimDue s workerId (now ()) leaseMs limit)
+        let! _ = Task.WhenAll(claims |> Array.map (runClaim db http opts random))
+        return claims.Length
     }
+
+/// Test control: a stalled worker wakes and tries to start with the lease version it still holds.
+let continueStalled (db: Database) (http: HttpClient) (opts: Options) (random: unit -> float) (deliveryId: string) : Task<unit> =
+    task {
+        match Faults.stalled.TryRemove deliveryId with
+        | true, version -> do! startAndSend db http opts random deliveryId version
+        | _ -> ()
+    }
+
+/// Test control: another worker tries to claim this delivery; it sends only if it wins the lease.
+let claimAsAnotherWorker (db: Database) (http: HttpClient) (opts: Options) (random: unit -> float) (deliveryId: string) : Task<bool> =
+    task {
+        match write db (fun s -> Store.tryClaim s "wkr_second" (now ()) leaseMs deliveryId) with
+        | Some claim ->
+            do! runClaim db http opts random claim
+            return true
+        | None -> return false
+    }
+
+/// Test control: the held answers for a destination arrive.
+let releaseAnswers (connectionId: string) =
+    match Faults.heldAnswers.TryRemove connectionId with
+    | true, finishes -> for f in finishes do f ()
+    | _ -> ()
 
 let newHttpClient () =
     new HttpClient(new SocketsHttpHandler(AllowAutoRedirect = false, PooledConnectionLifetime = TimeSpan.FromMinutes 5.0), Timeout = Timeout.InfiniteTimeSpan)

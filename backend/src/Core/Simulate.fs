@@ -139,7 +139,7 @@ let run (db: Db.Database) (opts: Options) : Summary =
                         Enabled = c.Enabled || wasPaused
                         Settings = settings
                         DeliveryUrl = url }
-        for sql in [ "DELETE FROM attempts"; "DELETE FROM deliveries"; "DELETE FROM received"; "DELETE FROM events WHERE test=1"; $"DELETE FROM events WHERE id LIKE '{simPrefix}%%'" ] do
+        for sql in [ "DELETE FROM attempts"; "DELETE FROM deliveries"; "DELETE FROM received"; "DELETE FROM domain_events"; "DELETE FROM events WHERE test=1"; $"DELETE FROM events WHERE id LIKE '{simPrefix}%%'" ] do
             s.Execute sql [] |> ignore
         for id in fallbackExisting do
             s.Execute "DELETE FROM connections WHERE id=$1" [ id ] |> ignore

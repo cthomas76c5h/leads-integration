@@ -49,7 +49,8 @@ interface Connection {
   source: SourceSystem;
   sourceRef: string | null;  // id in the source system, e.g. api-2 CRM row id
   credentials: CredentialField[];
-  settings: Record<string, string>; // non-secret settings, e.g. { sendWebchats: 'false' }; role: 'fallback' marks the firm's
+  settings: Record<string, string>; // non-secret settings, e.g. { sendWebchats: 'false' }; duplicates: how this destination's
+                                     // receiver handles a second copy, where confirmed (RFC-008 §4.3; else its kind's contract); role: 'fallback' marks the firm's
                                      // agreed fallback: it gets no leads directly, only hand-offs whose fallback delay passed (1 h; 15 min for emergencies and custody).
                                      // The routing rule (RFC-009): routeCategories: 'new-matter,existing-client' (taxonomy ids), and
                                      // routePracticeAreas: 'personal-injury,…' (narrows new matters; absent = all). No routeCategories:
@@ -146,7 +147,9 @@ interface LeadDetail extends LeadSummary {
   deliveries: Delivery[];        // every delivery of this lead, replays included, newest first
 }
 
-type DeliveryStatus = 'pending' | 'delivering' | 'delivered' | 'failed' | 'cancelled' | 'skipped';
+type DeliveryStatus = 'pending' | 'delivering' | 'delivered' | 'failed' | 'cancelled' | 'skipped' | 'unknown';
+// delivering: leased by a worker (RFC-008 §5.3). unknown: sent, never answered, and the destination cannot be
+// trusted to ignore a second copy, so it waits for an operator to check (needs attention).
 
 interface Attempt {
   n: number; at: number; durationMs: number; url: string;
@@ -169,7 +172,7 @@ interface Delivery {
   test: boolean;
   status: DeliveryStatus;
   /** What the operator can claim. 'accepted' = receiver answered 2xx. Never 'in CRM' from HTTP alone. */
-  stage: 'queued' | 'held' | 'accepted' | 'refused' | 'not-sent';   // held: waiting for its paused destination (pending, no nextAttemptAt)
+  stage: 'queued' | 'held' | 'accepted' | 'refused' | 'not-sent' | 'unknown';   // held: waiting for its destination (pending, no nextAttemptAt)
   reason: string | null;
   /** Why this lead goes, or not, to this destination. Null for test leads, fallback hand-offs and older deliveries. */
   decision: RoutingDecision | null;
@@ -205,8 +208,9 @@ interface RoutingDecision {
  *   configuration  refused for a reason in the destination's setup (mapping, missing ID, redirect)
  *   connection     401/403/410: only the firm can reconnect
  *   ours           we could not build the request
+ *   unknown        sent, never answered; the destination may have it (RFC-008 §4.2): check before resending
  */
-type FailureClass = 'transient' | 'lead' | 'configuration' | 'connection' | 'ours' | 'routing' | 'stopped';
+type FailureClass = 'transient' | 'lead' | 'configuration' | 'connection' | 'ours' | 'routing' | 'stopped' | 'unknown';
 
 interface Diagnosis {
   class: FailureClass;
@@ -507,3 +511,5 @@ elsewhere). Without it they answer 404. Never enabled outside a test run.
 | PUT | `/api/test/receivers/{key}` | `{ mode? } \| { status, body?, retryAfter? } \| { noAnswer: true }`, plus `requires?: string[]` | `{ ok: true }`. How the fake receiver answers requests whose URL carries `?dest={key}`, until set again. `mode` is one of the [receiver modes](contracts/receivers/modes.json) the lab implements; `noAnswer` waits past the delivery timeout |
 | PUT | `/api/test/connections/{id}` | `{ settings?: Record<string, string>, mapping?: string[] }` | `Connection`. Settings the public routes do not expose (`role: 'fallback'`, `sendWebchats: 'false'`, `routeCategories`, `routePracticeAreas`); `mapping` sets a webhook's live mapping from field labels (First name, Last name, Email, Phone, Note) |
 | PUT | `/api/test/firms/{id}/contact-types` | `{ name: string, active: boolean }[]` | `FirmDetail`. The firm's call types, which a CRM with no routing rule is routed by |
+| POST | `/api/test/faults` | `{ kind, eventId?, connectionId? }` | `{ ok: true }`. A fault inside our system (RFC-008 §10) for a lead's delivery to a destination: `worker-stalls-before-send` (the next claim holds its lease and starts nothing), `worker-continues` (that worker tries to start with the lease version it holds), `second-worker-claims`, `lease-expires`, `worker-crash-after-send` (sent; the answer is never recorded), `answer-held` (the destination's next answer is held: the attempt is on the wire) and `answer-released`. Any other kind: 422 |
+| GET | `/api/test/events` | | `{ seq, at, name, firmId, eventId, connectionId }[]`: the domain events the lab has recorded, oldest first ([events.json](contracts/events.json)) |

@@ -46,7 +46,7 @@ Conditions carried into the build:
 
 - **Green means everything is shown.** A scenario passes only when every assertion is supported and holds; an assertion the implementation cannot report counts against it, never out of the total ([contracts](../contracts/README.md#running-the-scenarios)).
 - **Three counts, always.** Results report passed, failed and unsupported, for scenarios and for assertions, so progress cannot hide missing instrumentation.
-- **The first three priorities:** a destination's desired state checked again when a planned delivery is about to be sent (the pause bug), with a pause that races the worker before sending told apart from one that arrives while the request is on the wire; then leases and unknown outcomes (slice 3); then held deliveries and the immediate fallback (slice 6).
+- **The first three priorities:** a destination's desired state checked again when a planned delivery is about to be sent (the pause bug), with a pause that races the worker before sending told apart from one that arrives while the request is on the wire; then leases and unknown outcomes (slice 3); then held deliveries and the immediate fallback (slice 6). *All three built in the lab (November 2026): `pause-during-send`, `double-claim`, `crash-after-send` and `paused-destination` pass. A request that times out is still retried as transient rather than treated as unknown.*
 
 ## How they fit together
 

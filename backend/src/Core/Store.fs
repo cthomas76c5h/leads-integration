@@ -90,6 +90,31 @@ let sourcesOf (s: Session) (firmId: string) =
 
 // ----- Connections -----
 
+// ----- Domain events: an append-only log of what happened (docs/contracts/events.json) -----
+
+let emit (s: Session) (name: string) (firmId: string) (eventId: string) (connectionId: string) =
+    s.Execute
+        "INSERT INTO domain_events (at, name, firm_id, event_id, connection_id) VALUES ($1,$2,$3,$4,$5)"
+        [ now (); name; firmId; eventId; connectionId ]
+    |> ignore
+
+type DomainEvent =
+    { Seq: int64
+      At: int64
+      Name: string
+      FirmId: string
+      EventId: string
+      ConnectionId: string }
+
+let domainEvents (s: Session) : DomainEvent[] =
+    s.Query "SELECT seq, at, name, firm_id, event_id, connection_id FROM domain_events ORDER BY seq" [] (fun r ->
+        { Seq = Read.int64 r 0
+          At = Read.int64 r 1
+          Name = Read.str r 2
+          FirmId = Read.str r 3
+          EventId = Read.str r 4
+          ConnectionId = Read.str r 5 })
+
 type ConnectionRow =
     { Connection: Connection
       SigningSecret: string
@@ -191,6 +216,7 @@ let private stageOf status (nextAttemptAt: Nullable<int64>) (attempts: Attempt[]
     | "pending" when not nextAttemptAt.HasValue -> "held"
     | "delivered" -> "accepted"
     | "skipped" -> "not-sent"
+    | "unknown" -> "unknown"
     | "cancelled" when attempts.Length = 0 -> "not-sent"
     | "failed"
     | "cancelled" -> "refused"
@@ -300,7 +326,7 @@ let listDeliveries (s: Session) (f: DeliveryFilter) =
     | null
     | "" -> ()
     | "attention" ->
-        add "d.status = ?" "failed"
+        where.Add "d.status IN ('failed', 'unknown')"
         where.Add newestPerPair
     | "late" ->
         where.Add sendingOrRetrying
@@ -356,14 +382,14 @@ let deliverySummary (s: Session) (test: bool) (firmId: string) (since: int64) (n
     let accepted, refused, notSent =
         let sql, args =
             scoped
-                $"""SELECT COALESCE(SUM(d.status = 'delivered'), 0), COALESCE(SUM(d.status IN ('failed', 'cancelled')), 0),
+                $"""SELECT COALESCE(SUM(d.status = 'delivered'), 0), COALESCE(SUM(d.status IN ('failed', 'cancelled', 'unknown')), 0),
                            COALESCE(SUM(d.status = 'skipped'), 0)
                     FROM deliveries d JOIN connections c ON c.id = d.connection_id
                     WHERE d.test = $1 AND d.created_at >= $2 AND {newestPerPair}"""
                 [ box test; box since ]
         s.Query sql args (fun r -> Read.int r 0, Read.int r 1, Read.int r 2) |> Array.head
     let refusedNow =
-        let sql, args = scoped $"SELECT {deliveryCols} {deliveryFrom} WHERE d.test = $1 AND d.status = 'failed' AND {newestPerPair}" [ box test ]
+        let sql, args = scoped $"SELECT {deliveryCols} {deliveryFrom} WHERE d.test = $1 AND d.status IN ('failed', 'unknown') AND {newestPerPair}" [ box test ]
         s.Query sql args (readDelivery s) |> Array.map (withAttempts s)
     let attention = refusedNow |> Array.filter needsAttention |> Array.length
     let retrying = $"FROM deliveries d JOIN connections c ON c.id = d.connection_id WHERE d.test = $1 AND {sendingOrRetrying}"
@@ -460,14 +486,15 @@ let private leadSql =
     """SELECT e.id, e.firm_id, f.name, e.test, e.lead, e.created_at,
               COUNT(d.id),
               COALESCE(SUM(d.status = 'delivered'), 0),
-              COALESCE(SUM(d.status IN ('failed', 'cancelled')), 0),
+              COALESCE(SUM(d.status IN ('failed', 'cancelled', 'unknown')), 0),
               COALESCE(SUM(d.status = 'skipped'), 0),
               COALESCE(SUM(d.status = 'delivering' OR (d.status = 'pending' AND d.next_attempt_at IS NOT NULL)), 0),
               (SELECT MIN(a.at) FROM attempts a JOIN deliveries x ON x.id = a.delivery_id
                 WHERE x.event_id = e.id AND a.outcome = 'delivered'),
               (SELECT c2.name || CASE WHEN c2.settings LIKE '%"role":"fallback"%' THEN '|fallback' ELSE '' END
                  FROM attempts a JOIN deliveries x ON x.id = a.delivery_id JOIN connections c2 ON c2.id = x.connection_id
-                WHERE x.event_id = e.id AND a.outcome = 'delivered' ORDER BY a.at LIMIT 1),
+                WHERE x.event_id = e.id AND a.outcome = 'delivered'
+                ORDER BY a.at, CASE WHEN c2.kind IN ('email', 'sms', 'slack') THEN 0 ELSE 1 END LIMIT 1),
               -- Not sent because the rule excludes it; a lead problem still owes the firm a hand-off.
               COALESCE(SUM(d.status = 'skipped' AND COALESCE(d.reason, '') NOT LIKE 'lead problem:%'), 0),
               COALESCE(SUM(d.status = 'pending' AND d.next_attempt_at IS NULL), 0)
@@ -589,26 +616,99 @@ let missedEvents (s: Session) (connectionId: string) : LeadEvent[] =
         (fun r -> Read.str r 0)
     |> Array.choose (tryEvent s)
 
-/// Claims due deliveries: pending → delivering, so no two workers send one.
-let claimDue (s: Session) (nowMs: int64) (limit: int) : string[] =
-    let ids =
-        s.Query
-            "SELECT id FROM deliveries WHERE status='pending' AND next_attempt_at IS NOT NULL AND next_attempt_at <= $1 ORDER BY next_attempt_at LIMIT $2"
-            [ nowMs; limit ]
-            (fun r -> Read.str r 0)
-    for id in ids do
-        s.Execute "UPDATE deliveries SET status='delivering' WHERE id=$1" [ id ] |> ignore
-    ids
+/// A worker's lease on one delivery (RFC-008 §5.3). `Recovered`: the previous lease had run out.
+type Claim =
+    { DeliveryId: string
+      Version: int64
+      Recovered: bool }
 
-/// When the next waiting delivery falls due, if any: where test control's advance stops next.
+/// Claimable: waiting and due, or leased with the lease run out (or none recorded: an older claim).
+let private claimable =
+    "((status = 'pending' AND next_attempt_at IS NOT NULL AND next_attempt_at <= $2) OR (status = 'delivering' AND COALESCE(lease_until, 0) <= $2))"
+
+/// Claim one delivery for `worker` if it is claimable: one conditional write, so of two workers
+/// only one can win, and the lease version every later write checks goes up by one.
+let tryClaim (s: Session) (worker: string) (nowMs: int64) (leaseMs: int64) (id: string) : Claim option =
+    match s.TryOne "SELECT status FROM deliveries WHERE id=$1" [ id ] (fun r -> Read.str r 0) with
+    | None -> None
+    | Some status ->
+        let n =
+            s.Execute
+                $"""UPDATE deliveries SET status='delivering', lease_owner=$3, lease_until=$4, lease_version=lease_version+1
+                    WHERE id=$1 AND {claimable}"""
+                [ id; nowMs; worker; nowMs + leaseMs ]
+        if n <> 1 then None
+        else
+            let version = s.TryOne "SELECT lease_version FROM deliveries WHERE id=$1" [ id ] (fun r -> Read.int64 r 0) |> Option.get
+            Some { DeliveryId = id; Version = version; Recovered = (status = "delivering") }
+
+/// Claim what is due for `worker`, the nearest hand-off deadline first, so emergency and custody
+/// leads are not queued behind routine records (RFC-008 §5.3).
+let claimDue (s: Session) (worker: string) (nowMs: int64) (leaseMs: int64) (limit: int) : Claim[] =
+    s.Query
+        $"""SELECT d.id, e.created_at, e.lead FROM deliveries d JOIN events e ON e.id = d.event_id
+            WHERE $1 = $1 AND {claimable.Replace("status", "d.status").Replace("next_attempt_at", "d.next_attempt_at").Replace("lease_until", "d.lease_until")}
+            ORDER BY COALESCE(d.next_attempt_at, d.lease_until, 0), d.id LIMIT $3"""
+        [ box 0; box nowMs; box (limit * 4) ]
+        (fun r ->
+            let lead: Lead = Json.deserialize (Read.str r 2)
+            Read.str r 0, Read.int64 r 1 + Urgency.windowMs (Categories.classify lead.CallType).Category)
+    |> Array.mapi (fun i (id, deadline) -> (deadline, i), id)
+    |> Array.sortBy fst
+    |> Array.truncate limit
+    |> Array.choose (fun (_, id) -> tryClaim s worker nowMs leaseMs id)
+
+/// Does this lease version still hold the delivery? Every start and finish of an attempt checks it.
+let holdsLease (s: Session) (id: string) (version: int64) =
+    s.TryOne "SELECT 1 FROM deliveries WHERE id=$1 AND status='delivering' AND lease_version=$2" [ id; version ] (fun _ -> true)
+    |> Option.defaultValue false
+
+/// Test control: a lease runs out now.
+let expireLease (s: Session) (id: string) (nowMs: int64) =
+    s.Execute "UPDATE deliveries SET lease_until=$2 WHERE id=$1 AND status='delivering'" [ id; nowMs ] |> ignore
+
+/// An attempt starts: recorded before the request is sent (RFC-008 §5.3).
+let startAttempt (s: Session) (deliveryId: string) (n: int) (at: int64) (url: string) (body: string) =
+    s.Execute
+        """INSERT INTO attempts (delivery_id, n, at, duration_ms, url, status, error, outcome, request_body, response_snippet, next_attempt_in_ms)
+           VALUES ($1,$2,$3,0,$4,NULL,NULL,'started',$5,'',NULL)"""
+        [ deliveryId; n; at; url; body ]
+    |> ignore
+
+/// The attempt's answer, recorded on the attempt that started it.
+let finishAttempt (s: Session) (deliveryId: string) (a: Attempt) =
+    s.Execute
+        """UPDATE attempts SET duration_ms=$3, status=$4, error=$5, outcome=$6, response_snippet=$7, next_attempt_in_ms=$8
+           WHERE delivery_id=$1 AND n=$2"""
+        [ deliveryId; a.N; a.DurationMs; (if a.Status.HasValue then box a.Status.Value else null); a.Error; a.Outcome
+          a.ResponseSnippet; (if a.NextAttemptInMs.HasValue then box a.NextAttemptInMs.Value else null) ]
+    |> ignore
+
+/// The attempt that started and has no answer recorded, if any.
+let openAttempt (s: Session) (deliveryId: string) : int option =
+    s.TryOne "SELECT n FROM attempts WHERE delivery_id=$1 AND outcome='started' ORDER BY n DESC LIMIT 1" [ deliveryId ] (fun r -> Read.int r 0)
+
+/// The attempt was sent and its answer will never be recorded: unknown (RFC-008 §4.2).
+let markAttemptUnknown (s: Session) (deliveryId: string) (n: int) =
+    s.Execute
+        "UPDATE attempts SET outcome='unknown: the worker lost its lease before recording an answer' WHERE delivery_id=$1 AND n=$2"
+        [ deliveryId; n ]
+    |> ignore
+
+/// When the next waiting delivery falls due, or a lease runs out, if any: where test control's advance stops next.
 let nextDueAt (s: Session) : int64 option =
-    s.Query "SELECT MIN(next_attempt_at) FROM deliveries WHERE status='pending' AND next_attempt_at IS NOT NULL" [] (fun r -> Read.int64N r 0)
+    s.Query
+        """SELECT MIN(t) FROM (
+             SELECT next_attempt_at AS t FROM deliveries WHERE status='pending' AND next_attempt_at IS NOT NULL
+             UNION ALL SELECT lease_until FROM deliveries WHERE status='delivering' AND lease_until IS NOT NULL)"""
+        []
+        (fun r -> Read.int64N r 0)
     |> Array.tryHead
     |> Option.bind (fun v -> if v.HasValue then Some v.Value else None)
 
 let setDeliveryState (s: Session) (id: string) (status: string) (reason: string) (nextAttemptAt: Nullable<int64>) =
     s.Execute
-        "UPDATE deliveries SET status=$2, reason=$3, next_attempt_at=$4 WHERE id=$1"
+        "UPDATE deliveries SET status=$2, reason=$3, next_attempt_at=$4, lease_owner=NULL, lease_until=NULL WHERE id=$1"
         [ id; status; reason; (if nextAttemptAt.HasValue then box nextAttemptAt.Value else null) ]
     |> ignore
 
@@ -636,6 +736,13 @@ let reconnectReason = Diagnose.reconnectPrefix
 /// The destination needs reconnection: its other waiting production deliveries are held, not
 /// cancelled, until the firm reconnects (releaseHeld). Test deliveries are left to be cancelled.
 let holdPendingFor (s: Session) (connectionId: string) =
+    let held =
+        s.Query
+            "SELECT d.event_id, c.firm_id FROM deliveries d JOIN connections c ON c.id = d.connection_id WHERE d.connection_id=$1 AND d.status='pending' AND d.test=0"
+            [ connectionId ]
+            (fun r -> Read.str r 0, Read.str r 1)
+    for eventId, firmId in held do
+        emit s "Held" firmId eventId connectionId
     s.Execute
         "UPDATE deliveries SET next_attempt_at=NULL, reason=$2 WHERE connection_id=$1 AND status='pending' AND test=0"
         [ connectionId; reconnectReason ]
@@ -647,9 +754,6 @@ let releaseHeld (s: Session) (connectionId: string) (nowMs: int64) : int =
         "UPDATE deliveries SET next_attempt_at=$2, reason=NULL WHERE connection_id=$1 AND status='pending' AND next_attempt_at IS NULL"
         [ connectionId; nowMs ]
 
-/// After a restart, a delivery left 'delivering' never got its answer recorded: send it again.
-let requeueInterrupted (s: Session) (nowMs: int64) =
-    s.Execute "UPDATE deliveries SET status='pending', next_attempt_at=$1 WHERE status='delivering'" [ nowMs ]
 
 // ----- Received (fake receivers) -----
 

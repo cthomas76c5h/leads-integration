@@ -97,7 +97,7 @@ type Attempt =
 /// "nothing is wrong" is null in JSON, like the other optional fields.
 [<AllowNullLiteral>]
 type Diagnosis(cls: string, cause: string, retrying: bool) =
-    /// transient | lead | configuration | connection | ours | routing | stopped
+    /// transient | lead | configuration | connection | ours | routing | stopped | unknown
     member _.Class = cls
     /// The receiver's own words when it gave any, else what we know.
     member _.Cause = cause
@@ -128,8 +128,8 @@ type Delivery =
       FirmId: string
       FirmName: string
       Test: bool
-      Status: string // pending | delivering | delivered | failed | cancelled | skipped
-      Stage: string // queued | accepted | refused | not-sent
+      Status: string // pending | delivering (leased) | delivered | failed | cancelled | skipped | unknown
+      Stage: string // queued | held | accepted | refused | not-sent | unknown
       Reason: string
       /// Why this lead goes, or not, to this destination (Routing.decide). Null for test
       /// leads, fallback hand-offs and deliveries recorded before decisions were.

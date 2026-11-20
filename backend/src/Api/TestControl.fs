@@ -35,6 +35,10 @@ type ConnectionBody = { Settings: Dictionary<string, string>; Mapping: string[] 
 [<CLIMutable>]
 type ContactTypeBody = { Name: string; Active: bool }
 
+/// A fault inside our own system (RFC-008 §10), for one lead's delivery to one destination.
+[<CLIMutable>]
+type FaultBody = { Kind: string; EventId: string; ConnectionId: string }
+
 /// The labels a scenario names a webhook's mapping with, and the lead field each carries.
 let private mappingFields =
     dict [ "First name", "first_name"; "Last name", "last_name"; "Email", "email"; "Phone", "phone"; "Note", "message" ]
@@ -145,9 +149,42 @@ let private setContactTypes (c: Ctx) (firmId: string) : EndpointHandler =
             return! ok (Db.read c.Db (fun s -> Store.firmDetail s firmId [||])) ctx
         }
 
+/// The newest delivery of a lead to a destination: the one a fault acts on.
+let private deliveryOf (c: Ctx) (eventId: string) (connectionId: string) =
+    Db.read c.Db (fun s ->
+        s.TryOne
+            "SELECT id FROM deliveries WHERE event_id=$1 AND connection_id=$2 ORDER BY created_at DESC, id DESC LIMIT 1"
+            [ eventId; connectionId ]
+            (fun r -> r.GetString 0))
+    |> Option.defaultWith (fun () -> fail 404 "no delivery of that lead to that destination")
+
+let private fault (c: Ctx) : EndpointHandler =
+    fun ctx ->
+        task {
+            let! b = body { Kind = null; EventId = null; ConnectionId = null } ctx
+            let opts = Config.dispatchOptions c.Cfg
+            let random () = 0.5
+            let pair = struct (b.EventId, b.ConnectionId)
+            match b.Kind with
+            | "worker-stalls-before-send" -> Dispatch.Faults.stallBeforeStart[pair] <- true
+            | "worker-crash-after-send" -> Dispatch.Faults.crashAfterSend[pair] <- true
+            | "worker-continues" -> do! Dispatch.continueStalled c.Db http.Value opts random (deliveryOf c b.EventId b.ConnectionId)
+            | "second-worker-claims" ->
+                let! _ = Dispatch.claimAsAnotherWorker c.Db http.Value opts random (deliveryOf c b.EventId b.ConnectionId)
+                ()
+            | "lease-expires" -> Db.write c.Db (fun s -> Store.expireLease s (deliveryOf c b.EventId b.ConnectionId) (now ()))
+            | "answer-held" -> Dispatch.Faults.holdNextAnswer[b.ConnectionId] <- true
+            | "answer-released" -> Dispatch.releaseAnswers b.ConnectionId
+            | other -> fail 422 $"fault {other} is not one the lab can inject"
+            return! ok {| ok = true |} ctx
+        }
+
+let private events (c: Ctx) : EndpointHandler = fun ctx -> ok (Db.read c.Db Store.domainEvents) ctx
+
 let endpoints (c: Ctx) : Endpoint list =
     let g = guard
-    [ POST [ route "/api/test/clock" (g setClock); route "/api/test/advance" (g (advance c)) ]
+    [ GET [ route "/api/test/events" (g (events c)) ]
+      POST [ route "/api/test/clock" (g setClock); route "/api/test/advance" (g (advance c)); route "/api/test/faults" (g (fault c)) ]
       PUT
           [ routef "/api/test/receivers/{%s}" (fun key -> g (setReceiver key))
             routef "/api/test/connections/{%s}" (fun id -> g (setConnection c id))

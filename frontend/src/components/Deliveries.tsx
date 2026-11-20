@@ -104,6 +104,7 @@ export function ProblemPanel({ d, destinationStopped, setup, onResend, onChanged
       case 'ours': return [copy];
       case 'routing': return [{ label: "See the firm's call types", href: `#/firms/${encodeURIComponent(d.firmId)}` }];
       case 'stopped': return [resend];
+      case 'unknown': return [openLead, { ...resend, label: 'Resend: it is missing' }];
     }
   })();
   return (

@@ -67,6 +67,8 @@ let diagnose (kind: string) (status: string) (reason: string) (attempts: Attempt
     | "pending"
     | "delivering" -> if attempts.Length = 0 then null else make "transient" said true
     | "cancelled" -> make "stopped" (stripPrefix "connection disabled:" reason) false
+    // Sent, never answered, and a second copy could create a duplicate: an operator checks the destination.
+    | "unknown" -> make "unknown" (if isNull reason then "The outcome of the last attempt is unknown" else reason) false
     | _ ->
         if not (isNull reason) && reason.StartsWith "body:" then make "ours" (stripPrefix "body:" reason) false
         elif not (isNull reason) && reason.StartsWith "address refused" then make "configuration" reason false

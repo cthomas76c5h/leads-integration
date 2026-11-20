@@ -168,9 +168,10 @@ same (lead, destination) is accepted.
 | Model state | Lab status (`deliveries.status`) | Lab UI label |
 |---|---|---|
 | Queued, Retrying | `pending` | Retrying |
-| Sending | `delivering` | Sending |
+| Sending | `delivering`, leased by one worker (owner, expiry, version) | Sending |
 | Accepted | `delivered` | Accepted |
 | Refused, Gave up | `failed` | Needs attention |
+| Unknown (sent, no answer, a second copy not safe) | `unknown` | Outcome unknown (needs attention) |
 | Not sent | `skipped` | Not sent |
 | Cancelled | `cancelled` | Cancelled |
 | Held | `pending` with no next attempt (`stage: held`) | none |

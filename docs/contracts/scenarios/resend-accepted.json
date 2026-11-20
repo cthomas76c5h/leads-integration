@@ -8,7 +8,7 @@
     "docs/lead-delivery/answers.md#routing-and-integrations (who may resend an accepted lead)",
     "docs/lead-delivery/README.md#6-invariants (invariants 3 and 10: same lead; every operator action recorded)"
   ],
-  "today": "The lab lets anyone resend any delivery, accepted ones included, and does not record who or why. Its deliveries pass; the resend's record (who, why) does not exist, so the LeadResent expectation fails.",
+  "today": "The lab records the resend (LeadResent) under the same lead identity, so its expectations pass, but it lets anyone resend an accepted delivery and records neither who nor why. The scenario does not yet assert the senior-operator rule, so it stays proposed.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [

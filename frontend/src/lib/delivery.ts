@@ -9,6 +9,7 @@ export const STATUS: Record<DeliveryStatus, { label: string; tone: Tone }> = {
   failed: { label: 'Needs attention', tone: 'bad' },
   cancelled: { label: 'Cancelled', tone: 'muted' },
   skipped: { label: 'Not sent', tone: 'muted' },
+  unknown: { label: 'Outcome unknown', tone: 'bad' },
 };
 
 export const STAGE: Record<DeliveryStage, string> = {
@@ -17,6 +18,7 @@ export const STAGE: Record<DeliveryStage, string> = {
   accepted: 'Accepted by receiver',
   refused: 'Refused by receiver',
   'not-sent': 'Not sent',
+  unknown: 'Sent, no answer recorded',
 };
 
 export type StepState = 'done' | 'now' | 'bad' | 'todo' | 'unknown';
@@ -71,6 +73,7 @@ export const CLASS: Record<FailureClass, { label: string; tone: Tone }> = {
   ours: { label: 'Our fault', tone: 'bad' },
   routing: { label: 'Routing', tone: 'muted' },
   stopped: { label: 'Destination stopped', tone: 'muted' },
+  unknown: { label: 'Outcome unknown', tone: 'bad' },
 };
 
 /** The receiver's own words when it gave any (the server works this out), else what we know. */
@@ -101,11 +104,13 @@ export function nextAction(d: Delivery): string | null {
       return "Working as set. If the firm wants these calls here, change the destination's routing.";
     case 'stopped':
       return 'The destination was stopped before this was sent. Fix it and reactivate it, then resend.';
+    case 'unknown':
+      return "It may already be there: check the firm's CRM for this lead. Resend only if it is missing; a second copy can't be told apart from the first.";
   }
 }
 
 /** Waits on an operator. A lead problem does not: nothing at the destination can fix it. */
-export const needsAttention = (d: Delivery): boolean => d.status === 'failed' && d.diagnosis?.class !== 'lead';
+export const needsAttention = (d: Delivery): boolean => (d.status === 'failed' || d.status === 'unknown') && d.diagnosis?.class !== 'lead';
 
 export const canReplay = (d: Delivery): boolean => d.status !== 'pending' && d.status !== 'delivering';
 

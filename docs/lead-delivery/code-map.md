@@ -55,13 +55,15 @@ is also a reading order: each file uses only those above it.
 ## 2. A delivery is sent, retried and settles
 
 1. `DeliveryWorker` ([Worker.fs](../../backend/src/Api/Worker.fs)) loops on `Dispatch.runDue`.
-2. `Store.claimDue` moves due rows `pending` → `delivering`, so no two workers send one. On start, `Store.requeueInterrupted` puts back any left `delivering`.
-3. `Dispatch.attempt`, per delivery:
+2. `Store.claimDue` leases what is due, nearest hand-off deadline first: `delivering` with `lease_owner`, `lease_until` (`Dispatch.leaseMs`) and a `lease_version` every claim increases (`Store.tryClaim`, one conditional write). A lease that ran out is claimed again; nothing is requeued on a restart.
+3. A recovered lease (`Dispatch.recover`): no attempt started → carry on; one started with no answer → that attempt is **unknown** (`Store.markAttemptUnknown`), then sent again only if the destination takes a second copy harmlessly (`Dispatch.duplicatesOf`, `retryAfterUnknown`: the `duplicates` setting, else `Catalog.harmlessDuplicates`), otherwise `unknown`, waiting for an operator.
+4. `Dispatch.beginAttempt`, in one transaction: the lease version still holds, and the destination is still eligible, then the attempt is recorded as `started` (`Store.startAttempt`) before the request is sent. A pause committed before this holds the delivery; one committed after cannot recall it:
    - destination not active → `cancelled`;
    - `Dispatch.buildFor` → `Payloads.build` (a webhook with a setup renders its template with `Template.render`); a body that cannot be built → `failed "body: …"` (**our fault**, no attempt);
    - POST to the destination's URL. In the lab that is `Receivers.handle`, which checks the body with `FakeCrm.checkWith` (the kind's required fields plus any `?require=`), then answers as its mode says (ok, reject, flaky, gone, slow, down).
-4. `Policy.classify` turns the answer into `Delivered`, `Retry`, `Failed` or `Disable`.
-5. `Dispatch.transition` is the whole state machine, shared by the worker and the simulator:
+5. `Dispatch.complete` records the answer only if the lease version still holds; a worker that lost its lease keeps the answer as evidence on its own attempt (and an accepted late answer settles an `unknown` delivery). Every step emits its domain event (`Store.emit`: `AttemptMade`, `DeliveryAccepted`, `Held`, `LeaseRecovered`, …).
+6. `Policy.classify` turns the answer into `Delivered`, `Retry`, `Failed` or `NeedsReconnection`.
+7. `Dispatch.transition` is the whole state machine, shared by the worker and the simulator:
    - `Retry` → `pending` again, next time from `Policy.nextDelayMs` (`Policy.retryScheduleMs`, never sooner than `Retry-After`);
    - out of attempts, or refused → `failed`; a production failure adds to the **failure streak**, and at `Policy.disableAfterConsecutiveFailures` the destination is **switched off**;
    - `Disable` (410) → the destination stops and `Store.cancelPendingFor` cancels its other pending deliveries;
@@ -72,7 +74,7 @@ is also a reading order: each file uses only those above it.
 
 Every delivery read from the database passes through `Store.withAttempts`, which adds:
 
-- **Stage** (`Store.stageOf`): queued, accepted, refused or not sent: what we can claim.
+- **Stage** (`Store.stageOf`): queued, held, accepted, refused, not sent or unknown: what we can claim.
 - **Diagnosis** (`Diagnose.diagnose`): the failure class and the cause in the receiver's words (`Diagnose.receiverWords`). The class is checked in this order: `lead` (not sent, `lead problem:`), `routing` (not sent), `connection` (held: needs reconnection), none (held: paused), `transient` while retrying, `stopped` (cancelled), `ours` (`body:`), `configuration` (address refused, 3xx), `connection` (401, 403, 410), `lead` (a 4xx about a name or phone the lead does not have), `configuration` (any other 4xx), `transient` (gave up).
 
 The frontend only renders it:

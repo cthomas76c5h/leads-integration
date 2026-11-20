@@ -138,6 +138,8 @@ class LabAdapter:
                 settings["routeCategories"] = ",".join(routing["categories"])
             if routing.get("practiceAreas"):
                 settings["routePracticeAreas"] = ",".join(routing["practiceAreas"])
+            if d.get("duplicates"):
+                settings["duplicates"] = d["duplicates"]
             body = {}
             if settings:
                 body["settings"] = settings
@@ -174,6 +176,8 @@ class LabAdapter:
             self._receiver(step["receiver"])
         elif "action" in step:
             self._action(step["action"])
+        elif "fault" in step:
+            self._fault(step["fault"])
         else:
             kind = next(k for k in step if k != "at")
             detail = step[kind].get("kind", "") if isinstance(step[kind], dict) else ""
@@ -199,6 +203,18 @@ class LabAdapter:
             body = {"referenceLead": ref["id"]}
         res = self.api.ok("POST", f"/api/firms/{self.firms[lead['firm']]}/leads", body)
         self.leads[lead["id"]] = res["event"]["id"]
+
+    def _fault(self, f):
+        body = {"kind": f["kind"]}
+        if "lead" in f:
+            body["eventId"] = self.leads[f["lead"]]
+        if "destination" in f:
+            body["connectionId"] = self.dests[f["destination"]]
+        status, payload = self.api.call("POST", "/api/test/faults", body)
+        if status == 422:
+            raise Unsupported(f"step 'fault' {f['kind']}")
+        if status >= 300:
+            raise RuntimeError(f"fault -> {status}: {payload}")
 
     def _receiver(self, r):
         answers = dict(r["answers"])
@@ -251,6 +267,29 @@ class LabAdapter:
                 return c
         raise RuntimeError(f"no connection for {dest}")
 
+    def _events(self, x, after, before, inclusive=True):
+        """Domain events matching an expectation's name, lead, destination and firm, after `after` and up to
+        `before` (a prohibited effect's interval excludes its end: "before +5m" means before it)."""
+        rows = self.api.ok("GET", "/api/test/events")
+        want = {"eventId": self.leads.get(x["lead"]) if "lead" in x else None,
+                "connectionId": self.dests.get(x["destination"]) if "destination" in x else None,
+                "firmId": self.firms.get(x["firm"]) if "firm" in x else None}
+        return [r for r in rows if r["name"] == x["name"]
+                and all(v is None or r[k] == v for k, v in want.items())
+                and (after is None or r["at"] > after) and (r["at"] <= before if inclusive else r["at"] < before)]
+
+    @staticmethod
+    def _attempt_outcome(a):
+        """How an attempt ended (RFC-008 §4.2): answered, not sent, unknown, or our fault."""
+        outcome = a.get("outcome") or ""
+        if outcome.startswith("unknown") or outcome == "started":
+            return "unknown"
+        if a.get("status") is not None:
+            return "answered"
+        if (a.get("error") or "").startswith("address refused"):
+            return "not-sent"
+        return "unknown" if "no answer" in (a.get("error") or "") else "not-sent"
+
     @staticmethod
     def _delivery_state(d):
         status, attempts = d["status"], d.get("attempts") or []
@@ -267,7 +306,7 @@ class LabAdapter:
         kind = next(k for k in e if k != "at")
         x = e[kind]
         if kind == "delivery":
-            unsupported = [k for k in ("revision", "evidence", "verifyOverdue", "outcomes") if k in x]
+            unsupported = [k for k in ("revision", "evidence", "verifyOverdue") if k in x]
             if unsupported:
                 raise Unsupported(f"delivery {', '.join(unsupported)}")
             ds = self._newest(x["lead"], x["destination"])
@@ -285,6 +324,10 @@ class LabAdapter:
                 cls = cls if cls in FAILURE_CLASSES else None
                 if cls != x["failureClass"]:
                     problems.append(f"failure class {cls}, expected {x['failureClass']}")
+            if "outcomes" in x:
+                got = [self._attempt_outcome(a) for a in d.get("attempts") or []]
+                if got != x["outcomes"]:
+                    problems.append(f"outcomes {got}, expected {x['outcomes']}")
             if "attempts" in x and len(d.get("attempts") or []) != x["attempts"]:
                 problems.append(f"{len(d.get('attempts') or [])} attempts, expected {x['attempts']}")
             if "late" in x:
@@ -301,6 +344,23 @@ class LabAdapter:
                 if words.lower() not in (d.get("reason") or "").lower():
                     problems.append(f"reason {d.get('reason')!r} lacks {words!r}")
             return (not problems), "; ".join(problems)
+        if kind == "event":
+            n = len(self._events(x, None, self.t0 + offset_ms(e["at"])))
+            if "count" in x:
+                return n == x["count"], f"{n} {x['name']} events, expected {x['count']}"
+            return n > 0, f"no {x['name']} event"
+        if kind == "noEvent":
+            after = self.t0 + offset_ms(x["after"]) if "after" in x else None
+            before = self.t0 + offset_ms(x.get("before", e["at"]))
+            n = len(self._events(x, after, before, inclusive=False))
+            return n == 0, f"{n} {x['name']} events in the interval"
+        if kind == "noAttempt":
+            after = self.t0 + offset_ms(x["after"]) if "after" in x else None
+            before = self.t0 + offset_ms(x.get("before", e["at"]))
+            leads = [x["lead"]] if "lead" in x else list(self.leads)
+            hits = [a for lead in leads for d in self._newest(lead, x["destination"]) for a in d.get("attempts") or []
+                    if (after is None or a["at"] > after) and a["at"] < before]
+            return not hits, f"{len(hits)} attempts in the interval"
         if kind == "noDelivery":
             ds = self._newest(x["lead"], x["destination"])
             return (not ds), f"{len(ds)} deliveries exist"
@@ -398,11 +458,18 @@ def run_one(dll: Path, path: Path) -> dict:
                 [(offset_ms(s["at"]), 0, i, s) for i, s in enumerate(scenario["when"])]
                 + [(offset_ms(e["at"]), 1, i, e) for i, e in enumerate(scenario["then"])],
                 key=lambda x: (x[0], x[1], x[2]))
-            for at, is_expectation, _, item in timeline:
-                api.ok("POST", "/api/test/advance", {"to": t0 + at})
+            clock = None
+            for k, (at, is_expectation, _, item) in enumerate(timeline):
+                if at != clock:
+                    api.ok("POST", "/api/test/advance", {"to": t0 + at})
+                    clock = at
                 if not is_expectation:
                     lab.step(item)
-                    api.ok("POST", "/api/test/advance", {"to": t0 + at})
+                    # Steps that share a time happen together (a lead and the fault that meets it):
+                    # the worker runs after the last of them.
+                    nxt = timeline[k + 1] if k + 1 < len(timeline) else None
+                    if not (nxt and nxt[0] == at and nxt[1] == 0):
+                        api.ok("POST", "/api/test/advance", {"to": t0 + at})
                     continue
                 counts["notReached"] -= 1
                 try:

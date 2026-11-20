@@ -3,12 +3,11 @@
   "name": "pause-during-send",
   "story": "Two pauses, told apart. First, a worker has claimed a delivery to the firm's CRM and is about to send when an operator pauses the destination: nothing is sent after the pause, the delivery is held, and the hand-off goes to the SMS fallback at once; after a resume, the held lead is sent. Second, an operator pauses while an attempt is already on the wire: that attempt finishes and is recorded as it ends, accepted, and nothing about it is treated as sent against the pause; no further attempt follows while paused.",
   "slice": 3,
-  "model": "proposed",
+  "model": "lab",
   "proves": [
     "docs/rfc/008_delivery_guarantees_and_evidence.md#53-claims-and-revalidation (revalidate before sending; a pause applies to attempts not yet started)",
     "docs/rfc/008_delivery_guarantees_and_evidence.md#51-two-owners-one-rule (desired state paused makes the destination ineligible)"
   ],
-  "today": "The worker now checks, when it picks up a delivery, whether its destination is paused, and holds it if so (Dispatch.attempt); that check is not repeated immediately before transmitting. Leads recorded while paused still get no delivery (missed leads), not held. The lab cannot stall a worker or hold an answer on the wire, so both halves need test-control faults it does not have.",
   "given": {
     "clock": "2026-11-16T08:00:00-05:00",
     "firms": [

@@ -1,5 +1,5 @@
-/// The delivery worker: claims due outbox rows and sends them. One per
-/// process; SQLite's single writer keeps two from claiming the same row.
+/// The delivery worker: leases due deliveries and sends them (RFC-008 §5.3). Several may run:
+/// a lease is one conditional write, so only one worker wins each delivery.
 module LeadIntegrations.Api.Worker
 
 open System
@@ -15,8 +15,8 @@ type DeliveryWorker(db: Db.Database, opts: Dispatch.Options, logger: ILogger<Del
     override _.ExecuteAsync(stop: CancellationToken) : Task =
         task {
             use http = Dispatch.newHttpClient ()
-            let requeued = Db.write db (fun s -> Store.requeueInterrupted s (Domain.now ()))
-            if requeued > 0 then logger.LogInformation("requeued {Count} deliveries interrupted by a restart", requeued)
+            // Nothing is requeued on a restart: a lease left by the old process runs out, and recovery
+            // decides by what had started (RFC-008 §5.3), so a lead in flight is never resent blindly.
             let mutable lastFallbackCheck = 0L
             while not stop.IsCancellationRequested do
                 try

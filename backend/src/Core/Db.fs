@@ -159,7 +159,20 @@ CREATE TABLE IF NOT EXISTS deliveries (
   next_attempt_at INTEGER NULL,
   replay_of TEXT NULL,
   created_at INTEGER NOT NULL,
-  decision TEXT NULL           -- RoutingDecision JSON: why this lead goes, or not, to this destination
+  decision TEXT NULL,          -- RoutingDecision JSON: why this lead goes, or not, to this destination
+  lease_owner TEXT NULL,       -- the worker holding the claim while status = 'delivering' (RFC-008 §5.3)
+  lease_until INTEGER NULL,    -- when that claim runs out
+  lease_version INTEGER NOT NULL DEFAULT 0  -- increased by every claim: only its holder may start or finish an attempt
+);
+
+-- Append-only: what happened, in order (docs/contracts/events.json). Read by scenarios and audits.
+CREATE TABLE IF NOT EXISTS domain_events (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  at INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  firm_id TEXT NULL,
+  event_id TEXT NULL,          -- the lead
+  connection_id TEXT NULL      -- the destination
 );
 CREATE INDEX IF NOT EXISTS deliveries_due ON deliveries(status, next_attempt_at);
 CREATE INDEX IF NOT EXISTS deliveries_created ON deliveries(created_at);
@@ -325,7 +338,10 @@ let openDatabase (path: string) : Database =
     // Columns added after a database was first created (SQLite has no ADD COLUMN IF NOT EXISTS).
     for table, column, definition in
         [ "firms", "time_zone", "TEXT NOT NULL DEFAULT 'America/New_York'"
-          "deliveries", "decision", "TEXT NULL" ] do
+          "deliveries", "decision", "TEXT NULL"
+          "deliveries", "lease_owner", "TEXT NULL"
+          "deliveries", "lease_until", "INTEGER NULL"
+          "deliveries", "lease_version", "INTEGER NOT NULL DEFAULT 0" ] do
         use probe = conn.CreateCommand()
         probe.CommandText <- $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = '{column}'"
         if Convert.ToInt64(probe.ExecuteScalar()) = 0L then
