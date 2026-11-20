@@ -8,7 +8,8 @@ An MVP for lead delivery
 > delivery new. The current direction is in [docs/business/](docs/business/), starting
 > with [what-firms-need.md](docs/business/what-firms-need.md). This lab stays as an
 > experimental tool and a record of its method. The vision summary and RFC-001 to
-> RFC-010 are the earlier proposal: read them as evidence, not as the plan.
+> RFC-010 are the earlier proposal: read them as evidence, not as the plan. The short
+> version for leadership is [leadership-brief.md](docs/business/leadership-brief.md).
 
 ## Start here
 
