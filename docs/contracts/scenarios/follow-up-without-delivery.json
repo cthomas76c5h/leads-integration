@@ -4,6 +4,7 @@
   "story": "A personal-injury caller is promised a call back after the intake team did not answer; the firm's intake policy makes its intake manager responsible, to accept within 15 minutes and call back within the hour. Both the firm's email and its SMS fallback are down. The follow-up is owed at once anyway, and when nobody accepts it within 15 minutes it escalates to the managing attorney. That is a follow-up escalation, not a delivery one: a new matter's delivery escalates only through its fallback, an hour in.",
   "slice": 6,
   "model": "proposed",
+  "today": "The lab has no follow-up lifecycle: it records and delivers the lead, but owes the caller nothing, so FollowUpOwed and FollowUpEscalated never happen. The three prohibited effects already hold.",
   "proves": [
     "docs/rfc/010_one_lead_two_lifecycles.md#33-invariants (1: a follow-up never waits for delivery; 3: each lifecycle escalates under its own name)",
     "docs/rfc/010_one_lead_two_lifecycles.md#32-two-lifecycles-one-lead-id (FollowUpOwed, FollowUpEscalated)"

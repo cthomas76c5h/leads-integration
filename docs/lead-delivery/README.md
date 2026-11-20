@@ -27,7 +27,7 @@ Elsewhere:
 | [terms/strategy.md](../terms/strategy.md) | Terms of service: accepting, publishing a change, the record |
 | [vision-meeting/](../vision-meeting/README.md) | The proposal to leadership, in screens, with a [one-page summary](../vision-meeting/summary.md). Written for management, so it restates the above in plain words |
 | [api.md](../api.md) | The contract between the lab's backend and frontend |
-| [rfc/](../rfc/README.md) | The proposals for approval, RFC-001 to RFC-006, one per body of work |
+| [rfc/](../rfc/README.md) | The proposals for approval, RFC-001 to RFC-010, one per body of work |
 
 Each rule is marked **Lab** (built and tested here), **Production** (api-2 does
 this today) or **Proposed** (agreed direction, not built). Onboarding and

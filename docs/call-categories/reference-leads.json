@@ -529,6 +529,18 @@
       }
     },
     {
+      "id": "vendor-template",
+      "why": "The voice platform's always-on sales template is named \"Sales / marketing\": a sales call, not a person called Sales (RFC-010 §2.1).",
+      "expect": { "category": "vendor", "practiceArea": null, "modifiers": [], "crm": "skip" },
+      "lead": {
+        "firstName": "Jesse", "lastName": "Okoro", "phone": "+15555550148", "email": "jesse.okoro@example.com",
+        "callType": "Sales / marketing",
+        "message": "Offering pay-per-call injury leads; asked who handles marketing.",
+        "source": "Answering AI", "webchat": false,
+        "custom": [ { "label": "Company", "data": "Example Legal Marketing" } ]
+      }
+    },
+    {
       "id": "general",
       "why": "Catch-all on 2,700+ firms. Firms whose only type is General send everything; others don't.",
       "expect": { "category": "general", "practiceArea": null, "modifiers": [], "crm": "review" },

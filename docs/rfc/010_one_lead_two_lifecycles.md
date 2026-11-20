@@ -19,7 +19,7 @@ The intake policy lab checked six realistic firms, built from the platform's own
 call-type templates, against the taxonomy:
 
 - **33 of 41 call types** get the category intake would give them.
-- **"Sales / marketing"**, the platform's always-on template, is read as a person's name at every firm. Every sales call goes to staff-routing review.
+- **"Sales / marketing"**, the platform's always-on template, was read as a person's name at every firm, so every sales call went to staff-routing review. *Fixed in the taxonomy since; agreement is now 39 of 41.*
 - **"Emergency repair"** becomes the *emergency* category, which never goes to a CRM.
 - What a name **cannot** carry is what matters most. Is the matter one the firm takes? Did the caller say someone is in custody, or that it is an emergency? Was the call put through, and was the target in its hours? Intake knows each of these as a fact; delivery can only guess.
 
@@ -124,7 +124,7 @@ firm in the comparison, the callback is due within 60 minutes, before delivery's
 ## 4. Rollout
 
 1. **Now:** the scenario [follow-up-without-delivery](../contracts/scenarios/follow-up-without-delivery.json) is added as `proposed`. It fails against the lab until the follow-up lifecycle exists. The glossary marks the new terms *Proposed*.
-2. **Taxonomy (slice 4, with RFC-009):** fix "Sales / marketing", and treat emergency as a fact about a call rather than a kind of call.
+2. **Taxonomy:** "Sales / marketing" is **done** (the vendor pattern, with reference lead `vendor-template`; no imported name changed category). Still to do in slice 4, with RFC-009: treat emergency as a fact about a call rather than a kind of call.
 3. **Contract:** the voice platform adds the contract's fields to its v1 request (additive). The lab's lead step gains `taken`, `urgency` and `followUp`. Routing moves from the name to the category, as RFC-009 already plans.
 4. **Follow-up lifecycle:** built in the Intake context. Its owner, deadlines and escalation come from each firm's approved intake policy. Operators see both escalations in one queue, labelled.
 
@@ -138,7 +138,7 @@ assignment (RFC-009 §3); changing any delivery window.
 - `follow-up-without-delivery` passes and is promoted to `lab`.
 - No routing decision reads a call-type name (RFC-009's routing decisions record the category).
 - Every lead from a firm without follow-up rules is flagged "nobody responsible" in the weekly report.
-- The six realistic firms' compatibility report shows 41 of 41 call types agreeing, and every urgency signal arriving with its source.
+- The six realistic firms' compatibility report shows 41 of 41 call types agreeing (39 today), and every urgency signal arriving with its source.
 
 ## 6. Key Risks and Mitigations
 

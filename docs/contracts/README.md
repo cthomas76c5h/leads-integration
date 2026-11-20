@@ -154,7 +154,7 @@ name these scenarios introduce that RFC-008 should adopt (`DeliveryCancelled`,
 
 Every scenario the lab's simulator runs, a scenario for each delivery rule that
 had none, RFC-008's ten failure-injection scenarios, and a receiver contract for
-every kind in the catalog: 26 scenarios (10 `lab`, 16 `proposed`) and 16
+every kind in the catalog: 31 scenarios (30 `lab`, 1 `proposed`) and 16
 receivers. A `proposed` scenario fails on the lab today; its `today` field says
 how the lab differs. All of them run (see above): every `lab` scenario passes,
 and every `proposed` one fails or is unsupported, for the reason its `today`
@@ -184,6 +184,7 @@ field gives.
 | [auth-expired](scenarios/auth-expired.json) | 6 | `lab` | 401: needs reconnection at once, held, fallback at once; reconnected, sent late, never switched off |
 | [hook-gone](scenarios/hook-gone.json) | 6 | `lab` | 410: needs reconnection, held; the firm reconnects and held leads are accepted |
 | [paused-destination](scenarios/paused-destination.json) | 6 | `lab` | Paused: held, hand-off to the fallback at once; on resume, sent with the original time, marked late |
+| [follow-up-without-delivery](scenarios/follow-up-without-delivery.json) | 6 | `proposed` | RFC-010: every route down, yet the callback is owed at once; nobody accepts it in 15 minutes, so it escalates as a follow-up, not a delivery, escalation |
 
 #### RFC-008 failure injection
 
