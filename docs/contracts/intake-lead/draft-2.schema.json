@@ -452,7 +452,7 @@
         "prospect",
         "reason"
       ],
-      "description": "Inquiry is not lead. Every conversation is kept as an inquiry; only a prospect (a new matter the firm takes) becomes a prospect record in a CRM.",
+      "description": "Inquiry is not lead. Every conversation is kept as an inquiry and reaches the firm by its category, prospect or not; prospect says whether it is a new matter the firm takes, so the firm can tell.",
       "properties": {
         "prospect": {
           "type": "boolean"

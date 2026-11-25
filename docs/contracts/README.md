@@ -154,13 +154,15 @@ name these scenarios introduce that RFC-008 should adopt (`DeliveryCancelled`,
 
 Delivery takes the call center's leads in intake's contract, `intake-lead/draft-2`: an exact
 copy of its schema, its examples, the mapping, and what is temporary are in
-[intake-lead/](intake-lead/README.md).
+[intake-lead/](intake-lead/README.md). A scenario's lead step says `contract` to arrive this way: built from
+one of the contract's examples, with the scenario's firm `alias`, category and conversation
+written in, then its `changes`; what the channel is told then includes `conflict` and `refused`.
 
 ## What is here
 
 Every scenario the lab's simulator runs, a scenario for each delivery rule that
 had none, RFC-008's ten failure-injection scenarios, and a receiver contract for
-every kind in the catalog: 31 scenarios (30 `lab`, 1 `proposed`) and 16
+every kind in the catalog, and three for the intake lead contract (`contract-lead-*`): 34 scenarios (33 `lab`, 1 `proposed`) and 16
 receivers. A `proposed` scenario fails on the lab today; its `today` field says
 how the lab differs. All of them run (see above): every `lab` scenario passes,
 and every `proposed` one fails or is unsupported, for the reason its `today`

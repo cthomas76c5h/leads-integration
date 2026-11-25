@@ -1,0 +1,75 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "contract-lead-not-taken",
+  "story": "The call center publishes a new criminal matter the firm does not take: the receptionist recorded it as not taken and not a prospect. It still reaches the firm's CRM, routed by its category like any new matter: the firm may just be busy, and it decides what to do with the record.",
+  "slice": 1,
+  "model": "lab",
+  "proves": [
+    "docs/lead-delivery/answers.md#routing-and-integrations (a matter the firm does not take still reaches its CRM)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A",
+        "alias": "example-firm-a"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "mycase",
+        "role": "usual",
+        "routing": {
+          "categories": ["new-matter"]
+        }
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "criminal",
+        "conversation": "call-8201",
+        "contract": {
+          "name": "intake-lead/draft-2",
+          "example": "ai-new-criminal-matter",
+          "changes": {
+            "classification.taken": false,
+            "qualification.prospect": false,
+            "qualification.reason": "not-taken",
+            "outcome.required": "decline",
+            "outcome.happened": "declined",
+            "outcome.target": null,
+            "outcome.targetAvailable": null
+          }
+        }
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+5m",
+      "capture": {
+        "lead": "lead-1",
+        "is": "recorded",
+        "channelTold": "recorded"
+      }
+    },
+    {
+      "at": "+5m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "accepted",
+        "count": 1
+      }
+    }
+  ]
+}

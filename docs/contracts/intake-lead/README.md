@@ -72,6 +72,7 @@ was approved.
 | `conversation.channel` | `webchat`, `source` | `chat` → a chat lead; source "Answering AI" or "Answering AI chat" |
 | `leadId`, `conversation.id`, `firm.id`, `policy` | Kept beside the lead | The idempotency key is firm + `conversation.id` |
 | `classification.taken`, `qualification` | Kept in the payload | Never hold a lead back: a matter the firm does not take is routed like any other ([answers](../../lead-delivery/answers.md#routing-and-integrations)) |
+| `urgency[]` | Kept in the payload | Not acted on, by choice: the window to act comes from the category alone, and firms get to leads when they can |
 | Everything else | Kept in the payload | Not acted on yet |
 
 ## Temporary, until the suite decides
@@ -89,7 +90,6 @@ was approved.
 | Gap | Effect today |
 |---|---|
 | The call center does not publish leads itself | A person or script runs the publisher |
-| `urgency[]` is not mapped | An in-custody caller gets the window of its category, not of the signal |
 | `followUp` is kept, not shown | The follow-up's owner and deadlines are not in the lead's view (RFC-010) |
 | `classification.needsReview`, `confidence` | Not used to hold a lead for review |
 | Usage evidence is not read | Billing still rates leads, not the center's usage |

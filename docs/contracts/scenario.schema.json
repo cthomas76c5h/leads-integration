@@ -88,6 +88,10 @@
               "name": {
                 "type": "string",
                 "description": "Fictional, always"
+              },
+              "alias": {
+                "type": "string",
+                "description": "The sender's own id for this firm (a contract lead's firm.id), mapped to it by hand until firm ids are shared (docs/contracts/intake-lead/README.md). A firm without one refuses contract leads"
               }
             }
           }
@@ -348,6 +352,17 @@
             "conversation": {
               "type": "string",
               "description": "The channel's own conversation id, the key that makes intake idempotent (RFC-008 §4.1)"
+            },
+            "contract": {
+              "description": "The lead arrives in a versioned contract, as the call center publishes it, instead of from the lab's own channel. Built from one of the contract's examples: the scenario writes in its firm's alias, the lead's category and practice area, and its conversation (as both conversation.id and leadId); then each change is applied",
+              "type": "object",
+              "required": ["name", "example"],
+              "additionalProperties": false,
+              "properties": {
+                "name": { "enum": ["intake-lead/draft-2"] },
+                "example": { "type": "string", "description": "A file in docs/contracts/intake-lead/examples/, without .json" },
+                "changes": { "type": "object", "description": "A dotted path in the payload, and its new value (any JSON)" }
+              }
             },
             "followUp": {
               "description": "Proposed (RFC-010): the callback intake says is owed, under the firm's intake policy. Runs beside delivery and never waits for it",
@@ -734,9 +749,11 @@
             "channelTold": {
               "enum": [
                 "recorded",
-                "not-recorded"
+                "not-recorded",
+                "conflict",
+                "refused"
               ],
-              "description": "What intake answered the channel"
+              "description": "What intake answered the channel: recorded (new, or already recorded), not-recorded (send it again), conflict (another payload is already recorded for the interaction or lead id), refused (the contract, the payload or the firm)"
             }
           }
         },

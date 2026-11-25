@@ -45,6 +45,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SCENARIOS = ROOT / "docs" / "contracts" / "scenarios"
+CONTRACT_EXAMPLES = ROOT / "docs" / "contracts" / "intake-lead" / "examples"
+INGEST = {"intake-lead/draft-2": "/api/ingest/intake-lead/draft-2"}
 BUILD = ROOT / ".scenariobuild"
 
 OFFSET = re.compile(r"^\+(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$")
@@ -132,6 +134,8 @@ class LabAdapter:
         self.leads = {}         # scenario lead id -> lab event id
         self.sent = {}  # scenario lead id -> (firm id, intake body, conversation): what the channel keeps
         self.told = {}
+        self.aliases = {}       # scenario firm id -> the sender's id for it (contract leads)
+        self.contract = {}      # scenario lead id -> the contract it came in
         self.tokens = {}  # scenario firm -> a signed-in firm user's token
         self.access = {}  # (firm, lead, boundary) -> allowed | refused  # what intake answered the channel when it repeated a lead's event
         self.pending_mapping = {}
@@ -144,6 +148,9 @@ class LabAdapter:
         given = self.scenario["given"]
         for f in given["firms"]:
             self.firms[f["id"]] = self.api.ok("POST", "/api/firms", {"name": f["name"]})["id"]
+            if "alias" in f:
+                self.aliases[f["id"]] = f["alias"]
+                self.api.ok("PUT", f"/api/firm-aliases/{f['alias']}", {"firmId": self.firms[f["id"]]})
         for d in given["destinations"]:
             firm = self.firms[d["firm"]]
             url = f"{self.api.base}/receiver/crm/{d['kind']}?dest={d['id']}"
@@ -210,7 +217,33 @@ class LabAdapter:
             detail = step[kind].get("kind", "") if isinstance(step[kind], dict) else ""
             raise Unsupported(f"step '{kind}' {detail}".strip())
 
+    def _contract_payload(self, lead):
+        """The contract lead the scenario describes: an example, with the scenario's firm, category and
+        conversation written in, then its changes. A firm with no alias sends an id nothing maps."""
+        c = lead["contract"]
+        payload = json.loads((CONTRACT_EXAMPLES / f"{c['example']}.json").read_text(encoding="utf-8"))
+        payload["firm"]["id"] = self.aliases.get(lead["firm"], f"no-alias-{lead['firm']}")
+        payload["classification"]["category"] = lead["category"]
+        payload["classification"]["practiceArea"] = lead.get("practiceArea")
+        conversation = lead.get("conversation") or lead["id"]
+        payload["conversation"]["id"] = conversation
+        payload["leadId"] = conversation
+        for path, value in c.get("changes", {}).items():
+            *parents, last = path.split(".")
+            node = payload
+            for key in parents:
+                node = node[key]
+            node[last] = value
+        return payload
+
     def _lead(self, lead):
+        if "contract" in lead:
+            self.contract[lead["id"]] = lead["contract"]["name"]
+            body = self._contract_payload(lead)
+            conversation = lead.get("conversation") or lead["id"]
+            self.sent[lead["id"]] = (self.firms[lead["firm"]], body, conversation)
+            self._intake(lead["id"])
+            return
         if lead.get("test"):
             only = lead.get("only")
             if not only:
@@ -234,7 +267,13 @@ class LabAdapter:
     def _intake(self, lead_id):
         """The channel sends a lead's event; intake records it, or says it did not, and the channel keeps it."""
         firm_id, body, _ = self.sent[lead_id]
-        status, res = self.api.call("POST", f"/api/firms/{firm_id}/leads", body)
+        if lead_id in self.contract:
+            status, res = self.api.call("POST", INGEST[self.contract[lead_id]], body)
+            if status in (409, 422):
+                self.told[lead_id] = "conflict" if status == 409 else "refused"
+                return
+        else:
+            status, res = self.api.call("POST", f"/api/firms/{firm_id}/leads", body)
         if status == 503:
             self.told[lead_id] = "not-recorded"
             return
@@ -263,6 +302,10 @@ class LabAdapter:
         self.access[(x["firm"], x["lead"], x["boundary"])] = "allowed" if status < 300 else "refused" if status in (403, 404) else f"HTTP {status}"
 
     def _fault(self, f):
+        if f["kind"] == "intake-event-repeated" and f["lead"] in self.contract:
+            # The sender publishes the same lead again, as it is: the contract route answers for itself.
+            self._intake(f["lead"])
+            return
         if f["kind"] == "intake-event-repeated" and f["lead"] not in self.leads:
             # Intake said it was not recorded: the channel kept its copy and sends it again.
             self._intake(f["lead"])

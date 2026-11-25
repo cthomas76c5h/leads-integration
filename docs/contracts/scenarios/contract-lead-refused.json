@@ -1,0 +1,148 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "contract-lead-refused",
+  "story": "The call center publishes a lead, then a changed lead for the same call, a lead for a firm delivery cannot map, and a lead in a contract delivery does not take. Only the first is recorded and sent; the changed one is a conflict and the others are refused, and none of them changes what was recorded.",
+  "slice": 1,
+  "model": "lab",
+  "proves": [
+    "docs/contracts/intake-lead/README.md#what-happens-to-a-lead (a different payload for the same interaction is a conflict; an unknown firm or another contract is refused; nothing is recorded)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A",
+        "alias": "example-firm-a"
+      },
+      {
+        "id": "firm-b",
+        "name": "Example Firm B"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      },
+      {
+        "id": "email-b",
+        "firm": "firm-b",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "existing-client",
+        "conversation": "call-8101",
+        "contract": {
+          "name": "intake-lead/draft-2",
+          "example": "person-existing-client"
+        }
+      }
+    },
+    {
+      "at": "+1m",
+      "lead": {
+        "id": "lead-2",
+        "firm": "firm-a",
+        "category": "existing-client",
+        "conversation": "call-8101",
+        "contract": {
+          "name": "intake-lead/draft-2",
+          "example": "person-existing-client",
+          "changes": { "contact.phone": "555-0177" }
+        }
+      }
+    },
+    {
+      "at": "+2m",
+      "lead": {
+        "id": "lead-3",
+        "firm": "firm-b",
+        "category": "existing-client",
+        "conversation": "call-8102",
+        "contract": {
+          "name": "intake-lead/draft-2",
+          "example": "person-existing-client"
+        }
+      }
+    },
+    {
+      "at": "+3m",
+      "lead": {
+        "id": "lead-4",
+        "firm": "firm-a",
+        "category": "existing-client",
+        "conversation": "call-8103",
+        "contract": {
+          "name": "intake-lead/draft-2",
+          "example": "person-existing-client",
+          "changes": { "contract": "intake-lead/draft-9" }
+        }
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+5m",
+      "capture": {
+        "lead": "lead-1",
+        "is": "recorded",
+        "count": 1,
+        "channelTold": "recorded"
+      }
+    },
+    {
+      "at": "+5m",
+      "capture": {
+        "lead": "lead-2",
+        "is": "not-recorded",
+        "count": 1,
+        "channelTold": "conflict"
+      }
+    },
+    {
+      "at": "+5m",
+      "capture": {
+        "lead": "lead-3",
+        "is": "not-recorded",
+        "channelTold": "refused"
+      }
+    },
+    {
+      "at": "+5m",
+      "capture": {
+        "lead": "lead-4",
+        "is": "not-recorded",
+        "count": 0,
+        "channelTold": "refused"
+      }
+    },
+    {
+      "at": "+5m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "accepted",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "event": {
+        "name": "LeadRecorded",
+        "lead": "lead-1",
+        "count": 1
+      }
+    }
+  ]
+}

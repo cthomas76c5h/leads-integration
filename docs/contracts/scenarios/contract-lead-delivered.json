@@ -1,0 +1,107 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "contract-lead-delivered",
+  "story": "The call center publishes a new criminal matter in the intake lead contract, then publishes it again. Delivery records one lead under the firm's alias, routes it by the category the call center set (the CRM takes new matters), and sends it once to each destination: the repeat is the lead already recorded.",
+  "slice": 1,
+  "model": "lab",
+  "proves": [
+    "docs/contracts/intake-lead/README.md#what-happens-to-a-lead (one lead per firm and interaction; the sender's category routes it)",
+    "docs/rfc/008_delivery_guarantees_and_evidence.md#41-the-boundaries (call center to lead is idempotent)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A",
+        "alias": "example-firm-a"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "crm",
+        "firm": "firm-a",
+        "kind": "mycase",
+        "role": "usual",
+        "routing": {
+          "categories": ["new-matter"]
+        }
+      },
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "criminal",
+        "conversation": "call-8001",
+        "contract": {
+          "name": "intake-lead/draft-2",
+          "example": "ai-new-criminal-matter"
+        }
+      }
+    },
+    {
+      "at": "+30s",
+      "fault": {
+        "kind": "intake-event-repeated",
+        "lead": "lead-1"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+5m",
+      "capture": {
+        "lead": "lead-1",
+        "is": "recorded",
+        "count": 1,
+        "channelTold": "recorded"
+      }
+    },
+    {
+      "at": "+5m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "crm",
+        "state": "accepted",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "accepted",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "event": {
+        "name": "LeadRecorded",
+        "lead": "lead-1",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "event": {
+        "name": "AttemptMade",
+        "lead": "lead-1",
+        "destination": "crm",
+        "count": 1
+      }
+    }
+  ]
+}

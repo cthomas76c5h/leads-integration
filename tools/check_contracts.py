@@ -57,6 +57,8 @@ def scenario_problems(s: dict, modes: set[str], categories: set[str], areas: set
                 problems.append(f"lead {lead['id']}: no practice area {lead['practiceArea']} in the taxonomy")
             if "only" in lead and lead["only"] not in destinations:
                 problems.append(f"lead {lead['id']}: no destination {lead['only']}")
+            if "contract" in lead and not (INTAKE_LEAD / "examples" / f"{lead['contract']['example']}.json").exists():
+                problems.append(f"lead {lead['id']}: no contract example {lead['contract']['example']}")
         if "receiver" in step:
             r = step["receiver"]
             if r["destination"] not in destinations:
