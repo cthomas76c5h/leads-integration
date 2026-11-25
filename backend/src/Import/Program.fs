@@ -39,7 +39,11 @@ let private report (run: Domain.ImportRun) =
 [<EntryPoint>]
 let main args =
     let command = if args.Length > 0 then args[0] else "help"
-    let db () = Db.openDatabase (arg args "--db" (Environment.GetEnvironmentVariable "DB_PATH" |> Option.ofObj |> Option.defaultValue Db.defaultPath))
+    let db () =
+        let address = arg args "--db" (Environment.GetEnvironmentVariable "DB_PATH" |> Option.ofObj |> Option.defaultValue Db.defaultPath)
+        // Delivery's store is PostgreSQL (RFC-011). A legacy SQLite file is a source to read (--sqlite), never the store.
+        if not (Db.isPostgres address) then failwith "--db / DB_PATH: delivery's store is PostgreSQL, a connection string like Host=...;Database=..."
+        Db.openDatabase address
     let origin = arg args "--origin" (Environment.GetEnvironmentVariable "ORIGIN" |> Option.ofObj |> Option.defaultValue "http://localhost:5080")
     let pg = arg args "--pg" (Environment.GetEnvironmentVariable "LEGACY_PG" |> Option.ofObj |> Option.defaultValue "Host=localhost;Port=5432;Database=leads;Username=postgres")
     let dump = arg args "--dump" (IO.Path.Combine(github, "chatbot", "backup.sql"))

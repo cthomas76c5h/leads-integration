@@ -1,7 +1,7 @@
 # lead-integrations (CLAUDE.md)
 
 MVP for agreeing which lead-delivery integrations Answering AI supports, and
-proving each one end to end. F# backend + PostgreSQL (`backend/`; SQLite files still open, RFC-011), Vite + React +
+proving each one end to end. F# backend + PostgreSQL (`backend/`, RFC-011), Vite + React +
 TypeScript frontend (`frontend/`).
 
 - **The call center (`../call-center-lab`) is the source of truth.** It owns every
@@ -24,11 +24,11 @@ TypeScript frontend (`frontend/`).
 - Backend style: Oxpecker, plain SQL,
   Expecto tests, `TreatWarningsAsErrors`. F# compiles in file order.
 - Backend: `cd backend && docker compose up -d && dotnet run --project src/Api` (port 5080; its
-  database is delivery's PostgreSQL on 55433, or `DB_PATH`: a connection string or a SQLite file) ·
-  tests: `dotnet run --project tests/Tests --artifacts-path ../.testbuild` (the running API locks `bin/`);
-  on PostgreSQL (RFC-011): `docker compose -f backend/compose.yaml up -d`, then the same with
-  `DELIVERY_TEST_PG="Host=127.0.0.1;Port=55433;Username=delivery;Password=delivery;Database=delivery"`.
-  Write SQL both accept: no summing conditions, no ungrouped columns, cast a parameter tested only for null.
+  database is delivery's PostgreSQL on 55433, or `DB_PATH`, another connection string; SQLite is refused) ·
+  tests (the PostgreSQL container running; a database per test): `dotnet run --project tests/Tests --artifacts-path ../.testbuild`
+  (the running API locks `bin/`; `DELIVERY_TEST_PG` names another server). SQLite remains only as the
+  interleaving explorer's model, so write SQL both accept: no summing conditions, no ungrouped
+  columns, cast a parameter tested only for null.
   Import: `dotnet run --project src/Import -- all`
 - Contracts: `python tools/check_contracts.py` (files consistent) · `python tools/run_scenarios.py`
   (every scenario against a fresh lab; `lab` ones must pass). A rule change updates its scenario first.

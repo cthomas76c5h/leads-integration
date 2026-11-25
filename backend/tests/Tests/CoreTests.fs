@@ -102,21 +102,21 @@ let tests =
           }
 
           test "an older database gains the time zone column when opened, with the default" {
-              let path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"li-old-{System.Guid.NewGuid():N}.db")
+              let name = $"t_old_{System.Guid.NewGuid():N}"
+              Support.admin $"CREATE DATABASE {name}"
               try
                   do
-                      use c = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path};Pooling=False")
+                      use c = new Npgsql.NpgsqlConnection(Support.addressOf name)
                       c.Open()
                       use cmd = c.CreateCommand()
-                      cmd.CommandText <- "CREATE TABLE firms (id TEXT PRIMARY KEY, name TEXT NOT NULL, key_hash TEXT NULL, key_fingerprint TEXT NULL, active INTEGER NOT NULL DEFAULT 1, contact_types TEXT NOT NULL DEFAULT '[]', custom_labels TEXT NOT NULL DEFAULT '[]', created_at INTEGER NOT NULL); INSERT INTO firms (id, name, created_at) VALUES ('firm_old', 'Old Firm', 1);"
+                      cmd.CommandText <- "CREATE TABLE firms (id TEXT PRIMARY KEY, name TEXT NOT NULL, key_hash TEXT NULL, key_fingerprint TEXT NULL, active BIGINT NOT NULL DEFAULT 1, contact_types TEXT NOT NULL DEFAULT '[]', custom_labels TEXT NOT NULL DEFAULT '[]', created_at BIGINT NOT NULL); INSERT INTO firms (id, name, created_at) VALUES ('firm_old', 'Old Firm', 1);"
                       cmd.ExecuteNonQuery() |> ignore
-                  let db = Db.openDatabase path
+                  let db = Db.openDatabase (Support.addressOf name)
                   let f = Db.read db (fun s -> Store.firmOrFail s "firm_old")
                   Expect.equal f.TimeZone "America/New_York" "existing firms get the company's zone"
               finally
-                  Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools()
-                  for suffix in [ ""; "-wal"; "-shm" ] do
-                      try System.IO.File.Delete(path + suffix) with _ -> ()
+                  Npgsql.NpgsqlConnection.ClearAllPools()
+                  Support.admin $"DROP DATABASE IF EXISTS {name} WITH (FORCE)"
           }
 
           test "delivery timings: read from the settings file; a malformed one never runs" {

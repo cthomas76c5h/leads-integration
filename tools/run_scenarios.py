@@ -49,8 +49,8 @@ CONTRACT_EXAMPLES = ROOT / "docs" / "contracts" / "intake-lead" / "examples"
 INGEST = {"intake-lead/draft-2": "/api/ingest/intake-lead/draft-2", "intake-lead/draft-3": "/api/ingest/intake-lead/draft-3"}
 BUILD = ROOT / ".scenariobuild"
 
-# Delivery's PostgreSQL (backend/compose.yaml; RFC-011 step 4): each scenario gets a database of its
-# own on this server, created by the API and dropped after. --sqlite uses a file per scenario instead.
+# Delivery's PostgreSQL (backend/compose.yaml; RFC-011): each scenario gets a database of its own on
+# this server, created by the API and dropped after.
 PG_SERVER = os.environ.get("DELIVERY_SCENARIO_PG", "Host=127.0.0.1;Port=55433;Username=delivery;Password=delivery")
 RUN_ID = f"{int(time.time())}_{os.getpid()}"
 
@@ -650,17 +650,14 @@ def free_port() -> int:
         return s.getsockname()[1]
 
 
-def database_for(name: str, workdir: Path, sqlite: bool) -> str:
-    """The scenario's own database: a file, or a PostgreSQL database named for this run and scenario."""
-    if sqlite:
-        return str(workdir / "scenario.db")
+def database_for(name: str) -> str:
+    """The scenario's own PostgreSQL database, named for this run and scenario."""
     safe = "".join(c if c.isalnum() else "_" for c in name.lower())[:30]
     return f"{PG_SERVER};Database=scn_{RUN_ID}_{safe}"
 
 
 def drop(dll: Path, address: str):
-    if "Host=" in address:
-        subprocess.run(["dotnet", str(dll), "--drop-database", address], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+    subprocess.run(["dotnet", str(dll), "--drop-database", address], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
 
 
 def start(dll: Path, workdir: Path, address: str):
@@ -686,7 +683,7 @@ def start(dll: Path, workdir: Path, address: str):
     raise RuntimeError("API did not start")
 
 
-def run_one(dll: Path, path: Path, sqlite: bool) -> dict:
+def run_one(dll: Path, path: Path) -> dict:
     scenario = json.loads(path.read_text(encoding="utf-8"))
     t0 = int(datetime.fromisoformat(scenario["given"]["clock"]).timestamp() * 1000)
     # Every expectation is counted, including those never reached because a step was unsupported:
@@ -695,7 +692,7 @@ def run_one(dll: Path, path: Path, sqlite: bool) -> dict:
     result = {"name": scenario["name"], "model": scenario["model"], "slice": scenario["slice"], "result": None, "details": [],
               "assertions": counts}
     with tempfile.TemporaryDirectory(prefix=f"scenario-{scenario['name']}-") as tmp:
-        address = database_for(scenario["name"], Path(tmp), sqlite)
+        address = database_for(scenario["name"])
         proc, api, log = start(dll, Path(tmp), address)
         try:
             failures, unsupported = [], []
@@ -757,7 +754,6 @@ def main() -> int:
     ap.add_argument("names", nargs="*", help="scenario names (default: all)")
     ap.add_argument("--model", choices=["lab", "proposed"], help="only scenarios with this model")
     ap.add_argument("--report", help="also write the results as JSON here")
-    ap.add_argument("--sqlite", action="store_true", help="a SQLite file per scenario instead of PostgreSQL (RFC-011)")
     args = ap.parse_args()
 
     paths = sorted(SCENARIOS.glob("*.json"))
@@ -768,11 +764,11 @@ def main() -> int:
     if not paths:
         sys.exit("no scenarios match")
 
-    print(f"building the API into {BUILD.name}/ ... ({'SQLite' if args.sqlite else 'PostgreSQL'})", flush=True)
+    print(f"building the API into {BUILD.name}/ ...", flush=True)
     dll = build()
     results = []
     for p in paths:
-        r = run_one(dll, p, args.sqlite)
+        r = run_one(dll, p)
         results.append(r)
         expected = "expected" if (r["model"] == "lab") == (r["result"] == "PASS") else "UNEXPECTED"
         c = r["assertions"]

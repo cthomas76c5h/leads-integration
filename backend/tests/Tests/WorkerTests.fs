@@ -10,7 +10,6 @@ open System.Net.Http
 open System.Threading
 open System.Threading.Tasks
 open Expecto
-open Microsoft.Data.Sqlite
 open LeadIntegrations
 open LeadIntegrations.Domain
 
@@ -91,7 +90,7 @@ let tests =
             Expect.isEmpty again "its slots are full until a send finishes"
         }
 
-        test "writers with separate locks share one database file: every lead sent once, nothing lost" {
+        test "writers in separate processes share one database: every lead sent once, nothing lost" {
             // MULTIWRITER_LEADS and MULTIWRITER_WRITERS raise the contention (default 40 leads, 2 writers).
             use t = new Support.TempDb()
             let ids = firms t [ "Firm One"; "Firm Two"; "Firm Three"; "Firm Four" ]
@@ -100,9 +99,9 @@ let tests =
             for i in 0 .. leads - 1 do
                 let firmId, _ = ids[i % ids.Length]
                 Dispatch.publish t.Db firmId (if i % 3 = 0 then emergency () else routine ()) false None None |> ignore
-            SqliteConnection.ClearAllPools()
-            // One Database value per writer on one file: separate write locks, so they only meet at SQLite's own
-            // file lock, as separate processes would.
+            Npgsql.NpgsqlConnection.ClearAllPools()
+            // One Database value per writer on one database: no shared in-process state, so they meet only in
+            // PostgreSQL, as separate processes would.
             let errors = ConcurrentBag<string>()
             let starts = ConcurrentDictionary<string, int>()
             let run (db: Db.Database) (name: string) =

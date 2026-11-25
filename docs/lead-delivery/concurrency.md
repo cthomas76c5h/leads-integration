@@ -33,6 +33,10 @@ written in the same transaction as the change they describe.
 
 ## 3. The database
 
+**Delivery's store is PostgreSQL** (RFC-011; "On PostgreSQL" below). The same SQL runs on SQLite,
+kept only as the interleaving explorer's model of the store (section 9); these first points describe
+that model, whose single writer the PostgreSQL rules reproduce.
+
 - **SQLite in WAL mode** (`Db.openDatabase`). Readers never block the writer and see the last committed state.
 - **One writer at a time.** `Db.write` takes the database's `WriteLock` (a semaphore), opens a transaction, runs the function, commits. Every write in the process goes through it, so two writes never interleave.
 - **Other processes** are kept out by SQLite's own file lock; `busy_timeout = 5000` makes a writer wait up to 5 s for it before failing.

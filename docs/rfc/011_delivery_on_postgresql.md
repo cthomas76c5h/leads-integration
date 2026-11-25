@@ -3,7 +3,7 @@
 **Answering AI — Technical Proposal**
 
 **Date:** November 25, 2026
-**Status:** In progress: steps 1 to 4 done (2026-11-25); the decision to move is taken (suite S-8), this is how
+**Status:** Done (2026-11-25): delivery's store is PostgreSQL; the decision to move is taken (suite S-8), this is how
 **Decision owner:** Engineering
 **Related:** suite S-8 and milestone M4b (`../call-center-lab/docs/suite/`) · [concurrency.md](../lead-delivery/concurrency.md) · RFC-008 (the guarantees the store must keep)
 
@@ -62,9 +62,13 @@ Each step is usable on its own, and passes every test and scenario before the ne
 | 2 | **Done.** `Db` takes a file path (SQLite) or an Npgsql connection string (`Host=…`); the PostgreSQL schema is derived from the one schema (`BIGINT`, identities, `rowid` on the two tables that order by it, `lower(name)`, the append-only trigger as a function); columns added with `ADD COLUMN IF NOT EXISTS`. `DELIVERY_TEST_PG` runs the suite with a database per test. On PostgreSQL it found and fixed: a `GROUP BY` that selected an ungrouped joined column (SQLite allows it), and parameters tested only for null (PostgreSQL can't infer their type: cast). All 207 tests pass on both; the scenarios pass on SQLite |
 | 3 | **Done.** No in-process lock on PostgreSQL. `Db.write` runs `SERIALIZABLE` and runs a transaction again when it loses a race (unique violation, serialization failure, deadlock), with a short random pause; claims run `READ COMMITTED` through `Db.writeConditional`, since a conditional single-row update needs no more; `beginAttempt` locks the destination's row. `ConcurrencyTests` races eight writers on intake, contract ingest, provisioning, resend and claims, on both engines, and each guarantee was shown to fail with its mechanism removed: without the retry, intake, ingest and provisioning hit unique violations; without `SERIALIZABLE`, eight concurrent resends made eight deliveries; without the row lock, a pause committed mid-attempt. Ten repeated runs on PostgreSQL clean. Found: a destination's send slots are a soft limit under concurrent claims (fairness, not correctness; concurrency.md §7) |
 | 4 | **Done.** The API and importer default to delivery's PostgreSQL (`Db.defaultPath`); `DB_PATH` still takes a SQLite file. A PostgreSQL database that doesn't exist is created on open. The scenario runner gives each scenario its own database and drops it after (`LeadIntegrations.Api --drop-database`, which refuses the lab's own); `--sqlite` keeps files. Test control refuses either lab database. All 36 lab scenarios pass on PostgreSQL (and on SQLite); `tools/acceptance_m3.py` passes against an API on PostgreSQL (65 leads, each delivered once). Found: the API's startup line printed the connection string, password included; it now prints `postgres user@host:port/database`. The lab's existing SQLite data is not copied: re-import it |
-| 5 | Next: SQLite out of delivery's store, once the interleaving explorer's question is settled (below) |
+| 5 | **Done**, with option 1 below. The API and the importer refuse SQLite; the test suite runs on PostgreSQL, a database per test; the tests that read SQLite files now read PostgreSQL (credentials checked in every row; the atomicity trigger a PL/pgSQL function; an older database upgraded on PostgreSQL). SQLite stays only in `Db` as the interleaving explorer's model. The importer still reads a legacy SQLite file as a source |
 
-**Open: the interleaving explorer.** `InterleavingTests` explores every interleaving of two
+**Settled 2026-11-25: option 1.** The explorer keeps SQLite as its model of the store's logic; its
+SQL is the same on both engines, and PostgreSQL's real concurrency is covered by the race tests
+(`ConcurrencyTests`).
+
+**Was open: the interleaving explorer.** `InterleavingTests` explores every interleaving of two
 workers, an operator and a receiver by cloning an in-memory SQLite database at each of over a
 thousand states (SQLite's backup API). PostgreSQL has nothing as cheap. Step 5 needs a choice:
 keep SQLite in the tests as the explorer's model of the store's logic (its SQL is now the same on

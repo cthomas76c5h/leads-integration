@@ -41,8 +41,9 @@ let load () : Result<Config, string> =
     | Ok port, Ok scale, Ok timeout, Ok allowLocal, Ok worker, Ok testControl ->
         let dbPath = env "DB_PATH" LeadIntegrations.Db.defaultPath
         if scale <= 0.0 then Error "TIME_SCALE must be positive"
-        elif testControl && (LeadIntegrations.Db.sameDatabase dbPath LeadIntegrations.Db.defaultPath
-                             || LeadIntegrations.Db.sameDatabase dbPath LeadIntegrations.Db.defaultSqlitePath) then
+        elif not (LeadIntegrations.Db.isPostgres dbPath) then
+            Error "DB_PATH: delivery's store is PostgreSQL, a connection string like Host=...;Database=... (RFC-011); SQLite is only the test explorer's model"
+        elif testControl && LeadIntegrations.Db.sameDatabase dbPath LeadIntegrations.Db.defaultPath then
             Error "TEST_CONTROL needs its own DB_PATH: it must never run against the lab's database"
         else
             Ok

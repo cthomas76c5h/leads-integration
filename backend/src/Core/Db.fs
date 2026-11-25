@@ -1,7 +1,8 @@
-/// The store: plain SQL, positional parameters ($1, $2, …), explicit column readers, on SQLite or
-/// PostgreSQL (RFC-011; the suite standardizes on PostgreSQL, S-8). The database is chosen by its
-/// address: a PostgreSQL connection string ("Host=…") or a SQLite file path. Writes go through
-/// one in-process lock on both for now (RFC-011 step 3 replaces it on PostgreSQL).
+/// The store: plain SQL, positional parameters ($1, $2, …), explicit column readers. Delivery's store
+/// is PostgreSQL (RFC-011; the suite standardizes on it, S-8), chosen by a connection string
+/// ("Host=…"). The same SQL also runs on SQLite, kept for one use only: the interleaving explorer's
+/// model of the store (tests/Tests/InterleavingTests.fs), which clones in-memory SQLite databases at
+/// every state, something PostgreSQL can't do cheaply. The API and the importer refuse SQLite.
 module LeadIntegrations.Db
 
 open System
@@ -487,12 +488,9 @@ CREATE TABLE IF NOT EXISTS firm_aliases (
 /// importer agree on default paths whatever their working directory. DB_PATH overrides.
 let repoRoot = IO.Path.GetFullPath(IO.Path.Combine(__SOURCE_DIRECTORY__, "..", "..", ".."))
 
-/// The lab's database: delivery's own PostgreSQL (backend/compose.yaml; RFC-011 step 4). DB_PATH
-/// overrides it, with another connection string or a SQLite file path.
+/// The lab's database: delivery's own PostgreSQL (backend/compose.yaml; RFC-011). DB_PATH overrides
+/// it with another connection string.
 let defaultPath = "Host=127.0.0.1;Port=55433;Username=delivery;Password=delivery;Database=delivery"
-
-/// The lab's SQLite file, before PostgreSQL (RFC-011): still usable with DB_PATH.
-let defaultSqlitePath = IO.Path.Combine(repoRoot, "backend", "data", "lead-integrations.db")
 
 /// Where a database is, for a log line: never its password (credentials are never shown).
 let describe (address: string) =
@@ -643,7 +641,3 @@ let openDatabase (path: string) : Database =
     unique.CommandText <- "CREATE UNIQUE INDEX IF NOT EXISTS events_conversation ON events(firm_id, conversation_id) WHERE conversation_id IS NOT NULL"
     unique.ExecuteNonQuery() |> ignore
     db
-
-/// A private in-memory-like database for tests: a temp file, deleted by the caller.
-let openTemp () =
-    openDatabase (IO.Path.Combine(IO.Path.GetTempPath(), $"lead-integrations-test-{Guid.NewGuid():N}.db"))
