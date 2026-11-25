@@ -39,7 +39,7 @@ totals; real numbers from today's systems replace them before we build.
 | 11 | [Billing operations](23-billing-operations.png) | Every account's bill worked out both ways. Accounts whose old billing data cannot be read come first; they are a work list, not a blocker. | Run the bills side by side for two months, then switch in groups. |
 | 12 | [Terms of service: versions](25-terms-versions-and-coverage.png) | Our real history: the first terms, a grammar fix, a promotions clause, a price change. Each says who had to accept it, and how many have. | Ask people to accept again only when a change concerns them. |
 | 13 | [A new user's first sign-in](27-portal-first-sign-in.png) | A new team member sees the terms before anything else; acceptance is recorded with the version and time. | Accept once at the start; every acceptance kept on record. |
-| 14 | [Three moves, direction, roadmap](03-vision-moves-direction-roadmap.png) | Name an owner; measure before building; build to one standard. Then: trust, self-serve, a platform, and reaching firms inside the CRMs they already use. | A new platform built to one model, in steps a firm can use; the current system is not extended. |
+| 14 | [Three moves, direction, roadmap](03-vision-moves-direction-roadmap.png) | Name an owner; measure before building; build to one standard. Then: trust, self-serve, a platform, and reaching firms inside the CRMs they already use. | Delivery built to one model on the call center, the source of truth, in steps a firm can use. |
 | 15 | [Our answers](28-vision-our-answers.png) | Every open question, answered. | The reasons, and what would change each: [answers](../lead-delivery/answers.md). |
 
 ## Backup screens: for detailed questions
@@ -62,9 +62,11 @@ totals; real numbers from today's systems replace them before we build.
 
 ## What we will deliver
 
-A new lead platform, built to one model in steps a firm can use, each proven in
-this lab first. The current lead system is not extended; firms move across one
-at a time. The engineering detail is the build order in
+Lead delivery built on the call center, the source of truth for every interaction
+and its lead ([where this sits](../../README.md#where-this-sits)): delivery takes
+each lead through the center's contracts (Proposed) and gets it to the firm. It is
+built to one model in steps a firm can use, each proven in this lab first; firms
+move across one at a time. The engineering detail is the build order in
 [RFC-007](../rfc/007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices).
 
 | When | We deliver | You will see |
@@ -80,7 +82,7 @@ at a time. The engineering detail is the build order in
 | Question | Answer |
 |---|---|
 | **How sure are these numbers?** | They come from a development copy and a simulated week, so they show patterns, not totals. Real numbers from today's systems replace them before we build; we will revise any answer they overturn. |
-| **Why build new instead of fixing the current system?** | The current system makes one attempt per lead, keeps no record of what it skips and has no tests; retrofitting that costs more than building to the model we already have. We build in steps a firm can use, prove each in this lab first, and move firms across one at a time, so nothing waits for a big switch. |
+| **Why build on the call center instead of fixing the current system?** | The current system makes one attempt per lead, keeps no record of what it skips and has no tests; retrofitting that costs more than building to the model we already have. The call center owns each interaction and its lead, so delivery takes the lead from it and keeps no copy of its own. We build in steps a firm can use, prove each in this lab first, and move firms across one at a time, so nothing waits for a big switch. |
 | **What does it take?** | Three to four months for three engineers to delivery firms can rely on: reliable, in time, changed only with the firm's approval. The full product in five to seven months with four. Billing buys its invoicing software and builds the call record. These are estimates; the real numbers firm them up. |
 | **Will firms lose their own names for kinds of call?** | No. They keep their wording; the standard kind sits underneath, for reports, routing and billing. |
 | **Does the backup route send client information somewhere new?** | Only somewhere the firm agreed in advance, and the firm sees every time it is used. |

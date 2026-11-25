@@ -1,6 +1,6 @@
 {
-  "about": "Firms with an api-2 CRM connection. Counts are call types and firms, not leads: the import holds no lead volume. Production feed needed to weigh by leads.",
-  "generatedFrom": "imported firms' contact types (api-2) and CRM connections",
+  "about": "Firms with a legacy CRM connection. Counts are call types and firms, not leads: the import holds no lead volume. Production feed needed to weigh by leads.",
+  "generatedFrom": "imported firms' contact types (legacy) and CRM connections",
   "defaultRule": "CRMs take new matters, every practice area; review categories are the firm's choice",
   "enabledCrm": {
     "activeFirms": 2,

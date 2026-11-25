@@ -6,6 +6,10 @@ time this happened, what did you do?* What we find confirms or changes the
 assumptions in [strategy §8](../lead-delivery/strategy.md#8-what-we-know-what-we-assume-and-how-we-check)
 and the decisions in [answers.md](../lead-delivery/answers.md).
 
+What happened on a call is the call center's record, not delivery's
+([where this sits](../../README.md#where-this-sits)); "call recordings" below are
+evidence the center holds.
+
 **First five:** S1, S5, S8, S10 and S19.
 
 ## When delivery breaks

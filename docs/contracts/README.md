@@ -222,7 +222,7 @@ lists what its sandbox must settle, including its duplicate handling.
 
 | Kind | Content | Requires | Duplicates |
 |---|---|---|---|
-| [answering-legal](receivers/answering-legal.json) | JSON | first_name, last_name, phone, message | `unknown`: api-2 answers 208 for an `answer_id` it has, but this kind sends `message_id` |
+| [answering-legal](receivers/answering-legal.json) | JSON | first_name, last_name, phone, message | `unknown`: the legacy system answers 208 for an `answer_id` it has, but this kind sends `message_id` |
 | [clio-grow](receivers/clio-grow.json) | JSON | inbox_lead.from_first, from_last, from_phone, from_message, from_source | `unknown` until its sandbox confirms |
 | [mycase](receivers/mycase.json) | JSON | first_name, last_name, cell_phone_number, lead_details | `unknown` until its sandbox confirms |
 | [lawmatics-form](receivers/lawmatics-form.json) | JSON | first_name, last_name, phone, message | `unknown` until its sandbox confirms |

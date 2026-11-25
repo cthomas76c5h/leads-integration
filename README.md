@@ -4,12 +4,39 @@ An MVP for lead delivery
 
 > **Status: the direction has moved on.** What firms told us changed the plan: lead
 > delivery is the invisible foundation of a dependable intake service, not the
-> product, and the next year builds on the voice platform rather than building
-> delivery new. The current direction is in [docs/business/](docs/business/), starting
-> with [what-firms-need.md](docs/business/what-firms-need.md). This lab stays as an
+> product. The service is built on the call center as its source of truth
+> ([where this sits](#where-this-sits)), and delivery integrates with it. The current
+> direction is in [docs/business/](docs/business/), starting with
+> [what-firms-need.md](docs/business/what-firms-need.md). This lab stays as an
 > experimental tool and a record of its method. The vision summary and RFC-001 to
 > RFC-010 are the earlier proposal: read them as evidence, not as the plan. The short
 > version for leadership is [leadership-brief.md](docs/business/leadership-brief.md).
+
+## Where this sits
+
+**The call center ([`../call-center-lab`](../call-center-lab/README.md)) is the source of
+truth** (*Proposed*: the integration is not built). It owns every interaction, call or
+chat, answered by the AI or by a person, from arrival to end; the people who answer;
+each firm's configuration as applied; and what each interaction produced. It publishes
+those through its own versioned contracts
+([its outputs](../call-center-lab/docs/black-box.md#outputs)).
+
+Everything else is built on top of it and integrates through those contracts. None of
+it keeps its own copy of what happened on a call.
+
+| Built on the center | Takes from it | Gives back |
+|---|---|---|
+| **Delivery** (this repo) | The lead, once, with its interaction's ID | Delivery outcomes and proof of hand-off, for the firm and for operations |
+| **Follow-up** (with intake) | Follow-up progress: accepted, called back, resolved (O4) | — |
+| **Call categories** (this repo) | Each interaction's intake labels | The category, on the lead and in reports |
+| **Billing** (this repo) | Usage evidence per interaction (O7) | Statements; nothing the center acts on |
+| **Terms and the firm portal** (this repo) | The firm, as the center knows it | Acceptance records |
+| **Intake policy** (`../intake-policy-lab`) | — | Each firm's approved rules, which the center applies |
+
+Contracts change additively while in use, and each side names its own terms behind an
+adapter, so a change inside the center never reaches a destination. The lab's leads today
+are imported from a read-only copy of the legacy system's data and synthetic traffic; they
+are evidence of what firms need, not a source the product keeps.
 
 ## Start here
 
@@ -21,7 +48,7 @@ the rest describe this lab, for when you need them.
 | Agreed: build on it | Draft: expect it to change |
 |---|---|
 | The glossary, and the decisions in [answers.md](docs/lead-delivery/answers.md) (each marked *Decided*) | [RFC-001 to RFC-010](docs/rfc/README.md): proposed, awaiting approval. RFC-007 (the model and build order) and RFC-008 (the guarantees and evidence, which revises RFC-007) set the build; RFC-009 (routing by category) and RFC-010 (one lead, two lifecycles) are the newest |
-| The direction in [docs/business/](docs/business/): a dependable intake service built on what we already have, the voice platform first. (The earlier decision to build the product new, in RFC-007's slices, is superseded; see [next-12-months.md](docs/business/next-12-months.md#where-we-are)) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a draft, with 31 scenarios (including RFC-008's ten failure-injection scenarios) and a receiver contract for every catalog kind; the runner plays them against the lab (`python tools/run_scenarios.py`); no CRM contract confirmed against its sandbox |
+| The direction in [docs/business/](docs/business/): a dependable intake service built on the call center as the source of truth ([where this sits](#where-this-sits)). (The earlier decision to build the product new, in RFC-007's slices, is superseded; see [next-12-months.md](docs/business/next-12-months.md#where-we-are)) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a draft, with 31 scenarios (including RFC-008's ten failure-injection scenarios) and a receiver contract for every catalog kind; the runner plays them against the lab (`python tools/run_scenarios.py`); no CRM contract confirmed against its sandbox |
 | Every rule in the [domain model](docs/lead-delivery/README.md) marked *Lab* or *Production* | Every rule marked *Proposed*: agreed direction, not built |
 
 A scenario marked `"model": "proposed"` is expected to fail against the lab
@@ -45,7 +72,7 @@ says how the lab differs. It is not a bug.
 
 Later, by need: the earlier proposal to leadership ([vision-meeting/summary.md](docs/vision-meeting/summary.md), superseded by docs/business/), the lab's direction and roadmap ([strategy.md](docs/lead-delivery/strategy.md)),
 what building the lab taught us ([lessons.md](docs/lead-delivery/lessons.md)), what
-today's production system does, as evidence ([production-today.md](docs/lead-delivery/production-today.md)),
+the legacy system in production does, as evidence ([production-today.md](docs/lead-delivery/production-today.md)),
 the proposal for each area ([rfc/](docs/rfc/README.md)), and the real situations to walk through with operations and firms to test what the decisions assume ([discovery scenarios](docs/discovery/scenarios.md)).
 
 ## Run
@@ -103,19 +130,19 @@ script with core and backup screens, our answers). Before capturing screenshots,
 | `GLOSSARY.md` | The domain's words: firm, lead, destination, delivery, held, resend… |
 | `docs/lead-delivery/` | Start with `strategy.md` (direction and roadmap); `answers.md` (every decision); `lessons.md` (what building it taught us); the domain model, operator workflows and screens, how production compares, and `code-map.md`: where each flow lives in the code |
 | `docs/api.md` | The contract between backend and frontend |
-| `backend/src/Core/Catalog.fs` | Every integration kind, its auth, and what each source system calls it: the table to agree on |
+| `backend/src/Core/Catalog.fs` | Every integration kind, its auth, and what each legacy source calls it: the table to agree on |
 | `backend/src/Core/Payloads.fs` | The body each kind receives |
 | `backend/src/Core/FakeCrm.fs` | What each stand-in receiver requires |
 | `backend/src/Core/Dispatch.fs` | Routing, outbox, retries, disable on 410 |
-| `backend/src/Core/Onboarding.fs` | RFC-001 §4–6: versions, approvals, draft revisions, discard |
-| `backend/src/Import/` | One reader per source system |
+| `backend/src/Core/Onboarding.fs` | Versions, approvals, draft revisions, discard |
+| `backend/src/Import/` | The legacy importer: one read-only reader per legacy source, for evidence until the call center's lead contract replaces it |
 | `frontend/src/pages/` | Integrations overview, firms, delivery graph, Delivery Center, onboarding; `review.tsx` is the client page |
 
 ## Rules this MVP keeps
 
 - **Shape-only credentials.** A credential is stored as present/absent plus a
   masked fingerprint (`••••a1b2`, from a salted hash). Firms are matched across
-  systems by a salted hash of their Answering Legal key, and only when exactly
+  legacy sources by a salted hash of their account key, and only when exactly
   one firm holds that key.
 - **Nothing reaches a real CRM.** Imported connections point at the local receivers.
 - **No caller PII.** Leads are synthetic, built from each firm's real intake

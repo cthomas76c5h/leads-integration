@@ -48,7 +48,7 @@ Approve:
 
 ### 2.1 What decides routing today
 
-| | Today (api-2, [production-today](../lead-delivery/production-today.md)) |
+| | Today (the legacy system, [production-today](../lead-delivery/production-today.md)) |
 |---|---|
 | **Input** | The call type's text, trimmed and lowercased |
 | **Rule** | One list of active contact types per firm, shared by every CRM |
@@ -62,8 +62,8 @@ over it mixes four jobs.
 
 ### 2.2 What the equivalence check found
 
-Run over the imported api-2 firms (call types, not leads: the import holds no
-lead volume):
+Run over the firms imported from a read-only copy of the legacy system's data
+(call types, not leads: the import holds no lead volume):
 
 | Verdict for the firm's CRMs | Active firms |
 |---|---|
@@ -94,9 +94,13 @@ corrected with a scenario, or retired by this RFC.
 
 ## 3. Proposal: Three Concerns, One Classified Lead
 
+The lead and its classification come from the call center, which classifies
+each interaction in the published taxonomy ([where this sits](../../README.md#where-this-sits)).
+Routing reads them; it never classifies.
+
 ```mermaid
 flowchart LR
-  L["Lead<br/>classification: category, practice area,<br/>modifiers, confidence, taxonomy version"]
+  L["Lead, from the call center<br/>classification: category, practice area,<br/>modifiers, confidence, taxonomy version"]
   R["Destination routing<br/>who receives a copy?<br/>independent rule per destination"]
   A["Staff assignment<br/>who owns it?<br/>one accountable person"]
   E["Escalation<br/>what if nobody acts?<br/>window to act, fallback"]
@@ -133,8 +137,8 @@ added as one field, in a new revision format, with a scenario.
 
 ### 3.2 The routing decision
 
-One record per lead and destination, made once when the lead is recorded
-(RFC-008 §5.2), before and apart from any delivery:
+One record per lead and destination, made once when delivery records the lead
+it takes from the call center (RFC-008 §5.2), before and apart from any delivery:
 
 | Field | Holds |
 |---|---|

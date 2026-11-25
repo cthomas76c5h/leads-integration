@@ -7,13 +7,15 @@ see. This page sets out the case; the model and rules are in [README.md](README.
 the words in [GLOSSARY.md](../../GLOSSARY.md), and the wider direction in
 the [strategy](../lead-delivery/strategy.md#29-call-categories-are-the-missing-language).
 
-Figures come from the lab's copy of the source systems ([coverage.json](coverage.json)).
+Figures come from the lab's copy of the legacy systems' data ([coverage.json](coverage.json)).
+The interactions to classify will come from the call center
+([Proposed](../../README.md#where-this-sits)).
 Every rule marked *Proposed* is a direction to test, not something built.
 
 ## 1. What they are today: one field doing four jobs
 
-Each firm names its kinds of calls in free text (api-2 calls them "contact
-types"). Across about 2,800 firms there are 4,390 distinct names, 3,987 of them
+Each firm names its kinds of calls in free text (the system in production today calls them
+"contact types"). Across about 2,800 firms there are 4,390 distinct names, 3,987 of them
 used by only one firm. Mapped onto the [taxonomy](taxonomy.json), the entries
 show the field doing four different jobs:
 

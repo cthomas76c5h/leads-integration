@@ -206,7 +206,7 @@ def main() -> int:
         if cats & {"new-matter"} == set() and "general" in cats:
             only_general += 1
 
-    # api-2 marks a contact type active when that kind of call counts as a lead. The rules
+    # The legacy system marks a contact type active when that kind of call counts as a lead. The rules
     # never see that flag, so agreement with it is an independent check on new-matter.
     agree = collections.Counter()
     for f in firms:
@@ -220,7 +220,7 @@ def main() -> int:
 
     repeated = [k for k, n in firm_count.items() if n >= 2]
     coverage = {
-        "generatedFrom": "imported firms' contact types (api-2, chatbot, airi)",
+        "generatedFrom": "imported firms' contact types (the legacy sources)",
         "firmsWithContactTypes": sum(1 for f in firms if f["types"]),
         "distinctNames": len(firm_count),
         "firmOccurrences": total_occ,
@@ -230,7 +230,7 @@ def main() -> int:
         "byModifier": dict(by_mod.most_common()),
         "unmappedRepeated": sum(1 for k in repeated if mapped[k]["category"] == "unmapped"),
         "agreementWithLeadFlag": {
-            "about": "Active firms only. 'active' = api-2 counts this contact type as a lead.",
+            "about": "Active firms only. 'active' = the legacy system counts this contact type as a lead.",
             "activeTypes": active_total,
             "activeTypesClassifiedNewMatter": agree[("active", "new-matter")],
             "newMatterTypes": new_total,

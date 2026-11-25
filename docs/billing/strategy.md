@@ -80,7 +80,7 @@ Treat it as a later option, not the core.
 
 ```mermaid
 flowchart LR
-  C["Calls and chats<br/>(intake)"] --> U["Usage ledger<br/>append-only"]
+  C["Usage evidence<br/>(call center)"] --> U["Usage ledger<br/>append-only"]
   P["Price book<br/>versioned"] --> R["Rating<br/>deterministic"]
   S["Subscriptions<br/>effective-dated"] --> R
   U --> R --> I["Invoice<br/>with itemised statement"]
@@ -92,7 +92,9 @@ flowchart LR
 ### 4.1 Usage ledger
 
 One append-only record per conversation, written when the conversation ends and
-never edited:
+never edited. It prices the usage evidence the call center publishes for each
+interaction (Proposed; [where this sits](../../README.md#where-this-sits)); billing
+keeps no copy of its own of what happened on a call.
 
 | Field | Purpose |
 |---|---|
@@ -102,7 +104,7 @@ never edited:
 | Lead id and its hand-off (on time, by fallback, expired) | Value shown on the statement |
 | Price book version in force | The invoice can be recomputed |
 
-The same records feed delivery, the firm report and billing: **one source**, so
+The center's records feed delivery, the firm report and billing: **one source**, so
 the invoice and what the firm sees always agree.
 
 ### 4.2 Price book and subscriptions
@@ -156,7 +158,7 @@ to rules require approval by someone other than the person who made them.
 ## 7. Build or buy
 
 - **Buy** invoicing, payments, tax and collections from an established subscription billing platform. They are commodities, and auditors know them.
-- **Build** the usage ledger, the no-charge rules and the rating inputs. They are specific to Answering AI and depend on call categories and hand-off data, so they belong with the lead platform (one lead format, [roadmap](../lead-delivery/strategy.md#5-roadmap) step 3).
+- **Build** the usage ledger, the no-charge rules and the rating inputs. They are specific to Answering AI and depend on call categories and hand-off data, so they are built on the call center's usage evidence and lead, read through its contracts ([roadmap](../lead-delivery/strategy.md#5-roadmap)).
 
 ## 8. Moving from the legacy model
 

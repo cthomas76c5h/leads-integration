@@ -1,5 +1,5 @@
 {
-  "generatedFrom": "imported firms' contact types (api-2, chatbot, airi)",
+  "generatedFrom": "imported firms' contact types (the legacy sources)",
   "firmsWithContactTypes": 2771,
   "distinctNames": 4390,
   "firmOccurrences": 23316,
@@ -106,7 +106,7 @@
   },
   "unmappedRepeated": 0,
   "agreementWithLeadFlag": {
-    "about": "Active firms only. 'active' = api-2 counts this contact type as a lead.",
+    "about": "Active firms only. 'active' = the legacy system counts this contact type as a lead.",
     "activeTypes": 2678,
     "activeTypesClassifiedNewMatter": 2672,
     "newMatterTypes": 2710,

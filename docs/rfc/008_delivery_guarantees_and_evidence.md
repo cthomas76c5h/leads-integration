@@ -7,7 +7,7 @@
 **Decision owner:** Engineering / Product Leadership
 **Reviewers:** Engineering, Operations, Product, Finance, Security, Customer Success
 **Related:** RFC-001 (the hand-off promise) · RFC-002 (classification) · RFC-003 (usage and credits) · RFC-005 (integrations, approval) · RFC-007 (the model and build order, revised by this RFC)
-**Detail:** [domain model](../lead-delivery/README.md) · [contracts](../contracts/README.md) · [answers](../lead-delivery/answers.md)
+**Detail:** [where this sits: leads come from the call center](../../README.md#where-this-sits) · [domain model](../lead-delivery/README.md) · [contracts](../contracts/README.md) · [answers](../lead-delivery/answers.md)
 
 ---
 
@@ -125,8 +125,7 @@ within the hour". Firms that want stronger proof turn on acknowledgement links.
 
 | Boundary | Guarantee | Mechanism |
 |---|---|---|
-| Channel → conversation | **Idempotent:** a repeated completion event never creates a second conversation | The channel's own conversation id as a unique key |
-| Conversation → lead | **Idempotent:** one lead per conversation that produces one | Lead id derived from the conversation id |
+| Call center → lead | **Idempotent:** a lead the call center sends twice never creates a second lead here. One interaction, one lead, is the center's guarantee ([RFC-007 §4](007_domain_model_and_build_order.md#4-context-map)) | The center's lead id as a unique key |
 | Lead → planned deliveries | **Atomic:** the lead and one planned delivery per destination, in one transaction ([RFC-007 §6.1](007_domain_model_and_build_order.md#61-the-guarantees)) | One database transaction |
 | Planned delivery → worker | **At least once**, with **at most one active owner** at a time | A lease (section 5.3) |
 | Worker → destination | **At least once per delivery**, subject to the retry policy | Attempts recorded before and after each send |
@@ -135,9 +134,10 @@ within the hour". Firms that want stronger proof turn on acknowledgement links.
 **Exactly once is never promised** beyond our own database. The scorecard counts
 duplicate incidents instead (section 12).
 
-If the database is unavailable when intake completes, the channel is told the
-lead was **not** recorded, and keeps its own copy to resend. Intake never
-reports a capture it did not commit. *Proposed; to be agreed with each channel.*
+If the database is unavailable when the call center hands over a lead, the
+center is told the lead was **not** recorded, and keeps it to resend. Delivery
+never reports a capture it did not commit. *Proposed; to be agreed with the call
+center (and with each production channel until the center's contracts exist).*
 
 ### 4.2 An unknown outcome
 
@@ -188,7 +188,7 @@ receiver honours it is that receiver's choice, so it is not counted on.
 | Part | Owner | Values | Changed by |
 |---|---|---|---|
 | **Desired state** | Firm configuration | Setting up, live, paused, removed | Setup, go-live, an operator's pause or resume, removal |
-| **Approved definition** | Firm configuration | The live revision (routing rule, mapping, role) | Approval and activation (RFC-001 workflow) |
+| **Approved definition** | Firm configuration | The live revision (routing rule, mapping, role) | Approval and activation (RFC-005) |
 | **Authorization** | Firm configuration | A connection with an **authorization version** (presence and fingerprint only) | The firm connecting or reconnecting |
 | **Observed health** | Delivery | Healthy, failing (with its streak), refused authorization (for an authorization version), switched off | Attempt outcomes; an operator's reactivation resets it |
 
@@ -243,7 +243,7 @@ scenario may assert, with where each comes from, is
 | `LeaseRecovered` | Delivery | A worker took over an expired lease; if its attempt had started, that attempt became unknown |
 | `HandOffAcknowledged` | Delivery | Someone at the firm confirmed receipt |
 | `HandOffEscalated` | Delivery | No acknowledgement within the fallback delay: the fallback, then an operator |
-| `UsageRated` | Usage | A conversation was rated for its cycle |
+| `UsageRated` | Usage | A billing record from the call center was rated for its cycle |
 | `UsageCredited` | Usage | A correction lowered a closed cycle's charge; the credit lands in a later cycle |
 | `AccessRefused` | Accounts | A request crossed firms, or lacked the role, and was refused |
 
@@ -304,9 +304,10 @@ Records are never edited. A change is a new record:
 
 ### 7.1 Conversations close before outcomes are known
 
-A conversation can close while its deliveries are still retrying or held.
+An interaction can end in the call center while its lead's deliveries are still
+retrying or held.
 
-- **Usage is rated from the conversation's own facts:** duration, channel, classification, caller. Billing never waits for, or depends on, a delivery outcome.
+- **Usage is rated from the interaction's own facts,** as the center's billing record (O7) carries them: duration, channel, classification, caller. Billing never waits for, or depends on, a delivery outcome.
 - **Reports and Insight join delivery and hand-off events as they arrive;** a week's report is final only once every hand-off in it is reached or expired.
 
 ### 7.2 Repeat calls without caller numbers in billing
@@ -320,8 +321,8 @@ never enters billing.
 
 ## 8. Repairs, Rollbacks and Resumes: What Needs Approval
 
-From the original integration workflow ([RFC-001, webhook lab §6](../../../airi/webhook-lab/docs/rfc/001_lead_delivery_and_client_integration.md)),
-restated for this model:
+The rule: a firm approves again only when what it receives changes, never for
+work that keeps its approved behaviour. Applied to each kind of change:
 
 | Change | Firm's approval | Recorded |
 |---|---|---|
@@ -365,10 +366,10 @@ what the review describes:
 | **pause-during-send:** an operator pauses as a worker is about to send | A pause before the attempt starts: nothing sent, the delivery held. A pause after it: that attempt is recorded as it ends, and nothing more is sent while paused |
 | **routing-change-during-outage:** the firm activates a new revision while deliveries wait | Waiting deliveries keep their revision unless "apply to waiting deliveries" was chosen; new leads use the new one |
 | **accepted-never-verified:** the CRM accepts but the lookup never finds the record | The delivery stays **accepted**, never **verified**; it is flagged after a set time |
-| **duplicate-intake:** the voice channel sends the completion event twice | One conversation, one lead |
+| **duplicate-intake:** the call center sends the same lead twice | One lead, one plan |
 | **classification-corrected:** a lead classified as general is corrected to a new matter | Both records kept; billing re-rated or credited per §6.2; the new destination offered, not sent |
 | **cross-firm-read:** firm B asks for firm A's lead at every public boundary | Refused every time; the refusal audited |
-| **database-down-at-intake:** the database is unavailable when intake completes | Intake is told the lead was not recorded; no capture is claimed |
+| **database-down-at-intake:** the database is unavailable when the call center hands over a lead | The center is told the lead was not recorded; no capture is claimed |
 | **all-routes-down:** both the usual destination and the fallback fail | The hand-off expires, escalates to an operator, and is first in every view |
 
 ---
@@ -380,7 +381,7 @@ is revised in place. In short:
 
 | Change | Why |
 |---|---|
-| **The conversation record and real-channel ingestion move into slice 1:** conversations from today's chat system (then voice), translated at the boundary into the standard conversation and lead; usage collected in shadow from then on | Proves the real producer of leads early; gives billing real history long before slice 10 |
+| **Real leads move into slice 1:** the lead taken from the call center through its contract, and from today's production channels at the same boundary until the center's contracts exist; the center's usage evidence collected in shadow from then on | Proves the real producer of leads early; gives billing real history long before slice 10 |
 | **One CRM certified end to end in slice 3:** authorization, duplicate handling, delivery, verification, against its sandbox | The adapter interface is refined on evidence before five more are built |
 | **The other CRMs follow demand and evidence** in slice 7, not as a fixed six | A narrow set of excellent integrations beats six that work only on the happy path |
 | **Security gates in slice 0 and every slice's acceptance** (section 9); the final readiness item shrinks to operational drills | Isolation and safety cannot be added afterwards |
@@ -428,7 +429,7 @@ Distinct measures, never collapsed into one success rate:
 | D1 | Evidence | Five levels; every delivery and hand-off records its strongest |
 | D2 | The one number | Reported at two levels: accepted within the window, confirmed within the window |
 | D3 | Emergencies | Need acknowledgement; escalate after the fallback delay (15 minutes) |
-| D4 | Boundaries | Idempotent intake, atomic planning, at-least-once sending, best-effort external deduplication; exactly-once never promised |
+| D4 | Boundaries | Idempotent receipt of the call center's leads, atomic planning, at-least-once sending, best-effort external deduplication; exactly-once never promised |
 | D5 | Unknown outcomes | A fourth attempt outcome, resolved by the kind's duplicate handling |
 | D6 | Destination state | Desired state and authorization in Firm configuration, observed health in Delivery, one eligibility rule |
 | D7 | Concurrency | Leases; revalidation before sending; attempts stamped with revision and authorization version |

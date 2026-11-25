@@ -16,7 +16,8 @@
 The most important fact about each call (what it was about, how urgent it is,
 which area of law) is the least structured data Answering AI holds.
 
-Each firm names its kinds of call in free text. Across 2,771 firms there are
+Each firm names its kinds of call in free text. In a read-only copy of the legacy
+system's data, across 2,771 firms there are
 **4,390 different names**, 3,987 used by only one firm. Underneath, they describe
 **about a dozen kinds of call**. The same field is also used for billing flags,
 staff names and phone settings, so only about half of it describes the call.
@@ -105,7 +106,7 @@ sees, attached to `new-matter · personal-injury`.
 - **Practice areas** (new matters only): personal injury, criminal, family, estate planning, traffic, real estate, immigration, business, bankruptcy, employment, medical malpractice, workers' compensation, disability and others, plus "unspecified".
 - **Modifiers**: in custody, after hours, Spanish or other language, named person, patch or no patch, away, web chat. Modifiers never change the category.
 
-**Evidence the rules are right:** api-2's "active" flag is never read by the
+**Evidence the rules are right:** the legacy system's "active" flag is never read by the
 rules, so it is an independent check. 99.8% of active types classify as new
 matter (2,672 of 2,678), and 98.4% of types classified as new matter are active.
 At every one of the 122 active firms with a CRM integration, the active types
@@ -141,8 +142,9 @@ approved revision of the firm's setup (RFC-005).
 
 ### 5.4 Classify at intake
 
-Answering AI sets the category, practice area and urgency from the conversation,
-with a **confidence**, alongside the label chosen. Low-confidence calls are
+The call center, the source of truth for every interaction
+([where this sits](../../README.md#where-this-sits)), sets the category, practice
+area and urgency from the conversation and publishes them on the lead, with a **confidence**, alongside the label chosen. Low-confidence calls are
 reviewed; firms can correct a category ("that was not a new matter"), and
 corrections improve classification.
 
@@ -168,7 +170,7 @@ emergencies and custody also by text) reproduces today's behaviour, explicitly.
 ## 6. Technical Approach
 
 - **One source of truth:** `taxonomy.json`, versioned, embedded in the backend and read by the analysis script. A test holds both to the same 44 synthetic reference leads.
-- **Every lead carries** category, practice area, modifiers, the firm's label, the source (label mapping or intake classification), the confidence and the taxonomy version.
+- **Every lead the call center publishes carries** category, practice area, modifiers, the firm's label, the source (label mapping or intake classification), the confidence and the taxonomy version.
 - **Label mapping stays as the fallback** for unmapped names and channels that cannot classify yet.
 - **Corrections are records,** not edits: who corrected, from what, to what, when.
 - **Benchmarks are aggregates only,** with minimum group sizes, never caller details, with a per-firm opt-out.
@@ -184,7 +186,7 @@ leads, the Call categories page, and the firm report.
 |---|---|---|
 | **1. Show and confirm** | Slices 4 and 8 | Weekly firm report; mapping confirmation in onboarding; categories chosen at setup for new firms |
 | **2. Untangle** | Slice 4 | Flags to billing settings; staff directory; line-handling settings |
-| **3. Classify at intake** | Slice 9, with the conversation engine | Category, practice area, urgency and confidence on every lead; review queue; firm corrections |
+| **3. Classify at intake** | Slice 9, with the call center (Proposed integration) | Category, practice area, urgency and confidence on every lead; review queue; firm corrections |
 | **4. Drive** | Slices 4 (routing), 6 (windows), 10 (free-call rules), 12 (benchmarks) | Routing by category (RFC-001), windows to act, free-call rules (RFC-003), Insight benchmarks |
 
 ### Out of scope
@@ -254,7 +256,7 @@ The reasoning, and what would change each: [answers.md](../lead-delivery/answers
 1. Show five firms their own weekly report, built from data already held.
 2. Add mapping confirmation to onboarding.
 3. Agree the destination of each untangled job with Billing and Operations.
-4. Specify the intake classification output with the voice and chat teams.
+4. Specify the intake classification output in the call center's lead contract.
 
 ---
 

@@ -4,6 +4,10 @@ The model behind every rule in this repository, in one place. The rules themselv
 live in [answers.md](answers.md) and [RFC-008](../rfc/008_delivery_guarantees_and_evidence.md);
 this explains why they are the rules.
 
+A lead's journey starts when the call center publishes it. The center is the source
+of truth for the call; delivery takes the lead from it and gets it to the firm
+([where this sits](../../README.md#where-this-sits); *Proposed*, not built).
+
 ## 1. What we are actually selling
 
 A law firm does not pay Answering AI to answer the phone. It pays us so that **no
@@ -91,7 +95,7 @@ the way.
 Each mechanism exists to keep one promise. Read the list as principles; the code is
 one way of keeping them.
 
-1. **Record before you act.** A lead and its planned deliveries are written together, before anything is sent. If we cannot record it, we tell the channel so, and it sends again.
+1. **Record before you act.** A lead and its planned deliveries are written together, before anything is sent. If we cannot record it, we tell the call center so, and it publishes again.
 2. **Decide once, and say why.** Where a lead goes is decided when it arrives, by the rule then in force, and the decision is kept with the rule's version.
 3. **One worker at a time, and a stale worker can do nothing.** A worker claims a delivery with a numbered lease; every later step checks the number. A worker that stalled and lost its claim cannot overwrite anything.
 4. **Write down "I am about to send" before sending.** Then a lost answer is known to be unknown, not mistaken for "never sent".

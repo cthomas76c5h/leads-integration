@@ -16,7 +16,8 @@ handling of the calls they can't take themselves**. New clients are an especiall
 valuable part of that, but only about one call in five. We already have most of the
 technology needed for a better service, but it's spread across separate projects,
 nobody owns the caller's whole journey, and nobody consistently measures how well we
-perform.
+perform. The plan builds on the call center as the source of truth, and everything
+else integrates with it ([where this sits](../../README.md#where-this-sits)).
 
 ## What firms need
 
@@ -66,21 +67,21 @@ evidence: **AI first**, **AI with a person**, or **people first**.
 
 - Fix the security issues the review found.
 - Name one accountable owner for the caller's whole journey: voice, chat, human reception and delivery.
-- **Verify production delivery.** The voice platform has retries, a reconciliation sweep and a staff retry, but the sweep and the staff retry are off by default, and nothing records whether production has them on. Confirm the deployed settings, how failures become visible, and who acts on them. Do the same for the legacy and human-service delivery paths. The absence of complaints doesn't prove delivery works.
-- Pause new work that overlaps the voice platform, without throwing anything away.
+- **Verify production delivery.** The existing AI voice system has retries, a reconciliation sweep and a staff retry, but the sweep and the staff retry are off by default, and nothing records whether production has them on. Confirm the deployed settings, how failures become visible, and who acts on them. Do the same for the older and human-service delivery paths. The absence of complaints doesn't prove delivery works.
+- Pause new work that duplicates what the call center owns, without throwing anything away.
 
 **First**
 
 - **Customer-segment contribution-margin analysis.** For each firm: revenue, billable calls, human time, AI cost, escalations, tickets, credits and retention. Group firms into segments: solo attorneys, growing practices with intake staff, and higher-volume firms. Rank segments by contribution margin, not by revenue or call volume.
 - Talk to customers, including recent cancellations and firms that turned down the AI service.
-- Assess the voice platform against explicit acceptance criteria (see Q1).
+- Assess the call center's readiness against explicit acceptance criteria (see Q1).
 - **Validate quality checking** against independently reviewed real conversations, starting with the 25-conversation chat pilot. Expand coverage only once it reliably catches failures that affect customers.
 - **Agree callback ownership and escalation rules with firms,** then implement and measure them. The firm controls whether its people act, so the rule must be the firm's.
 - Trial consultation booking with a few firms. It's already built.
 
 **Next**
 
-- One shared description of a lead across voice, chat and the human service.
+- One shared description of a lead, published by the call center, across voice, chat and the human service.
 - Firm rules with a change history, approved by the firm.
 
 **Later**
@@ -111,21 +112,22 @@ Each gate can expand, revise or stop the work. Finishing the work doesn't earn t
 
 | Quarter | Evidence required | Decision |
 |---|---|---|
-| Q1 | Current economics by segment, customer discovery, delivery baselines, and the voice platform's readiness against operational, quality and economic criteria | Choose target segments; accept or reject the voice platform as the foundation |
+| Q1 | Current economics by segment, customer discovery, delivery baselines, and the call center's readiness against operational, quality and economic criteria | Choose target segments; confirm the call center as the foundation, or revise the plan |
 | Q2 | Independently validated quality improvements, callback outcomes, cost compared with today | Expand, revise or stop each pilot |
 | Q3 | Actual willingness to pay, retention evidence, contribution margin | Approve packaging and pricing |
 | Q4 | Repeatable quality, reliability, margins, and customers accepting the move | Scale selectively, keep hybrid arrangements, or retire systems |
 
 Numeric targets get set after Q1, once today's baselines exist.
 
-## What the two labs are for now
+## What the labs are for now
 
 They're experimental tools, not the product. They've already been worth building: they
 made us separate what we promise, what we can prove, what we control and what customers
 value.
 
-- **Intake policy lab:** turns a firm's instructions into approved, versioned rules and checks each conversation against them. Its first real test is the chat pilot, because the voice platform has no real customer calls yet. Chat can test required questions and callback ownership. It can't test transfers or fee rules, which make up the largest group of complaints, so the voice pilot has to test those.
-- **Lead delivery lab:** worked out how to deliver leads with retries, fallbacks and proof. What carries over is its method: domain modelling, pure decision rules, and scenarios anyone can run. Not its code.
+- **Call center lab:** the source of truth. It owns every interaction, the people who answer, and what each produced, and publishes them through its own versioned contracts.
+- **Intake policy lab:** turns a firm's instructions into approved, versioned rules that feed the call center, and checks each conversation against them. Its first real test is the chat pilot, because AI voice has no real customer calls yet. Chat can test required questions and callback ownership. It can't test transfers or fee rules, which make up the largest group of complaints, so the voice pilot has to test those.
+- **Lead delivery lab:** worked out how to deliver leads with retries, fallbacks and proof, taking each lead from the call center (Proposed). What carries over is its method: domain modelling, pure decision rules, and scenarios anyone can run. Not its code.
 
 ## Open questions
 
@@ -140,11 +142,11 @@ value.
 |---|---|
 | **The customer problem and proposition** | Clear and ready to present |
 | **The strategic direction** | A strong hypothesis, supported by historical evidence; needs current customer and production validation |
-| **Authorising a substantial engineering roadmap** | Not yet: needs baselines, owners, verified platform readiness and pilot results |
+| **Authorising a substantial engineering roadmap** | Not yet: needs baselines, owners, verified call center readiness and pilot results |
 
 ## What we ask leadership to decide
 
-1. **Authorise a focused Q1 validation effort:** the economics by segment, customer discovery, production delivery verification, the platform assessment and the chat pilot.
+1. **Authorise a focused Q1 validation effort:** the economics by segment, customer discovery, production delivery verification, the call center assessment and the chat pilot.
 2. **Appoint one accountable owner** for the caller's whole journey.
 3. **Agree in advance what evidence permits further investment,** using the gates and scorecard above.
 

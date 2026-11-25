@@ -2,8 +2,9 @@
 
 > **Superseded.** This was the first proposal. Later evidence changed it: only about
 > one call in five is a new client, firms complain mostly about how calls were
-> handled rather than about lost leads, and the year builds on the voice platform
-> instead of building delivery new. The current direction is in
+> handled rather than about lost leads, and the plan builds on the call center as the
+> source of truth, with delivery integrating with it
+> ([where this sits](../../README.md#where-this-sits)). The current direction is in
 > [what-firms-need.md](../business/what-firms-need.md) and
 > [next-12-months.md](../business/next-12-months.md). Kept as the record of what was proposed.
 

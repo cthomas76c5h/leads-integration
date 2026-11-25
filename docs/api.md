@@ -13,6 +13,7 @@ both follow this file. Change it first, then both sides.
 ## Types (TypeScript notation)
 
 ```ts
+// Where an imported row came from: the legacy sources the lab imports from today, or 'manual'.
 type SourceSystem = 'api2' | 'chatbot' | 'airi' | 'manual';
 
 type Category = 'platform' | 'crm' | 'automation' | 'notify';
@@ -25,7 +26,7 @@ interface Kind {
   category: Category;
   auth: AuthScheme;
   credentialFields: string[];   // ['token', 'refresh_token']
-  sourceCodes: { system: SourceSystem; code: string }[]; // where it comes from, e.g. { system: 'api2', code: 'Case' }
+  sourceCodes: { system: SourceSystem; code: string }[]; // where it comes from: the legacy source's own code for this kind
   mappingEnforced: boolean;     // true only for 'webhook': our field mapping is the body
   payloadFields: string[];      // top-level fields the receiver requires, e.g. ['inbox_lead.from_first', ...]
   notes: string;                // one line: quirks worth knowing (e.g. "api_key holds the full POST URL")
@@ -47,7 +48,7 @@ interface Connection {
   kind: string;
   name: string;            // display name, e.g. 'MyCase'
   source: SourceSystem;
-  sourceRef: string | null;  // id in the source system, e.g. api-2 CRM row id
+  sourceRef: string | null;  // id in the source system, e.g. the legacy system's CRM row id
   credentials: CredentialField[];
   settings: Record<string, string>; // non-secret settings, e.g. { sendWebchats: 'false' }; duplicates: how this destination's
                                      // receiver handles a second copy, where confirmed (RFC-008 §4.3; else its kind's contract); role: 'fallback' marks the firm's
@@ -89,7 +90,7 @@ interface FirmSummary {
 interface FirmDetail extends FirmSummary {
   timeZone: string;                 // IANA name ('America/New_York' by default): the firm's office hours and the dates it reads
   sourcesDetail: FirmSource[];
-  contactTypes: { name: string; active: boolean; mapping: CallMapping }[]; // api-2 routing: a lead goes out only if its callType matches an active one
+  contactTypes: { name: string; active: boolean; mapping: CallMapping }[]; // legacy routing: a lead goes out only if its callType matches an active one
   customLabels: string[];           // intake question labels seen in the sources (for synthetic leads)
   connections: Connection[];
   setups: Setup[];
@@ -409,7 +410,7 @@ interface ReferenceLead {
   lead: Lead;
 }
 
-// ----- Onboarding (same model as webhook-lab, RFC-001 §4–6) -----
+// ----- Onboarding (RFC-001 §4–6) -----
 
 interface MapRow { from: string; to: string }   // from: a Lead field key, see SOURCE_FIELDS below
 interface Approval { version: number; decision: 'approved' | 'changes'; by: string; comment: string; at: number }
@@ -485,7 +486,7 @@ Every `/api/portal/leads` route needs `Authorization: Bearer {token}` (401 witho
 | GET | `/api/firms/{id}/report` | | `FirmReport`: the last 7 days, production leads |
 | POST | `/api/firms` | `{ name, timeZone? }` | `FirmDetail` (source `manual`; `timeZone` defaults to `America/New_York`) |
 | PATCH | `/api/firms/{id}` | `{ timeZone }` | `FirmDetail`. Set by Answering AI; 422 unless an IANA name (`America/Los_Angeles`) |
-| POST | `/api/firms/{id}/leads` | `{ variant?: 'full' \| 'sparse', callType?: string, webchat?: boolean, referenceLead?: string, conversationId?: string }` | 201 `{ event: LeadEvent, deliveries: Delivery[], mapping: CallMapping, duplicate: false }`. `conversationId` is the channel's id for the call or chat: intake records one lead per firm and conversation, so a repeat is answered **200** with the lead already recorded, its deliveries and `duplicate: true`, and nothing is planned or sent again (RFC-008 §4.1; api-2 answers 208). Without one, every request is a new lead. **503** `{ error, recorded: false }` with `Retry-After` when the lead could not be committed (the database did not take the write): nothing was recorded, planned or sent, and the channel keeps its copy and sends it again. One delivery per enabled, active connection, each with its routing `decision`; `skipped` with a reason when routing excludes it or the lead lacks what the destination requires. `referenceLead` sends that reference lead as-is; `callType` then replaces its call type (e.g. the firm's own name for the same category) |
+| POST | `/api/firms/{id}/leads` | `{ variant?: 'full' \| 'sparse', callType?: string, webchat?: boolean, referenceLead?: string, conversationId?: string }` | 201 `{ event: LeadEvent, deliveries: Delivery[], mapping: CallMapping, duplicate: false }`. `conversationId` is the channel's id for the call or chat: intake records one lead per firm and conversation, so a repeat is answered **200** with the lead already recorded, its deliveries and `duplicate: true`, and nothing is planned or sent again (RFC-008 §4.1; the legacy system answers 208). Without one, every request is a new lead. **503** `{ error, recorded: false }` with `Retry-After` when the lead could not be committed (the database did not take the write): nothing was recorded, planned or sent, and the channel keeps its copy and sends it again. One delivery per enabled, active connection, each with its routing `decision`; `skipped` with a reason when routing excludes it or the lead lacks what the destination requires. `referenceLead` sends that reference lead as-is; `callType` then replaces its call type (e.g. the firm's own name for the same category) |
 | GET | `/api/call-categories` | | `Taxonomy` |
 | GET | `/api/call-categories/classify?name=` | | `CallMapping` |
 | GET | `/api/reference-leads` | | `ReferenceLead[]` |

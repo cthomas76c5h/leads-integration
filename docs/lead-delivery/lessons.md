@@ -16,7 +16,7 @@ Each lesson ends with **Needs** (what a 10/10 product needs) and **Where**
 
 ## 1. We could not see reality
 
-- **No production truth.** We never saw a real delivery outcome. The local api-2 copy may be a scrubbed restore and is mostly test traffic: 7 of the 8 enabled CRMs are on one internal test firm. Every rate in the deck is a signal, not a fact.
+- **No production truth.** We never saw a real delivery outcome. The read-only copy of the legacy system's data may be a scrubbed restore and is mostly test traffic: 7 of the 8 enabled CRMs are on one internal test firm. Every rate in the deck is a signal, not a fact.
 - **Data we had to invent:**
   - call durations (synthetic talk time, so billing's free-call rules are untested);
   - realistic lead timestamps (spread over a simulated week);
@@ -26,17 +26,19 @@ Each lesson ends with **Needs** (what a 10/10 product needs) and **Where**
 - **Real names everywhere.** Firm names, staff names hidden in call types, and contacts in pasted threads. Each needed manual care, and in the end a separate tool (`Import -- demo-names`) to replace firm names with fictional ones before any screenshot.
 
 **Needs:** a read-only, anonymised feed of production into the lab, so the demo
-is reality; and delivery records in production that answer "what happened to
+is reality (*Proposed:* in the new architecture, the call center's published records); and delivery records in production that answer "what happened to
 this lead?". **Where:** the production feed (the roadmap's Measure milestone, [RFC-006](../rfc/006_integration_lab.md)), and delivery records in every slice from 1 on.
 
 ## 2. Every system describes things differently
 
-- **No standard lead.** api-2, the chatbot and the portals each have their own lead shape, so the lab defined one ([api.md](../api.md)).
+- **No standard lead.** The legacy systems for calls, chat and the portals each have their own lead shape, so the lab defined one ([api.md](../api.md)).
 - **One field doing four jobs.** Call types carry kinds of call, billing flags, staff names and phone settings, so every rule had to reverse-engineer meaning from free text ([why-it-matters.md](../call-categories/why-it-matters.md)).
 - **Configuration with no owner.** Plan minutes read from product names, overage rates stored as text, the billing cycle start held by a different system from the invoice, a billing category left blank.
 
 **Needs:** one published, versioned lead format, and one owner per piece of
-configuration. Free text is what a firm *sees*, never what a system *decides* on.
+configuration. *Proposed:* the call center owns both: it publishes the lead through
+its versioned contract and holds each firm's configuration as applied
+([where this sits](../../README.md#where-this-sits)). Free text is what a firm *sees*, never what a system *decides* on.
 **Where:** slices 0 (the Lead contract) and 9 (classification at intake) of [RFC-007](../rfc/007_domain_model_and_build_order.md); [answers: call categories and billing](answers.md#call-categories).
 
 ## 3. We could not test against the real world
@@ -89,7 +91,7 @@ alerts and outage grouping are still to build.
 ## 6. Words and screens drifted
 
 - **The code says one thing, the business another.** The code says connection, replay and skipped; the business says destination, resend and not sent. We documented the difference ([code-map](code-map.md#names-the-code-still-uses)) instead of fixing it.
-- **Jargon leaked into the screens:** HTTP codes, "prorated", "ledger", "api-2". Every screen needed a second, plain-language pass before leadership could read it.
+- **Jargon leaked into the screens:** HTTP codes, "prorated", "ledger", internal system names. Every screen needed a second, plain-language pass before leadership could read it.
 - **Bugs that only real use found:**
   - totals counted only the 100 rows on screen (now server totals);
   - filters ignored links;

@@ -13,13 +13,14 @@
 
 ## 1. Executive Summary
 
-Answering AI's lead systems grew one at a time: phone intake, chat, api-2, the
-client portals. Each has its own lead shape, keys and delivery code. There are 9
+Answering AI's legacy lead systems grew one at a time: phone intake, chat, an
+intake API, the client portals. Each has its own lead shape, keys and delivery code. There are 9
 hand-written CRM handlers, every firm's setup is a bespoke configuration made by
 staff, and changes to what a firm receives have no approval history.
 
-**We propose one standard lead for every channel, one delivery service every
-channel uses, a short list of deeply supported integrations with everything else
+**We propose one standard lead for every channel, published by the call center
+as the source of truth ([where this sits](../../README.md#where-this-sits)), one
+delivery service that takes it from there, a short list of deeply supported integrations with everything else
 through Zapier and webhooks on a published contract, and a setup and change
 workflow in which the firm approves every change to what it receives.**
 
@@ -27,7 +28,7 @@ workflow in which the firm approves every change to what it receives.**
 
 Approve:
 
-1. **One standard lead**, versioned, produced the same way by phone and chat, with its call category set at intake.
+1. **One standard lead**, versioned, published by the call center the same way for every call and chat, with its call category set at intake.
 2. **Native integrations certified one at a time** ([answers](../lead-delivery/answers.md#routing-and-integrations)): first one representative CRM end to end, then others from Clio Grow, Lawmatics, MyCase, Lead Docket, PracticePanther and Smokeball as demand and sandbox evidence justify them; Lawruler and the legacy Lawmatics forms retired; everything else through Zapier and webhooks.
 3. **A published, versioned contract**: the lead schema and signed webhooks with retries and resend.
 4. **Setup and change by revision and approval**: operators prepare, firms approve, nothing live changes until then.
@@ -40,8 +41,8 @@ Approve:
 
 | Gap | What firms experience | Evidence |
 |---|---|---|
-| **Several lead shapes** | The result depends on which system the lead went through | Phone, chat, api-2 and the portals each have their own lead, keys and delivery code; 18 chat firms share 4 keys |
-| **Integrations wide but shallow** | An integration may be offered but not work | 9 hand-written handlers; 8 of 444 CRM rows enabled in the copy; Lawruler's handler off; Clio 0 of 71 accepted |
+| **Several lead shapes** | The result depends on which system the lead went through | In the legacy systems, phone, chat, the intake API and the portals each have their own lead, keys and delivery code; 18 chat firms share 4 keys |
+| **Integrations wide but shallow** | An integration may be offered but not work | 9 hand-written handlers; 8 of 444 CRM rows enabled in a read-only copy of the legacy system's data; Lawruler's handler off; Clio 0 of 71 accepted |
 | **Setup and changes through people** | Every change is a support request | 4,390 free-text call-type names; destinations configured by staff |
 | **No approval history** | Live behaviour can change without the firm agreeing | No revisions or approvals in production |
 | **Untestable against real CRMs** | Problems found by firms | No sandbox accounts; fake receivers prove shape, not arrival |
@@ -184,7 +185,7 @@ orders. For this RFC that means:
 
 1. **Agree the contract first:** the lead schema and delivery states (slice 0).
 2. **Setup and change by approval** (slice 5), then **the native CRMs** (slice 7), each with its receiver contract and sandbox test.
-3. **Move channels one at a time** onto the standard lead, behind a flag per firm: phone first, then chat (giving each chat firm its own key).
+3. **Take the lead from the call center** (a Proposed integration), moving firms one at a time behind a flag per firm: phone first, then chat (giving each chat firm its own key).
 4. **Retire each old path** once its firms have moved.
 5. **Prove every slice against its scenarios first** (RFC-006, [contracts](../contracts/README.md)).
 
@@ -206,7 +207,7 @@ orders. For this RFC that means:
 | **1. Contract** | 0 | The lead schema v1; the integration list confirmed from the production feed; a sandbox account for the first CRM to certify |
 | **2. Setup and change** | 5 | Setup states, revisions and approvals; the firm's review screen; recipes for email, text and webhook |
 | **3. Native CRMs** | 3, then 7 | The first CRM certified end to end in slice 3; the others firms use, chosen by demand and sandbox evidence, in slice 7; each with its receiver contract and sandbox test |
-| **4. One lead** | 9, with the conversation engine | Phone and chat produce the standard lead with its category; chat keys per firm; the conversation record billing reads (RFC-003) |
+| **4. One lead** | 9, with the call center | The call center publishes the standard lead with its category for calls and chats; chat keys per firm; the center's usage evidence billing reads (RFC-003) |
 | **5. Self-serve** | 12 | Firms connect and change destinations themselves, with the same approval; the published Zapier app |
 | **6. Distribution** | Later | Listings in CRM marketplaces; a trades pack |
 

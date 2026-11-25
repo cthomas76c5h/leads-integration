@@ -5,9 +5,9 @@
 **Date:** November 20, 2026
 **Status:** Proposed — ready for architectural review (reviewer, November 20, 2026); not yet for production approval
 **Decision owner:** Product / Engineering
-**Reviewers:** Operations, Onboarding, Engineering, the voice platform team
-**Related:** RFC-001 (the window to act, the fallback) · RFC-002 (classification at intake) · RFC-005 (one standard lead) · RFC-007 (§5 the Intake and Delivery contexts) · RFC-008 (§3 evidence levels, §3.2 escalation) · RFC-009 (routing by category)
-**Detail:** the intake policy lab (`../intake-policy-lab`): [lead-contract.md](../../../intake-policy-lab/docs/lead-contract.md) and its [schema](../../../intake-policy-lab/docs/lead-contract.schema.json), [lead-compatibility.md](../../../intake-policy-lab/docs/lead-compatibility.md) · scenario [follow-up-without-delivery](../contracts/scenarios/follow-up-without-delivery.json)
+**Reviewers:** Operations, Onboarding, Engineering, the call center team
+**Related:** RFC-001 (the window to act, the fallback) · RFC-002 (classification at intake) · RFC-005 (one standard lead) · RFC-007 (§4 the call center upstream of Delivery) · RFC-008 (§3 evidence levels, §3.2 escalation) · RFC-009 (routing by category)
+**Detail:** [where this sits](../../README.md#where-this-sits) · the call center (`../call-center-lab`): [its outputs](../../../call-center-lab/docs/black-box.md#outputs) (O4 follow-up progress), [proposal F-1](../../../call-center-lab/docs/proposals.md#f-1-one-follow-up-lifecycle-in-intake-q-16) · the intake policy lab (`../intake-policy-lab`): [lead-contract.md](../../../intake-policy-lab/docs/lead-contract.md) and its [schema](../../../intake-policy-lab/docs/lead-contract.schema.json), [lead-compatibility.md](../../../intake-policy-lab/docs/lead-compatibility.md) · scenario [follow-up-without-delivery](../contracts/scenarios/follow-up-without-delivery.json)
 
 ---
 
@@ -15,11 +15,11 @@
 
 A lead today is a name, a phone, an email, a **call-type name** and a message.
 Delivery works out what the call was by matching that name against the taxonomy.
-The intake policy lab checked six realistic firms, built from the platform's own
+The intake policy lab checked six realistic firms, built from the legacy system's
 call-type templates, against the taxonomy:
 
 - **33 of 41 call types** get the category intake would give them.
-- **"Sales / marketing"**, the platform's always-on template, was read as a person's name at every firm, so every sales call went to staff-routing review. *Fixed in the taxonomy since; agreement is now 39 of 41.*
+- **"Sales / marketing"**, the legacy system's always-on template, was read as a person's name at every firm, so every sales call went to staff-routing review. *Fixed in the taxonomy since; agreement is now 39 of 41.*
 - **"Emergency repair"** becomes the *emergency* category, which never goes to a CRM.
 - What a name **cannot** carry is what matters most. Is the matter one the firm takes? Did the caller say someone is in custody, or that it is an emergency? Was the call put through, and was the target in its hours? Intake knows each of these as a fact; delivery can only guess.
 
@@ -27,15 +27,19 @@ There is a second gap. "**Acknowledged**" means *the firm received the lead* her
 *someone took responsibility for calling back* in intake. The callback itself, the
 thing the caller is waiting for, has an owner in none of the three channels.
 
-**We propose** that the lead becomes the contract between Intake and Delivery
+**We propose** that the lead, as the call center produces it under the firm's
+approved intake policy, becomes the contract between the center and Delivery
 (`intake-lead/draft-2`), and that the product runs **two lifecycles on one lead ID**:
 delivery, which exists today, and **follow-up**, which is new. Each has its own
-events and its own escalation, and neither waits for the other.
+events and its own escalation, and neither waits for the other. The call center
+is the source of truth for the interaction and the lead
+([where this sits](../../README.md#where-this-sits)); its integration is Proposed.
 
 ### Recommended decision
 
 Approve the lead contract as the direction for RFC-005's standard lead. Approve the
-follow-up lifecycle and its events as part of the Intake context. Keep
+follow-up lifecycle and its events as intake's, opened by the call center and
+published by it as follow-up progress (O4), which Delivery reads and never tracks. Keep
 **acknowledged** with its meaning here, and name the follow-up's step **responsibility
 accepted**.
 
@@ -85,7 +89,8 @@ Intake **never names destinations** and **never sets delivery's clocks**. Routin
 reads the category, practice area and `taken`, never the name. The window to act,
 the fallback and delivery escalation are applied by delivery, to intake's signals.
 
-On the voice side, every new field is additive to contract v1. The one field that
+For whatever sends the lead (the call center, and today's production channels until
+its contracts exist), every new field is additive to contract v1. The one field that
 goes away in time is `destination_ids`, because routing is delivery's.
 
 ### 3.2 Two lifecycles, one lead ID
@@ -95,16 +100,25 @@ Delivery   LeadRecorded → attempted → accepted / verified / unknown → Hand
 Follow-up  FollowUpOwed → FollowUpAssigned → ResponsibilityAccepted → CallbackCompleted → FollowUpResolved
 ```
 
-| Shared name | Event | Context | Status |
+| Shared name | Event | Owner | Status |
 |---|---|---|---|
 | `delivery_received` | `HandOffAcknowledged` | Delivery | exists |
 | delivery escalation | `HandOffEscalated` | Delivery | exists |
-| — | `FollowUpOwed` | Intake | **proposed** |
-| — | `FollowUpAssigned` | Intake | **proposed** |
+| `followup_owed` | `FollowUpOwed` | Opened by the call center, when the firm's policy names an owner | **proposed** |
+| — | `FollowUpAssigned` | Intake; a follow-up the center opens counts as assigned to the owner role at once | **proposed** |
 | `responsibility_accepted` | `ResponsibilityAccepted` | Intake | **proposed** |
 | `callback_completed` | `CallbackCompleted` (reached or not) | Intake | **proposed** |
 | `followup_resolved` | `FollowUpResolved` | Intake | **proposed** |
 | follow-up escalation | `FollowUpEscalated` | Intake | **proposed** |
+
+**Who holds the follow-up**, as the call center's proposal
+[F-1](../../../call-center-lab/docs/proposals.md#f-1-one-follow-up-lifecycle-in-intake-q-16)
+agrees: one follow-up lifecycle, in intake (`../intake-policy-lab`), with its
+deadlines, reminders and escalation. The call center opens each follow-up
+(`followup_owed`, with its reason and the owner role) and runs no follow-up
+timers of its own. Progress is published as the center's **follow-up progress
+(O4)**. Delivery reads O4 to show the follow-up beside the hand-off; it opens no
+follow-up and runs no follow-up clock.
 
 The follow-up's owner, deadlines and escalation contact are **the firm's**, from its
 approved intake policy. Delivery's windows are **Answering AI's**
@@ -145,8 +159,8 @@ No clock starts from when someone happened to open the follow-up.
 
 1. **Now:** the scenario [follow-up-without-delivery](../contracts/scenarios/follow-up-without-delivery.json) is added as `proposed`. It fails against the lab until the follow-up lifecycle exists. The glossary marks the new terms *Proposed*.
 2. **Taxonomy:** "Sales / marketing" is **done** (the vendor pattern, with reference lead `vendor-template`; no imported name changed category). Still to do in slice 4, with RFC-009: treat emergency as a fact about a call rather than a kind of call.
-3. **Contract:** the voice platform adds the contract's fields to its v1 request (additive). The lab's lead step gains `taken`, `urgency` and `followUp`. Routing moves from the name to the category, as RFC-009 already plans.
-4. **Follow-up lifecycle:** built in the Intake context. Its owner, deadlines and escalation come from each firm's approved intake policy. Operators see both escalations in one queue, labelled.
+3. **Contract:** the call center sends the contract's fields with the v1 lead (additive); until its contracts exist, today's production channels add them where they can. The lab's lead step gains `taken`, `urgency` and `followUp`. Routing moves from the name to the category, as RFC-009 already plans.
+4. **Follow-up lifecycle:** built in intake and opened by the call center (F-1). Its owner, deadlines and escalation come from each firm's approved intake policy. Delivery reads its progress (O4); operators see both escalations in one queue, labelled.
 
 ### Out of scope
 
@@ -167,7 +181,7 @@ assignment (RFC-009 §3); changing any delivery window.
 |---|---|
 | Two escalations for one lead feel like noise | One queue, two labels; the follow-up's deadlines are the firm's own choice |
 | Firms without follow-up rules see a new red flag | Onboarding agrees rules with the firm; until then it is reported, not alarmed |
-| The voice platform cannot send every field at once | Every field is optional in the additive phase; routing falls back to today's name match, recorded as such in the routing decision |
+| The call center (or a production channel before it) cannot send every field at once | Every field is optional in the additive phase; routing falls back to today's name match, recorded as such in the routing decision |
 | "Accepted" is confused with a delivery *accepted* by a destination | The follow-up's event is `ResponsibilityAccepted`, never bare "accepted", in shared views |
 
 ## 7. Decisions and Approval Request
@@ -179,7 +193,7 @@ follow-up clock. Decisions 5 to 9 are those answers.
 | # | Decision | Recommendation |
 |---|---|---|
 | 1 | The lead contract (`intake-lead/draft-2`) as the direction for RFC-005's standard lead | Approve |
-| 2 | The follow-up lifecycle, its events and its escalation, in the Intake context | Approve |
+| 2 | The follow-up lifecycle, its events and its escalation, in intake; opened by the call center and published as its O4 (F-1); read, never tracked, by Delivery | Approve |
 | 3 | *Acknowledged* keeps its meaning (received); intake's step is *responsibility accepted* | Approve |
 | 4 | Routing never reads the call-type name once the contract's category arrives | Approve, with RFC-009 |
 | 5 | **Urgency is a signal, not a category:** emergency and custody travel in `urgency[]` with their provenance, beside the call's real category | Approve; taxonomy change in slice 4 |

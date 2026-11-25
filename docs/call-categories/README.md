@@ -1,6 +1,6 @@
 # Call categories
 
-Every firm names its kinds of calls in free text ("contact types" in api-2).
+Every firm names its kinds of calls in free text ("contact types" in the system in production today).
 Across 2,771 firms there are 4,390 distinct names, and 3,987 of them are used by
 only one firm. Underneath, they describe a small, stable set of things. This
 folder defines that set and the rules that map any name onto it.
@@ -108,7 +108,7 @@ long name is never read as a person's name.
 
 ## Evidence the rules are right
 
-api-2 marks a contact type **active** when that kind of call counts as a lead.
+The legacy system marks a contact type **active** when that kind of call counts as a lead.
 The rules never see that flag, so it serves as an independent check. Across
 active firms:
 

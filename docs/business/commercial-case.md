@@ -22,8 +22,9 @@ measure them, and the plan for the year, are in [the next 12 months](next-12-mon
 - **Value:** fewer interruptions, every caller handled the firm's way, and fewer callers lost when nobody could pick up.
 - **What we have to prove:** that we handle calls exactly as each firm wants, and that the hand-off still works when the firm cannot answer. Cheaper AI calls are not the point.
 
-Lead delivery is not the product. It is the invisible foundation of a service firms
-already understand.
+Lead delivery is not the product. It is an invisible part of a service firms already
+understand, built on the call center that answers
+([where this sits](../../README.md#where-this-sits)).
 
 ## What we changed our minds about
 

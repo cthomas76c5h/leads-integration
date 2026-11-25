@@ -2,7 +2,7 @@
 
     python tools/routing_equivalence.py [--db backend/data/lead-integrations.db]
 
-Today (api-2, docs/lead-delivery/production-today.md): a lead goes to a firm's CRMs
+Today (the legacy system, docs/lead-delivery/production-today.md): a lead goes to a firm's CRMs
 only if its call type is one of the firm's *active* contact types; a firm with no
 active types sends nothing to any CRM. Email and the portal take everything, today
 and under the default, so only CRM destinations can differ.
@@ -10,7 +10,7 @@ and under the default, so only CRM destinations can differ.
 The default rule (answers.md, routing): CRMs take new matters. Categories the
 taxonomy marks `review` (general, jail-custody, staff-routing) are the firm's choice.
 
-For every firm with an api-2 CRM connection, each call type is compared, and the
+For every firm with a legacy CRM connection, each call type is compared, and the
 firm's actual behaviour is expressed as a category rule where it can be:
 
   default           exactly new matters, every practice area
@@ -41,8 +41,8 @@ OUT_TSV = ROOT / "backend" / "data" / "routing-equivalence.tsv"
 DEFAULT_SEND = {"new-matter"}
 
 
-def api2_key(name: str) -> str:
-    # api-2 trims " ,.;:-*" from the ends and lowercases before matching.
+def legacy_key(name: str) -> str:
+    # The legacy system trims " ,.;:-*" from the ends and lowercases before matching.
     return (name or "").strip(" ,.;:-*").lower()
 
 
@@ -60,7 +60,7 @@ def load(db: Path):
             raw = (t.get("name") or t.get("Name") or "").strip()
             if not raw:
                 continue
-            k = api2_key(raw)
+            k = legacy_key(raw)
             prev = types.get(k)
             types[k] = (prev[0] if prev else raw, bool(t.get("active", t.get("Active"))) or (prev[1] if prev else False))
         firms.append({"id": fid, "name": name, "active": bool(active), "crms": crms[fid], "types": list(types.values())})
@@ -132,9 +132,9 @@ def main() -> int:
 
     groups = {"enabledCrm": lambda f: any(e for _, e in f["crms"]), "anyCrm": lambda f: True}
     report = {
-        "about": "Firms with an api-2 CRM connection. Counts are call types and firms, not leads: "
+        "about": "Firms with a legacy CRM connection. Counts are call types and firms, not leads: "
         "the import holds no lead volume. Production feed needed to weigh by leads.",
-        "generatedFrom": "imported firms' contact types (api-2) and CRM connections",
+        "generatedFrom": "imported firms' contact types (legacy) and CRM connections",
         "defaultRule": "CRMs take new matters, every practice area; review categories are the firm's choice",
     }
     with OUT_TSV.open("w", encoding="utf-8", newline="") as fh:

@@ -41,4 +41,4 @@ Credentials are shown only as present/missing plus a masked fingerprint.
 - `src/lib/`: polling, toast + aria-live status, hash routing, delivery and setup helpers
 - `src/components/`: shell, connection card, delivery list and journey, firm picker
 - `src/pages/`: one file per page (`FlowPage` is lazy-loaded)
-- `src/styles/`: `base.css` and `console.css` are ported from the webhook-lab prototype; `app.css` adds what is new
+- `src/styles/`: `base.css` and `console.css` are ported from an earlier prototype; `app.css` adds what is new

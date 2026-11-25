@@ -6,6 +6,14 @@ operators what happened when it did not arrive. The model and workflows are in
 
 ## Firms and calls
 
+**Call center**:
+The system that answers every call and chat for every firm, by the AI or by a person, and the **source of truth** for what happened: each conversation, its outcome, its lead, follow-up progress and usage evidence. Delivery, call categories, billing and terms are built on top of it and read it only through its versioned contracts; none keeps its own copy. Lives in `../call-center-lab`. *Proposed: the integration is not built; the lab imports legacy data instead.* See [where this sits](README.md#where-this-sits).
+_Avoid_: platform, phone system, answering service (for the system)
+
+**Legacy system**:
+Whatever answers, records and delivers calls in production today, before the call center replaces it. Docs never name its parts; they describe what it does.
+_Avoid_: the names of internal systems or repositories
+
 **Time zone**:
 The region a firm keeps its office hours in, as an IANA name (America/Los_Angeles), set by Answering AI; America/New_York by default. It sets the firm's after-hours count and the dates on what the firm reads. Delivery never needs it: windows and retries are elapsed time.
 _Avoid_: offset, EST/PST (they ignore daylight saving)
@@ -19,7 +27,7 @@ The name and look under which a firm meets Answering AI. Presentation only: it n
 _Avoid_: app variant, tenant
 
 **Conversation**:
-One call or chat Answering AI took, whatever its outcome. A lead is recorded from some conversations; billing reads every one. Intake keys on the channel's conversation id: one lead per conversation, however often the channel repeats its event. *Lab for the lead; the conversation record itself is not built.*
+One call or chat Answering AI took, whatever its outcome. The call center owns it and publishes it. A lead is recorded from some conversations; billing reads every one. Intake keys on the channel's conversation id: one lead per conversation, however often the channel repeats its event. *Lab for the lead; the conversation record itself is not built.*
 _Avoid_: session, room, call (when a chat is included)
 
 **Caller**:
@@ -27,7 +35,7 @@ The person who called or chatted with Answering AI on a firm's behalf.
 _Avoid_: lead (the lead is the record, not the person), contact
 
 **Lead**:
-The record of one call that Answering AI hands over for delivery: who called, the call type, the intake answers and the message. It never changes once recorded.
+The record of one call that the call center hands over for delivery: who called, the call type, the intake answers and the message. It never changes once recorded.
 _Avoid_: event, message, contact, CRM lead
 
 **Chat lead**:
@@ -49,7 +57,7 @@ _Avoid_: custom fields
 
 **Call type**:
 The firm's own label for a kind of call ("*New Client Calls", "Opposing Counsel"), chosen during the call.
-_Avoid_: contact type (the api-2 name), intake type
+_Avoid_: contact type (the legacy name), intake type
 
 **Active call type**:
 A call type the firm has marked as one it wants sent to its CRMs.

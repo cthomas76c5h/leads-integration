@@ -48,7 +48,7 @@ Approve:
 
 ### What production does today
 
-From the api-2 source and a read-only development copy of its data:
+From the legacy system's source and a read-only development copy of its data:
 
 | Behaviour | Consequence |
 |---|---|
@@ -211,8 +211,11 @@ destination and the next action.
 ## 6. Technical Approach
 
 **Build the delivery model from the domain, in the slices of
-[RFC-007](007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices);
-api-2 is not extended** ([answers](../lead-delivery/answers.md#routing-and-integrations)).
+[RFC-007](007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices),
+on top of the call center as the source of truth**
+([where this sits](../../README.md#where-this-sits)): delivery takes each lead the
+center publishes and gets it to the firm; the legacy system is not extended
+([answers](../lead-delivery/answers.md#routing-and-integrations)).
 This RFC's parts land in these slices:
 
 | Part | RFC-007 slice | What firms and operators get |
@@ -250,7 +253,7 @@ Rollout follows the [roadmap](../lead-delivery/strategy.md#5-roadmap):
 
 ### Out of scope
 
-- Extending api-2.
+- Extending the legacy system.
 - Firm-set windows to act in the first release (fixed defaults first).
 - Confirming records inside every CRM (where an API allows it, RFC-005).
 - Calling firms automatically.
@@ -297,7 +300,7 @@ the firm agreed in its approved setup; every use shown to the firm.
 | D6 | Hang-ups to CRMs | Not sent; recorded as a lead problem; the firm has them by email and the portal |
 | D7 | Switch-off | Counts configuration problems and gave-up only; connection problems stop at once |
 | D8 | Resend of an accepted lead | Senior operator, after the firm confirms the record is missing |
-| D9 | Architecture | Built from the domain model in RFC-007's slices; api-2 not extended |
+| D9 | Architecture | Built from the domain model in RFC-007's slices, on the call center as source of truth; the legacy system not extended |
 
 The reasoning, and what would change each, is in [answers.md](../lead-delivery/answers.md).
 

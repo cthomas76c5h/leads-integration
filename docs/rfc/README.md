@@ -6,6 +6,10 @@ approve. The depth behind each lives in the docs it links to; the decisions,
 with why and what would change them, live in
 [answers.md](../lead-delivery/answers.md).
 
+The RFCs assume the call center as the source of truth: delivery, categories,
+billing and terms are built on top of it and integrate through its contracts
+([where this sits](../../README.md#where-this-sits)).
+
 | RFC | Title | Decision owner | Asks for |
 |---|---|---|---|
 | [001](001_lead_delivery_in_time.md) | Every Lead to the Firm, in Time | Product / Engineering | Measurement now; windows to act, fallback, held deliveries, failure classes; a lead delivery owner |

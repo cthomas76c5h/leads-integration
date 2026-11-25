@@ -12,7 +12,7 @@ Each fact lives in one document; the others link to it.
 | [lessons.md](lessons.md) | What building the lab taught us, and what a 10/10 product needs | You are planning what to build next |
 | This file | The domain model: contexts, aggregates, lifecycles, policies, invariants, events | You are changing a rule |
 | [operations.md](operations.md) | What operators do, day to day and when something breaks; the console's screens and principles | You run or design the operator console |
-| [production-today.md](production-today.md) | How api-2 delivers today, and its gaps against this model (evidence, not a plan) | You need to know what today's system does |
+| [production-today.md](production-today.md) | How the system in production today delivers, and its gaps against this model (evidence, not a plan) | You need to know what today's system does |
 | [theory-of-lead-delivery.md](theory-of-lead-delivery.md) | What lead delivery means for the business, and what we can honestly guarantee and how: the model behind every rule | You want the why before the how |
 | [code-map.md](code-map.md) | Where each flow and screen lives in the code, in the order it runs | You are reading or changing the lab's code |
 | [concurrency.md](concurrency.md) | How the worker, intake and operators act at once safely: transactions, leases, every race and what decides it, known limits ([explorer](concurrency-explorer.html)) | You are changing the worker, a lease, or anything that writes while a delivery may be sending |
@@ -29,17 +29,23 @@ Elsewhere:
 | [api.md](../api.md) | The contract between the lab's backend and frontend |
 | [rfc/](../rfc/README.md) | The proposals for approval, RFC-001 to RFC-010, one per body of work |
 
-Each rule is marked **Lab** (built and tested here), **Production** (api-2 does
-this today) or **Proposed** (agreed direction, not built). Onboarding and
-change requests are specified in RFC-001
-(`../airi/webhook-lab/docs/rfc/001_lead_delivery_and_client_integration.md`);
-this model fits under it.
+Each rule is marked **Lab** (built and tested here), **Production** (the system
+in production today does this) or **Proposed** (agreed direction, not built).
+Onboarding and change requests go through an approval workflow: a firm's setup or
+change is drafted, tested and approved before it goes live, and nothing is rerouted
+silently. This model fits under it.
+
+**Where a lead comes from.** The call center is the source of truth: it owns the
+interaction and publishes the lead it produced ([where this sits](../../README.md#where-this-sits)).
+Delivery starts when the center publishes a lead and never keeps its own copy of what
+happened on the call. *Proposed: the integration with the center is not built; in
+the lab, leads come from the simulator and the legacy importer (`backend/src/Import/`).*
 
 ## 1. Contexts
 
 ```mermaid
 flowchart LR
-  I["Intake<br/>(Answering AI calls)"] -->|Lead recorded| D["Delivery"]
+  I["Call center<br/>(source of truth)"] -->|Lead published| D["Delivery"]
   F["Firm configuration<br/>destinations, routing,<br/>mapping, setup"] -->|live revisions| D
   C["Call categories<br/>(shared taxonomy)"] --> F
   C --> D
@@ -50,14 +56,14 @@ flowchart LR
 
 | Context | Owns | Does not own |
 |---|---|---|
-| **Intake** (upstream) | The call, the **caller**, the **intake answers**, the chosen **call type** | Where the lead goes |
+| **Call center** (upstream, the source of truth) | The interaction (call or chat, AI or person), the **caller**, the **intake answers**, the chosen **call type**, the published lead | Where the lead goes |
 | **Firm configuration** | **Destinations**, **connections** (presence only), **routing rules**, **mappings**, **revisions**, **setups** | Sending |
 | **Call categories** | The taxonomy that maps any **call type** to a **call category**, **practice area** and **modifiers** ([../call-categories/](../call-categories/README.md)) | Firm decisions about what to send |
 | **Delivery** | **Deliveries**, **attempts**, retry and switch-off policy, **destination** health | What the firm wants (it reads live revisions) |
 | **Operations** | What operators see and do, alerts, the audit trail | The rules; it acts through Delivery and Firm configuration |
 
-Intake hands over a finished **lead**. From then on Intake is never asked again:
-Delivery must work from what was recorded.
+The call center publishes a finished **lead**, once. From then on the center is
+never asked again: Delivery must work from what it recorded. *Proposed.*
 
 The contexts beyond delivery (accounts, usage and billing, terms), the
 **hand-off** as an aggregate of its own, and the order features are built in are
@@ -75,7 +81,7 @@ A recorded call, unchangeable. Its identity travels with every **delivery** and
 **resend**, so a destination that sees the same lead twice can recognise it.
 
 - Belongs to one **firm**. Is a production lead or a **test lead**, never both.
-- Carries the call type as the firm named it; its **call category** is derived, not stored by Intake.
+- Carries the call type as the firm named it; its **call category** is derived, not stored by the call center.
 - A **hang-up** is a lead like any other; whether a destination can take it is the destination's question.
 
 ### Destination
@@ -84,7 +90,7 @@ One place a firm's leads go. The aggregate root for everything about that place.
 
 - Holds: **destination kind**, a **connection** (present or not, fingerprint), the live **revision** (routing rule and mapping), a draft revision if one is being prepared, its state, and its **failure streak**.
 - State: Setting up → **Live**, and from Live to **Paused**, **Needs reconnection** or **Switched off** (section 4).
-- Changes to the routing rule or mapping create a new revision; a revision goes live only through the setup or change-request workflow in RFC-001.
+- Changes to the routing rule or mapping create a new revision; a revision goes live only through the approved setup or change-request workflow.
 
 ### Delivery
 
@@ -99,10 +105,11 @@ One lead to one destination. Owns its **attempts**.
 
 ```mermaid
 sequenceDiagram
-  participant I as Intake
+  participant I as Call center
   participant D as Delivery
   participant X as Destination
-  I->>D: Lead recorded (one transaction with its planned deliveries)
+  I->>D: Lead published
+  D->>D: Lead recorded (one transaction with its planned deliveries)
   D->>D: For each destination of the firm: route, check, plan
   Note over D: Not sent (routing / lead problem)<br/>Held (paused, needs reconnection)<br/>Queued (everything else)
   D->>X: Attempt 1
@@ -117,7 +124,8 @@ sequenceDiagram
   end
 ```
 
-1. **Recorded.** The lead is saved before anything is sent, together with one
+1. **Recorded.** The journey starts when the call center publishes the lead
+   (*Proposed*). The lead is saved before anything is sent, together with one
    planned delivery per destination, in one transaction. Nothing can be lost
    between "we took the call" and "we tried to deliver it". *Lab. Production
    saves the lead, then posts inline in the same request.*
@@ -192,11 +200,11 @@ stateDiagram-v2
   SwitchedOff --> Live: operator reactivates after a fix
 ```
 
-| Model state | Lab | Production (api-2) |
+| Model state | Lab | Production |
 |---|---|---|
-| Setting up | Setup not live; test leads only | Not modelled: a CRM row is enabled or not |
-| Live | `status=active`, `enabled` | `enabled=true` |
-| Paused | `enabled=false` with `pausedAt`: new leads and deliveries already waiting are held and sent on resume. `enabled=false` without it is *off in source*: no deliveries | `enabled=false` (leads get no record) |
+| Setting up | Setup not live; test leads only | Not modelled: a CRM is enabled or not |
+| Live | `status=active`, `enabled` | Enabled |
+| Paused | `enabled=false` with `pausedAt`: new leads and deliveries already waiting are held and sent on resume. `enabled=false` without it is *off in source*: no deliveries | Disabled (leads get no record) |
 | Needs reconnection | `status=needs-reconnection` at the first 401, 403 or 410: leads held, streak untouched; the firm reconnects (lab: reactivate) and held leads are sent | Not modelled; token-refresh jobs run separately |
 | Switched off | `disabled` after 5 failures in a row | Not modelled; one global alert |
 
@@ -223,13 +231,13 @@ record afterwards: the most serious outcome, shown first.
 
 - *Production:* if the lead's call type is not one of the firm's active call types (or the firm has none), the lead goes to none of its CRMs. It compares after trimming `" ,.;:-*"` from the ends and lowercasing, so "Personal-Injury" and "Personal Injury" differ.
 - *Lab:* the routing rule is per destination and by **call category**: the categories it takes, optionally narrowed to practice areas for new matters ([RFC-009](../rfc/009_routing_by_category.md)). Each destination decides on its own; no order, no first match. A destination with no rule takes every lead, except a CRM, which keeps the legacy rule (the firm's active call types, ignoring all punctuation) until it has one.
-- *Lab:* an imported CRM's rule is **seeded** from its firm's active call types, so nothing it receives changes: 118 of 122 active CRM firms get "new matters". A firm whose active call types split a category keeps the legacy rule and is listed in the import notes for review. A rule already on a destination is never overwritten by an import.
+- *Lab:* an imported CRM's rule is **seeded** from its firm's active call types, so nothing it receives changes: 118 of 122 active CRM firms get "new matters" (in a read-only copy of the legacy system's data). A firm whose active call types split a category keeps the legacy rule and is listed in the import notes for review. A rule already on a destination is never overwritten by an import.
 - *Production and Lab:* a destination can refuse chat leads.
-- *Proposed:* the rule lives in the destination's revision and changes only by approval (RFC-001); uncertain classifications route wide ([RFC-008 §6.1](../rfc/008_delivery_guarantees_and_evidence.md#61-each-action-decides-on-its-own-terms)).
+- *Proposed:* the rule lives in the destination's revision and changes only by approval; uncertain classifications route wide ([RFC-008 §6.1](../rfc/008_delivery_guarantees_and_evidence.md#61-each-action-decides-on-its-own-terms)).
 
 ### Retry
 
-*Lab, from webhook-lab:*
+*Lab:*
 
 | Answer | Class | What happens |
 |---|---|---|
@@ -273,7 +281,7 @@ its client. Holding and retrying protect the **record**; they do nothing for the
   Both are set by Answering AI, not by firms, in [delivery-timing.json](delivery-timing.json)
   ([answers](answers.md#speed-window-to-act-fallback-holding)).
 
-- **The hand-off never waits for the record.** The hand-off goes to the firm's **fallback** **at once** when the destination that does it is paused or needs reconnection (its delivery is **held**), and **once its fallback delay has passed** (1 hour; 15 minutes for emergencies and custody) when nothing has been accepted yet, still retrying or refused. The fallback runs on **its own clock**, separate from the window to act ([answers](answers.md#speed-window-to-act-fallback-holding)). The fallback is a destination the firm agreed in its approved setup, usually email or SMS to its intake staff, marked "sent by fallback: {destination} unavailable". RFC-001 forbids silent rerouting, so a fallback is always pre-agreed and always shown.
+- **The hand-off never waits for the record.** The hand-off goes to the firm's **fallback** **at once** when the destination that does it is paused or needs reconnection (its delivery is **held**), and **once its fallback delay has passed** (1 hour; 15 minutes for emergencies and custody) when nothing has been accepted yet, still retrying or refused. The fallback runs on **its own clock**, separate from the window to act ([answers](answers.md#speed-window-to-act-fallback-holding)). The fallback is a destination the firm agreed in its approved setup, usually email or SMS to its intake staff, marked "sent by fallback: {destination} unavailable". Nothing is rerouted silently, so a fallback is always pre-agreed and always shown.
 - **The record carries on.** Retries continue on their schedule and held deliveries are sent when the destination returns, with the lead's original time. A lead past its window is marked late there and must never appear as a fresh lead (in a CRM, never a new "call back now" task).
 - **An expired lead is the most serious event.** A lead whose window passed with no accepted hand-off goes to the top of the Delivery Center and alerts an operator, who tells the firm.
 
@@ -306,7 +314,8 @@ These must hold whatever the implementation.
 
 | Event | Raised by | Used for |
 |---|---|---|
-| LeadRecorded | Intake → Delivery | Planning deliveries |
+| LeadPublished | Call center → Delivery (*Proposed*: through the center's versioned contract) | Recording the lead |
+| LeadRecorded | Delivery | Planning deliveries |
 | DeliveryPlanned / NotSent / Held | Delivery | Lead page, Delivery Center |
 | AttemptMade | Delivery | Attempt history, received log |
 | DeliveryAccepted | Delivery | Outcome, resets the failure streak |

@@ -2,9 +2,16 @@
 
 MVP for agreeing which lead-delivery integrations Answering AI supports, and
 proving each one end to end. F# backend + SQLite (`backend/`), Vite + React +
-TypeScript frontend (`frontend/`). Design: RFC-001 in
-`../airi/webhook-lab/docs/rfc/001_lead_delivery_and_client_integration.md`.
+TypeScript frontend (`frontend/`).
 
+- **The call center (`../call-center-lab`) is the source of truth.** It owns every
+  interaction and publishes the lead, follow-up progress and usage evidence through
+  its versioned contracts; delivery, categories, billing and terms here are built on
+  top of it and integrate through them (README, "Where this sits"). Never keep a
+  second copy of what happened on a call.
+- **Docs are generic.** Never name legacy internal systems or repositories, their
+  file paths, tables or commands; say "the legacy system" and describe the behaviour.
+  Record ideas as reasoning, not as references to where they came from.
 - `docs/api.md` is the contract between backend and frontend. Change it first.
 - Domain words are in `GLOSSARY.md` (model and operator workflows in
   `docs/lead-delivery/`). Use them in code, UI and docs; update the glossary
@@ -14,7 +21,7 @@ TypeScript frontend (`frontend/`). Design: RFC-001 in
   and regenerate `docs/vision-meeting/` with `python tools/capture_vision_deck.py`
   if a screen in it changed. Decisions live only in `docs/lead-delivery/answers.md`,
   direction and roadmap in `strategy.md`, proposals for approval in `docs/rfc/`; state each fact in one place and link to it.
-- Backend style follows `../chatbot/backend-fsharp`: Oxpecker, plain SQL,
+- Backend style: Oxpecker, plain SQL,
   Expecto tests, `TreatWarningsAsErrors`. F# compiles in file order.
 - Backend: `cd backend && dotnet run --project src/Api` (port 5080) ·
   tests: `dotnet run --project tests/Tests --artifacts-path ../.testbuild` (the running API locks `bin/`) · import: `dotnet run --project src/Import -- all`
@@ -28,7 +35,7 @@ TypeScript frontend (`frontend/`). Design: RFC-001 in
   offsets: billing on the company's zone, a firm's hours and dates on its own.
 - **No caller PII.** Leads are synthetic; importers read lead rows for intake
   *labels* only. `backend/data/` (real firm names) is git-ignored.
-- The api-2 import is read-only (`default_transaction_read_only`). Keep it so.
+- The legacy import is read-only (`default_transaction_read_only`). Keep it so.
 - A new integration kind = a row in `Catalog.fs` + a builder in `Payloads.fs`;
   the "every catalog kind builds a body its receiver accepts" test enforces it.
 - Call categories: rules in `docs/call-categories/taxonomy.json`, embedded into

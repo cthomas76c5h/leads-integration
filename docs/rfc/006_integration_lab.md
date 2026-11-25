@@ -44,7 +44,7 @@ Approve:
 
 | Part | What it does |
 |---|---|
-| **Importers** | Read firms, destinations and call types from api-2 (read-only), the chat system and the client portal. Every secret is reduced to "present" and a fingerprint the moment it is read |
+| **Legacy importer** (`backend/src/Import/`) | Reads firms, destinations and call types from the legacy systems (read-only), today's only source of evidence. Every secret is reduced to "present" and a fingerprint the moment it is read. In the target, these come from the call center through its contracts (Proposed; [where this sits](../../README.md#where-this-sits)) |
 | **Delivery engine** | The proposed model: record first, one delivery per destination, retries, failure classes, switch-off, resend, window to act and fallback (RFC-001) |
 | **Fake receivers** | One per CRM kind, checking what that CRM requires, with modes: accepts, refuses, flaky, gone, slow, down. Imported connections only ever deliver here |
 | **Simulator** | A deterministic week of leads through the same rules as the engine, with scenarios for every operator situation: an outage that recovers, a dead endpoint switched off, an expired sign-in, a mapping gap fixed and resent, a paused destination, routing decisions, an outage with and without a fallback |
@@ -58,7 +58,7 @@ Rules that hold in the lab and must hold in production:
 
 - **Credentials are never stored or shown.**
 - **No caller information:** leads are synthetic; imports read call types for labels only.
-- **The production import is read-only** at the database session level.
+- **The legacy import is read-only** at the database session level.
 - **Real firm names never leave the machine;** decks use fictional names.
 
 ---

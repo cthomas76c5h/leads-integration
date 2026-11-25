@@ -18,12 +18,17 @@ The short version for leadership is [the leadership brief](leadership-brief.md).
 
 We do not have a technology gap. We have a product, ownership and commercial gap.
 
-Most of what firms need already exists somewhere in the company. The AI voice platform
-follows each firm's rules, involves a person when needed, records every call and
+Most of what firms need already exists somewhere in the company. The existing AI voice
+system follows each firm's rules, involves a person when needed, records every call and
 delivers leads with retries and a reconciliation sweep, though whether production runs
 the sweep is not yet verified (see "Straight away"). The human service still serves
 most firms. Several other
 projects overlap them, and nobody owns the caller's whole journey across all of it.
+
+The plan builds on the call center as the source of truth: it owns every interaction,
+AI or person, and what each produced, and delivery, billing, call categories and
+reports integrate with it through its contracts (Proposed; see
+[where this sits](../../README.md#where-this-sits)).
 
 So the question for the year is not what to build next. It is **how to turn what we
 already have into the most dependable intake service for the firms we already serve.**
@@ -111,8 +116,8 @@ firms), and by practice area and how they are served. Rank segments by contribut
 margin, never by revenue or call volume alone. Start with the busiest firms, alongside
 a fair sample of smaller ones: the most valuable firms may be the ones combining
 volume, high expectations and good margins, not simply the busiest. The data lives in
-the billing system, the legacy answering platform and the voice platform, so it needs
-their owners.
+the billing system and the legacy systems that answer calls today, so it needs their
+owners.
 
 The question it answers: **which segment gives us the best chance to improve quality and
 economics at the same time, serving firms better with AI and people together, without
@@ -125,21 +130,21 @@ different mixes of AI and people.
 
 - Fix the security issues the review turned up.
 - Name one accountable owner for the caller's whole journey: voice, chat, human reception and delivery.
-- **Verify production delivery.** The voice platform has retries, a reconciliation sweep and a staff retry, but the sweep and the staff retry are off by default, and nothing records whether production has them on. Confirm the deployed settings, how failures become visible, and who acts on them; do the same for the legacy and human-service delivery paths. The absence of complaints does not prove delivery works.
-- Pause new work that overlaps the voice platform, without throwing anything away yet.
+- **Verify production delivery.** The existing AI voice system has retries, a reconciliation sweep and a staff retry, but the sweep and the staff retry are off by default, and nothing records whether production has them on. Confirm the deployed settings, how failures become visible, and who acts on them; do the same for the older and human-service delivery paths. The absence of complaints does not prove delivery works.
+- Pause new work that duplicates what the call center owns, without throwing anything away yet.
 
 **First**
 
 - Build the customer-segment contribution-margin analysis.
 - Talk to customers: current firms, recent cancellations, and firms that turned down the AI service. Why they bought, what they value, why they leave, and which calls they trust to AI. What we know about firms is not recent, so this comes first.
-- Assess the voice platform against explicit operational, quality and economic acceptance criteria (see the first quarter below), so it is not chosen just because it exists.
+- Assess the call center's readiness against explicit operational, quality and economic acceptance criteria (see the first quarter below), so it is not accepted just because it is the plan.
 - Validate quality checking against independently reviewed real conversations, then expand coverage.
 - Agree callback ownership and escalation rules with firms, then implement and measure them. The firm controls whether its people act, so the rule must be the firm's.
 - Try consultation booking with a few firms: it is already built and aimed at a top complaint.
 
 **Next**
 
-- One shared description of a lead across voice, chat and the human service.
+- One shared description of a lead, published by the call center, across voice, chat and the human service.
 - Firm rules with a history of changes, approved by the firm.
 
 **Later**
@@ -182,7 +187,7 @@ Finishing the work does not earn the next step; the evidence does.
 
 | Quarter | The question | Evidence required | Decision |
 |---|---|---|---|
-| First | Is the voice platform the right foundation, and where is the money? | Current economics by segment, customer discovery, delivery baselines, and the voice platform's readiness against operational, quality and economic criteria: ready for production, matching what firms rely on today, with someone running it | Choose target segments; accept or reject the voice platform as the foundation |
+| First | Is the call center the right foundation, and where is the money? | Current economics by segment, customer discovery, delivery baselines, and the call center's readiness against operational, quality and economic criteria: ready for production, matching what firms rely on today, with someone running it | Choose target segments; confirm the call center as the foundation, or revise the plan |
 | Second | Is the improved service better than today's? | Independently validated quality improvements, callback outcomes, cost compared with today | Expand, revise or stop each pilot |
 | Third | Which customers and features justify a higher price? | Actual willingness to pay, retention evidence, contribution margin | Approve packaging and pricing |
 | Fourth | What do we scale, move across, or retire? | Repeatable quality, reliability, margins, and customers accepting the move | Scale selectively, keep hybrid arrangements, or retire systems |
@@ -201,10 +206,10 @@ financial model. Setting them before that would be guessing.
 
 ## What we ask leadership to decide
 
-For the direction above (dependable intake by AI and people together, built on what we
-already have):
+For the direction above (dependable intake by AI and people together, built on the call
+center as the source of truth):
 
-1. **Authorise a focused first-quarter validation effort:** the economics by segment, customer discovery, production delivery verification, the platform assessment and the chat pilot.
+1. **Authorise a focused first-quarter validation effort:** the economics by segment, customer discovery, production delivery verification, the call center assessment and the chat pilot.
 2. **Appoint one accountable owner** for the caller's whole journey.
 3. **Agree in advance what evidence permits further investment,** using the quarterly gates and the pilots' scorecard.
 
@@ -212,7 +217,7 @@ already have):
 |---|---|
 | **The customer problem and proposition** | Clear and ready to present |
 | **The strategic direction** | A strong hypothesis, supported by historical evidence; needs current customer and production validation |
-| **Authorising a substantial engineering roadmap** | Not yet: needs baselines, owners, verified platform readiness and pilot results |
+| **Authorising a substantial engineering roadmap** | Not yet: needs baselines, owners, verified call center readiness and pilot results |
 
 Bringing the systems together is the means, not the goal: on its own, it does not make
 a product firms want.

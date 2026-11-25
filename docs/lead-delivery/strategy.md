@@ -12,12 +12,13 @@ what we still assume.
 | What building the lab taught us about the product | [lessons.md](lessons.md) |
 | The model the roadmap builds | [README.md](README.md), and for the whole product [RFC-007](../rfc/007_domain_model_and_build_order.md) |
 | Each slice of the build, its tasks and effort | [RFC-007 §8](../rfc/007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices) |
-| How production works today, and its gaps against the model | [production-today.md](production-today.md) |
+| Where delivery sits: built on the call center, the source of truth | [README, where this sits](../../README.md#where-this-sits) |
+| How the legacy system works today, and its gaps against the model | [production-today.md](production-today.md) |
 | The case for call categories | [why-it-matters.md](../call-categories/why-it-matters.md) |
 | Billing and terms of service | [billing](../billing/strategy.md), [terms](../terms/strategy.md) |
 | The version for leadership | [vision-meeting/](../vision-meeting/README.md) and its [one-page summary](../vision-meeting/summary.md) |
 
-**How this was formed.** From the code of the source systems and a development
+**How this was formed.** From the legacy systems' code and a development
 copy of their data, through this lab; not from conversations with firms or the
 operations team. Its CRM deliveries are mostly test traffic; its leads and calls are
 production-scale for January to May 2024, and what they show about how firms use us
@@ -81,8 +82,8 @@ The answer to each is in [answers.md](answers.md).
 ### 2.7 Nobody owns the lead end to end
 
 - **Day to day:** each team fixes what reaches it.
-- **Underneath:** the systems grew one at a time: api-2, the chatbot, airi, the portals, voice. Fires are fixed where they surface, so the same problems return in different systems. Nobody owns a lead's whole life, from call to classification to delivery to proof. The root cause is not technical.
-- **Firms experience:** the result depends on which system the lead went through. Voice, chat, api-2 and the portals each have their own lead shape, keys and delivery code; 18 chatbot firms share 4 keys.
+- **Underneath:** the legacy systems grew one at a time, one per channel or product. Fires are fixed where they surface, so the same problems return in different systems. Nobody owns a lead's whole life, from call to classification to delivery to proof. The root cause is not technical, but the fix needs one source of truth: the call center ([where this sits](../../README.md#where-this-sits)).
+- **Firms experience:** the result depends on which system the lead went through. Each legacy channel has its own lead shape, keys and delivery code; in one, 18 firms share 4 keys.
 
 ### 2.8 A lead's value expires; holding it is not enough
 
@@ -130,24 +131,25 @@ with a public contract, reaching firms through the tools they already use.
 **Product**
 
 - **Proof of delivery shown to firms:** every lead, where it went, whether it was accepted and in time, in the firm's portal and a weekly report.
-- **Self-serve setup and changes, with approval** (RFC-001 sections 4–6).
+- **Self-serve setup and changes, with approval.**
 - **Call categories as the language of a call,** standard across firms, with each firm's own label kept.
 - **A vertical-neutral core with vertical packs:** lead, call category and delivery are shared; practice areas (legal) or service lines (trades) sit on top.
 - **A suite firms move up through:** Answer, Deliver, Insight ([billing](../billing/strategy.md#2-packaging-the-suite-in-three-tiers)).
 
 **Platform**
 
-- **One lead model and one delivery service** that every channel uses. Voice, chat and the portals become clients of it, not owners of their own copies. The model is in [README.md](README.md); the words are in [GLOSSARY.md](../../GLOSSARY.md).
+- **The call center as the source of truth.** Every conversation, whatever the channel or handler, is the center's, and so is the lead it produces, in one shape. Delivery, categories, billing and the portal are built on top of it and read it through its contracts; none keeps its own copy ([where this sits](../../README.md#where-this-sits)).
+- **One lead model and one delivery service** for every lead the center publishes. The model is in [README.md](README.md); the words are in [GLOSSARY.md](../../GLOSSARY.md).
 - **A public, versioned contract:** the lead schema, plus signed webhooks with retries and replay. Zapier sits on top of it and covers the long tail, so a new tool no longer means a new handler.
 - **A few deep native integrations, certified with their vendors,** chosen from real usage and described as catalog and mapping data, not code per CRM.
 - **Trust as a feature:** credentials never stored (already a rule here), minimal data, audit trails, and in time a recognised security certification such as SOC 2.
 
 **Engineering: build from the domain, slice by slice**
 
-1. **Agree the contract first:** the lead schema and delivery states ([api.md](../api.md), [README.md](README.md)).
+1. **Agree the contracts first:** the lead the call center publishes, and the delivery states ([api.md](../api.md), [README.md](README.md)).
 2. **Build the slices in order** ([RFC-007 §8](../rfc/007_domain_model_and_build_order.md#8-build-order-thirteen-vertical-slices)), each usable on its own and done only when its scenarios pass.
 3. **Hold every implementation to the same guarantees and checks:** [RFC-007 §6](../rfc/007_domain_model_and_build_order.md#6-what-any-implementation-must-guarantee) and the [contract files](../contracts/README.md), whatever its language.
-4. **Move firms and channels onto it one at a time,** behind a flag per firm; exactly one system sends a firm's leads.
+4. **Move firms onto it one at a time,** as the call center takes their calls, behind a flag per firm; exactly one system sends a firm's leads.
 5. **Retire each old path** once its firms have moved.
 
 ### 4.3 Sequence
@@ -174,23 +176,25 @@ section says what each milestone gives and why it comes in this order.
 ```mermaid
 flowchart LR
   M["Measure<br/>production feed"] --> R["1. Reliable delivery<br/>slices 0–3"] --> T["2. In time,<br/>with approval<br/>slices 4–6"] --> P["3. Proof, CRMs,<br/>classification<br/>slices 7–9"] --> B["4. Billing<br/>and terms<br/>slices 10–11"] --> S["5. Self-serve<br/>and platform<br/>slice 12"]
-  E["Conversation engine<br/>(own track)"] -.-> P
+  E["Call center<br/>(source of truth, own track)"] -.-> R
 ```
 
 | Milestone | Slices | What firms and operators get | Why this order |
 |---|---|---|---|
 | **Measure** | Alongside slice 0 | The read-only production feed ([RFC-006](../rfc/006_integration_lab.md)): real loss, CRM usage, the call mix, call lengths | Replaces this document's assumptions with numbers that size the slices: how many CRMs slice 7 needs, the windows slice 6 uses, the free-call rules slice 10 applies |
-| **1. Reliable delivery** | 0–3 | Real conversations taken in from today's chat and voice systems from the start; every lead recorded before it is sent; every destination gets a decision with a reason; retries, failure classes, destinations stopped and needing reconnection; resend; the Delivery Center and an alert per destination; one CRM certified end to end; firm isolation enforced from the first slice | Stops silent loss, the main risk; everything later is measured on deliveries that always end in a recorded state |
+| **1. Reliable delivery** | 0–3 | Leads taken from the call center's lead contract from the start (until it publishes one, from the legacy systems behind an adapter, so nothing downstream changes when it does); every lead recorded before it is sent; every destination gets a decision with a reason; retries, failure classes, destinations stopped and needing reconnection; resend; the Delivery Center and an alert per destination; one CRM certified end to end; firm isolation enforced from the first slice | Stops silent loss, the main risk; everything later is measured on deliveries that always end in a recorded state |
 | **2. In time, with approval** | 4–6 | Call categories as the language of a call; routing by category; nothing a firm receives changes without its approval; the window to act, the fallback and held deliveries; proof of hand-off at two levels, accepted and confirmed, with escalation for emergencies | The product firms buy: every new client reaching a person in time. Fallback needs an approved revision, and windows need the taxonomy |
-| **3. Proof, CRMs and classification** | 7–9 | The other CRMs firms use, chosen by demand and sandbox evidence; proof of delivery and the weekly report in the firm portal; Answering AI classifying each call as it takes it | Proof earns the trust self-serve depends on; classification at intake needs the conversation engine |
-| **4. Billing and terms** | 10–11 | Billing per handled conversation with free-call rules, shadow bills beside the old ones; terms versions asked only of the users they concern | Billing reads conversations and the category set at intake |
+| **3. Proof, CRMs and classification** | 7–9 | The other CRMs firms use, chosen by demand and sandbox evidence; proof of delivery and the weekly report in the firm portal; Answering AI classifying each call as it takes it | Proof earns the trust self-serve depends on; classification at intake needs the call center to carry the category on its lead |
+| **4. Billing and terms** | 10–11 | Billing per handled conversation with free-call rules, shadow bills beside the old ones; terms versions asked only of the users they concern | Billing reads the call center's usage evidence and the category set at intake |
 | **5. Self-serve and platform** | 12 | Firms connect and approve destinations themselves; a published contract for other software; Zapier; benchmarks; a trades package | Builds on reliable, provable delivery; reduces onboarding and support load |
 
-The conversation engine (the AI that takes calls and chats, one engine for both)
-is a track of its own; milestones 1 and 2 run on real conversations taken in
-from today's channels and do not wait for it. The guarantees each milestone must
+The call center (`../call-center-lab`: people and the AI answering calls and chats,
+one record for both) is a track of its own and the source of truth every milestone
+builds on. Milestones 1 and 2 take its lead contract as their input and, until it
+is live, an adapter over the legacy systems in the same shape, so they do not wait
+for it. The guarantees each milestone must
 prove, and the failure scenarios that gate production, are in
-[RFC-008](../rfc/008_delivery_guarantees_and_evidence.md). Today's systems and their gaps against the model are recorded in
+[RFC-008](../rfc/008_delivery_guarantees_and_evidence.md). The legacy systems and their gaps against the model are recorded in
 [production-today.md](production-today.md) as evidence, not as a plan.
 
 **The lab's role throughout:** prove each slice against its scenarios
@@ -205,7 +209,7 @@ up there first. What the lab still cannot prove is in [lessons.md](lessons.md).
   | Responsibility | Owner |
   |---|---|
   | Every lead from call to hand-off to proof; daily delivery health | Lead delivery owner (Operations) |
-  | Destination setup and change requests (RFC-001 workflow) | Onboarding |
+  | Destination setup and change requests | Onboarding |
   | Our-fault failures, receivers that change behaviour | Engineering, on call |
   | Reconnecting a destination (sign in again, new key or hook) | Firm contact, from a reconnect link |
 
@@ -249,7 +253,7 @@ acquirer's diligence.
 |---|---|---|
 | **Call categories** | 4,390 names reduce to about a dozen categories; 99.8% of active call types are new matters; the F# and Python rules agree on the same reference leads | How calls really split across categories (the simulator's mix is invented): the production feed. Whether firms accept the mapping and value seeing their calls as matters: show five firms their own report. What to do with staff names: a staff directory ([answers](answers.md#call-categories)) |
 | **Delivery model** | Record first, one delivery per destination, retry transient failures, stop on 401/403/410, failure classes, resend under the same lead identity: established webhook practice, exercised on every path by the simulated week | Real failure rates (the copy shows 43% of 476 CRM deliveries failed, mostly test traffic): the production feed, then the first slices' own delivery records |
-| **Production today** | The gaps, read from the api-2 source: one attempt; routing leaves no record; every exception is "500"; one global alert | How many leads they lose, and whether the possible double-post path is live: the production feed |
+| **Production today** | The gaps, read from the legacy delivery code: one attempt; routing leaves no record; every exception is "500"; one global alert | How many leads they lose, and whether the possible double-post path is live: the production feed |
 | **Integrations** | Which kinds have working builders | That CRM delivery is rare (2.4): enabled destinations and accepted deliveries per CRM in the production feed |
 | **Speed** | Lateness loses clients in law | The starting windows to act: ask firms; measure call-to-first-contact where firms record it |
 | **Routing** | The default rule reproduces today's CRM routing at 118 of 122 active CRM firms; each of the other four is a single firm decision ([RFC-009 §2.2](../rfc/009_routing_by_category.md#22-what-the-equivalence-check-found)) | The same check weighted by leads, on the production feed. That firms want "new matters to the CRM, the rest by email": ask five firms |

@@ -151,7 +151,7 @@ Every timestamp is UTC milliseconds; delivery rules are elapsed durations and ne
 
 ## 6. Where the lab's data comes from
 
-- **Firms and destinations:** the importers (`backend/src/Import/`: `Api2.fs`, `Chatbot.fs`, `Airi.fs`) → `Import.apply`. Secrets are reduced to presence and a fingerprint in `Import.credential`; import findings come from `Issues.compute`.
+- **Firms and destinations:** the legacy importers ([backend/src/Import/](../../backend/src/Import/)) read the legacy systems' data → `Import.apply`. Today the lab imports legacy data; the lead will come from the call center ([Proposed](../../README.md#where-this-sits)). Secrets are reduced to presence and a fingerprint in `Import.credential`; import findings come from `Issues.compute`.
 - **Call types → call categories:** `Categories.classify`, from `docs/call-categories/taxonomy.json` (see [call-categories](../call-categories/README.md)).
 - **Synthetic leads:** `Seed.lead` and `Seed.run`, which go through `Dispatch.publish` like real leads.
 - **A simulated week:** `Simulate.run`. It replaces delivery history without sending anything: its own `Publish` and `send` steps, but the same `Routing.decide`, `buildFor`, `FakeCrm.checkWith`, `Policy.classify` and `Dispatch.transition` as the worker. Its `scenarios` list is a catalogue of operator situations, each with a `Story`.

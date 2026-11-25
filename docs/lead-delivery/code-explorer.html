@@ -233,7 +233,7 @@ const TABLES = {
     id: "firm_…", name: "fictional in demos (DemoNames)", contact_types: "JSON: the firm's call types; active ones route its CRMs",
     custom_labels: "intake question labels, for synthetic leads", time_zone: "IANA name: office hours and the dates the firm reads",
     key_hash: "salted hash of the platform key: matches one firm across source systems" } },
-  firm_sources: { g: "config", x: 40, y: 250, means: "Where a firm came from", fields: { system: "api2 | chatbot | airi | manual", source_id: "its id there", firm_id: "→ firms" } },
+  firm_sources: { g: "config", x: 40, y: 250, means: "Where a firm came from", fields: { system: "a legacy source | manual", source_id: "its id there", firm_id: "→ firms" } },
   import_runs: { g: "config", x: 40, y: 330, means: "Each importer run", fields: { system: "which source", firms: "how many", connections: "how many", notes: "what was skipped and why" } },
   connections: { g: "config", x: 40, y: 120, means: "A destination", fields: {
     kind: "catalog kind (Catalog.fs): clio-grow, email, webhook…", delivery_url: "where requests go (in the lab: a fake receiver)",
@@ -494,8 +494,8 @@ const FLOWS = [
     steps: [["Billing.cycleOf", "Core/Billing.fs ← Zones.fs", "The cycle on the company calendar (America/New_York, daylight saving included).", []],
       ["Billing.conversations + rules", "Core/Billing.fs", "Each conversation billable or free by a named rule (the lab builds them from leads; RFC-007 moves this to conversations).", []],
       ["Billing.rate → statement", "Core/Billing.fs", "Plan segments, included, overage, lines. A closed cycle is rated once and locked.", ["invoices"]]] },
-  { id: "import", name: "Import source systems", input: "dotnet run --project src/Import -- all (read-only)", output: "firms and destinations, shape only", touches: ["firms", "firm_sources", "connections", "import_runs"],
-    steps: [["Importers: Api2, Chatbot, Airi", "Import/*.fs", "Read each source; a secret becomes present + fingerprint the moment it is read (Secrets.fs).", []],
+  { id: "import", name: "Import legacy data", input: "dotnet run --project src/Import -- all (read-only)", output: "firms and destinations, shape only", touches: ["firms", "firm_sources", "connections", "import_runs"],
+    steps: [["Legacy importers", "Import/*.fs", "Read each legacy source (the lead will come from the call center: Proposed); a secret becomes present + fingerprint the moment it is read (Secrets.fs).", []],
       ["Import.apply", "Core/Import.fs", "Upserts firms by source, matches firms across systems, writes connections pointing at the fake receivers.", ["firms", "firm_sources", "connections", "import_runs"]]] },
 ];
 let flowId = "send";

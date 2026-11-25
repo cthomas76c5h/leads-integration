@@ -131,7 +131,7 @@ approved credit. **Fair use:** a conversation over 20 minutes counts as two.
 
 ```mermaid
 flowchart LR
-  C["Calls and chats"] --> U["Usage record<br/>append-only"]
+  C["Call center<br/>usage evidence"] --> U["Usage record<br/>append-only"]
   P["Price book<br/>versioned"] --> R["Rating<br/>deterministic"]
   S["Subscriptions<br/>effective-dated"] --> R
   U --> R --> I["Invoice and statement"]
@@ -140,7 +140,7 @@ flowchart LR
   I --> B["Payments, tax,<br/>collections (bought)"]
 ```
 
-- **Usage record:** one row per conversation, written when it ends, never edited: firm, channel, times, category and practice area, billable or not with the rule and version, the lead and its hand-off, the price-book version. The same record feeds delivery, the firm report and billing.
+- **Usage record:** one row per conversation, from the usage evidence the call center publishes when it ends, never edited: firm, channel, times, category and practice area, billable or not with the rule and version, the lead and its hand-off, the price-book version. The call center is the source of truth ([where this sits](../../README.md#where-this-sits)); delivery, the firm report and billing all read its records, and none keeps its own copy of a call.
 - **Price book:** plans, included volumes, rates, add-ons and fair-use rules as versioned entries; a change is a new version, never an edit.
 - **Subscriptions:** which plan version a firm is on, from when, with which approved discounts; each discount has a reason, an approver and an end date.
 - **Rating:** a pure function of (usage, subscription, price book) → invoice lines. Same inputs, same invoice.
@@ -165,7 +165,7 @@ need approval by someone other than their author.
 ## 6. Technical Approach
 
 - **Buy** a subscription billing platform for invoicing, payments, tax, dunning and collections: commodities that auditors know.
-- **Build** the usage record, free-call rules and rating inputs with the lead platform: they depend on call categories and hand-off data (RFC-002, RFC-005).
+- **Build** the usage record, free-call rules and rating inputs on the call center's usage evidence (a Proposed integration): they depend on call categories and hand-off data (RFC-002, RFC-005).
 - **One system of record per billing field** (plan, price, cycle anchor, category), written down; imports seed once, edits happen only there.
 - **The billing API states its conventions:** cycles are [from, to); filters by cycle day.
 

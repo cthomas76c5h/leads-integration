@@ -8,8 +8,8 @@ The principle (RFC-001): **the system handles normal deliveries by itself;
 operators handle exceptions.** Every workflow follows
 **Spot → Diagnose → Fix → Resend → Verify**, and every action is recorded.
 
-Screens named below are the lab's (`http://localhost:5080`). Where production
-(api-2) differs, see [production-today.md](production-today.md). Where each
+Screens named below are the lab's (`http://localhost:5080`). Where the system
+in production today differs, see [production-today.md](production-today.md). Where each
 screen and action lives in the code: [code-map.md](code-map.md).
 
 ## Who does what
@@ -23,8 +23,8 @@ screen and action lives in the code: [code-map.md](code-map.md).
 
 ## Screens
 
-The console's design came from the stakeholder walkthrough
-(`../airi/webhook-lab/docs/meeting-screenshots/`) and what a simulated week
+The console's design came from a stakeholder walkthrough of an earlier
+prototype and what a simulated week
 showed ([lessons §4](lessons.md#4-problems-only-show-up-across-many-leads)).
 
 ### Principles
