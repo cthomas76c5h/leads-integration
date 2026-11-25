@@ -43,7 +43,9 @@ each was recognised as already recorded.
 
 1. The body is parsed and checked against the contract's schema
    ([LeadContract.fs](../../../backend/src/Core/LeadContract.fs): the keywords the schema uses,
-   and a refusal for any it doesn't, so a new draft can't be half-checked). The category and
+   and a refusal for any it doesn't, so a new draft can't be half-checked). **A tolerant
+   reader:** a field this copy of the schema doesn't know is accepted and kept in the payload as
+   sent, because contracts change additively while in use; every field it knows is checked. The category and
    practice area must be in the taxonomy. Any refusal is a **422** and records nothing.
 2. In one transaction ([Dispatch.ingest](../../../backend/src/Core/Dispatch.fs)):
    - `firm.id` is resolved through its **alias**; none is a 422;

@@ -165,8 +165,6 @@ let tests =
             Expect.stringContains (failsWith 422 (fun () -> Dispatch.ingest t.Db badEnum)) "$.conversation.channel" "the schema's enum"
             let badType = changed (personCall ()) [ "policy"; "revision" ] (str "one")
             Expect.stringContains (failsWith 422 (fun () -> Dispatch.ingest t.Db badType)) "$.policy.revision: expected integer" "the schema's type"
-            let extra = changed (personCall ()) [ "surprise" ] (num 1)
-            Expect.stringContains (failsWith 422 (fun () -> Dispatch.ingest t.Db extra)) "unexpected property surprise" "no extra fields"
             let missing =
                 let root = JsonNode.Parse(personCall ()).AsObject()
                 root.Remove "followUp" |> ignore
@@ -176,6 +174,20 @@ let tests =
             Expect.stringContains (failsWith 422 (fun () -> Dispatch.ingest t.Db category)) "not in the call-category taxonomy" "taxonomy"
             failsWith 422 (fun () -> Dispatch.ingest t.Db "{not json") |> ignore
             Expect.equal (counts t.Db) (0L, 0L, 0L) "nothing recorded"
+        }
+
+        test "a field the reader doesn't know is accepted and kept as sent; a known field is still checked" {
+            let t, _ = firmWithEmail ()
+            use _ = t
+            // A contract changed additively while in use (suite X-16).
+            let extra = changed (changed (personCall ()) [ "surprise" ] (num 1)) [ "conversation"; "handledBy" ] (str "person")
+            let r = Dispatch.ingest t.Db extra
+            Expect.isFalse r.Intake.Duplicate "recorded"
+            let kept = Db.read t.Db (fun s -> Store.tryLeadContract s r.Intake.Event.Id) |> Option.get
+            Expect.equal (kept.Payload.GetProperty("surprise").GetInt32()) 1 "kept as sent"
+            Expect.equal (kept.Payload.GetProperty("conversation").GetProperty("handledBy").GetString()) "person" "kept, nested too"
+            let wrong = changed (personCall ()) [ "conversation"; "id" ] (str "CC-other") |> fun p -> changed p [ "conversation"; "channel" ] (str "fax")
+            Expect.stringContains (failsWith 422 (fun () -> Dispatch.ingest t.Db wrong)) "$.conversation.channel" "a known field, checked"
         }
 
         test "the lead, its deliveries and its payload are written together or not at all" {

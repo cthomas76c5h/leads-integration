@@ -1,0 +1,90 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "contract-lead-new-field",
+  "story": "The call center publishes a lead carrying fields delivery doesn't know yet: a contract changed additively while in use. Delivery accepts it, keeps the new fields in the payload as sent, and delivers it. A field it does know, written wrongly, is still refused.",
+  "slice": 1,
+  "model": "lab",
+  "proves": [
+    "docs/contracts/intake-lead/README.md#what-happens-to-a-lead (a tolerant reader: fields it doesn't know are accepted and kept; fields it knows are checked)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A",
+        "canonicalId": "frm-n3w7f1e9"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "criminal",
+        "conversation": "call-9601",
+        "contract": {
+          "name": "intake-lead/draft-3",
+          "example": "draft-3-ai-new-criminal-matter",
+          "changes": {
+            "interactionSummary": "A field added after delivery's copy of the contract",
+            "conversation.handledBy": "person"
+          }
+        }
+      }
+    },
+    {
+      "at": "+1m",
+      "lead": {
+        "id": "lead-2",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "criminal",
+        "conversation": "call-9602",
+        "contract": {
+          "name": "intake-lead/draft-3",
+          "example": "draft-3-ai-new-criminal-matter",
+          "changes": { "conversation.channel": "fax" }
+        }
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+5m",
+      "capture": {
+        "lead": "lead-1",
+        "is": "recorded",
+        "channelTold": "recorded"
+      }
+    },
+    {
+      "at": "+5m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "accepted",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "capture": {
+        "lead": "lead-2",
+        "is": "not-recorded",
+        "channelTold": "refused"
+      }
+    }
+  ]
+}

@@ -61,8 +61,13 @@ let private shown (v: JsonElement) =
     if raw.Length > 40 then raw.Substring(0, 40) + "…" else raw
 
 /// Every way the instance breaks the schema, as "path: problem". The keywords the contract uses:
-/// $ref (to #/$defs), const, enum, type, required, properties, additionalProperties: false, items.
-/// A keyword outside that set fails loudly, so a new draft can't be half-checked.
+/// $ref (to #/$defs), const, enum, type, required, properties, items. A keyword outside that set
+/// fails loudly, so a new draft can't be half-checked.
+///
+/// A tolerant reader: `additionalProperties: false` is not enforced on receipt. Contracts change
+/// additively while in use (suite X-16), so a field this copy of the schema doesn't know is
+/// accepted and kept in the payload as sent; every field it does know is checked. The writer
+/// (intake's builder) is held to the strict schema by intake's conformance tests.
 let rec private check (root: JsonElement) (s: JsonElement) (path: string) (v: JsonElement) (errors: ResizeArray<string>) =
     for p in s.EnumerateObject() do
         match p.Name with
@@ -90,14 +95,6 @@ let rec private check (root: JsonElement) (s: JsonElement) (path: string) (v: Js
                 match v.TryGetProperty prop.Name with
                 | true, child -> check root prop.Value $"{path}.{prop.Name}" child errors
                 | _ -> ()
-        | "additionalProperties" when v.ValueKind = JsonValueKind.Object ->
-            if p.Value.ValueKind = JsonValueKind.False then
-                let known =
-                    match s.TryGetProperty "properties" with
-                    | true, ps -> set [ for x in ps.EnumerateObject() -> x.Name ]
-                    | _ -> Set.empty
-                for x in v.EnumerateObject() do
-                    if not (known.Contains x.Name) then errors.Add $"{path}: unexpected property {x.Name}"
         | "items" when v.ValueKind = JsonValueKind.Array ->
             v.EnumerateArray() |> Seq.iteri (fun i item -> check root p.Value $"{path}[{i}]" item errors)
         | "required"
