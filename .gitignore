@@ -20,3 +20,7 @@ frontend/dist/
 
 # Scenario runner build (tools/run_scenarios.py)
 .scenariobuild/
+
+# Python
+__pycache__/
+*.pyc
