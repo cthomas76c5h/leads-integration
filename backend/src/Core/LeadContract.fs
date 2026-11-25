@@ -14,13 +14,24 @@ open LeadIntegrations.Domain
 
 let draft2 = "intake-lead/draft-2"
 
-let private schema =
+/// Draft 3: the lead the call center publishes, with when it was ready and which builder made it.
+/// Its window to act starts at the interaction's completion (suite S-5).
+let draft3 = "intake-lead/draft-3"
+
+/// The contracts taken here, each an exact copy of intake's schema.
+let contracts = [ draft2; draft3 ]
+
+let private schemas =
     lazy
-        (let asm = Assembly.GetExecutingAssembly()
-         use s = asm.GetManifestResourceStream "intake-lead.draft-2.schema.json"
-         if isNull s then failwith "embedded resource missing: intake-lead.draft-2.schema.json"
-         use r = new StreamReader(s)
-         JsonDocument.Parse(r.ReadToEnd()).RootElement.Clone())
+        (contracts
+         |> List.map (fun c ->
+             let name = c.Replace("/", ".") + ".schema.json"
+             let asm = Assembly.GetExecutingAssembly()
+             use s = asm.GetManifestResourceStream name
+             if isNull s then failwith $"embedded resource missing: {name}"
+             use r = new StreamReader(s)
+             c, JsonDocument.Parse(r.ReadToEnd()).RootElement.Clone())
+         |> dict)
 
 // ----- The schema, as JSON Schema: the subset the contract uses -----
 
@@ -100,11 +111,15 @@ let rec private check (root: JsonElement) (s: JsonElement) (path: string) (v: Js
         | "description" -> ()
         | other -> failwith $"intake-lead schema keyword not supported by the checker: {other}"
 
-/// The payload's schema errors; empty when it is a valid intake-lead/draft-2 lead.
-let validate (payload: JsonElement) : string list =
+/// The payload's schema errors under a contract; empty when it is a valid lead in it.
+let validateAs (contract: string) (payload: JsonElement) : string list =
+    let schema = schemas.Value[contract]
     let errors = ResizeArray()
-    check schema.Value schema.Value "$" payload errors
+    check schema schema "$" payload errors
     List.ofSeq errors
+
+/// The payload's schema errors under draft 2.
+let validate (payload: JsonElement) : string list = validateAs draft2 payload
 
 // ----- Canonical form: the idempotency check compares meaning, not whitespace or key order -----
 
@@ -139,7 +154,12 @@ type Parsed =
       SenderFirmId: string
       PolicyRevision: int
       PolicyApproved: bool
+      /// The lead's content only: publication metadata never reaches it.
       Hash: string
+      /// The contract it came in.
+      Contract: string
+      /// When the interaction completed (conversation.endedAt), in UTC milliseconds.
+      CompletedAt: int64
       Lead: Lead }
 
 let private strOrNull (e: JsonElement) (name: string) =
@@ -210,8 +230,8 @@ let toLead (p: JsonElement) : Lead =
       Category = (if isNull category then "unmapped" else category)
       PracticeArea = strOrNull classification "practiceArea" }
 
-/// A payload checked, hashed and mapped; any refusal is a 422 with the reasons.
-let parse (raw: string) : Parsed * JsonElement =
+/// A payload checked against the route's contract, hashed and mapped; any refusal is a 422 with the reasons.
+let parseAs (contract: string) (raw: string) : Parsed * JsonElement =
     let payload =
         try
             JsonDocument.Parse(raw).RootElement.Clone()
@@ -219,16 +239,16 @@ let parse (raw: string) : Parsed * JsonElement =
             fail 422 $"invalid JSON: {e.Message}"
     if payload.ValueKind <> JsonValueKind.Object then fail 422 "the lead must be a JSON object"
     match strOrNull payload "contract" with
-    | c when c <> draft2 ->
+    | c when c <> contract ->
         let says = if isNull c then "nothing" else c
-        fail 422 $"this route takes {draft2}; the payload says {says}"
+        fail 422 $"this route takes {contract}; the payload says {says}"
     | _ -> ()
-    match validate payload with
+    match validateAs contract payload with
     | [] -> ()
     | errors ->
         let shownErrors = errors |> List.truncate 20
         let more = if errors.Length > 20 then $" (and {errors.Length - 20} more)" else ""
-        fail 422 $"""not a valid {draft2} lead: {String.Join("; ", shownErrors)}{more}"""
+        fail 422 $"""not a valid {contract} lead: {String.Join("; ", shownErrors)}{more}"""
     let classification = payload.GetProperty "classification"
     let category = strOrNull classification "category"
     let area = strOrNull classification "practiceArea"
@@ -243,5 +263,10 @@ let parse (raw: string) : Parsed * JsonElement =
       PolicyRevision = policy.GetProperty("revision").GetInt32()
       PolicyApproved = policy.GetProperty("approved").GetBoolean()
       Hash = hash payload
+      Contract = contract
+      CompletedAt = DateTimeOffset.Parse(strOrNull (payload.GetProperty "conversation") "endedAt").ToUnixTimeMilliseconds()
       Lead = toLead payload },
     payload
+
+/// A draft-2 payload (milestone 1's route).
+let parse (raw: string) : Parsed * JsonElement = parseAs draft2 raw

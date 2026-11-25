@@ -1,0 +1,112 @@
+{
+  "contract": "intake-lead/draft-3",
+  "leadId": "O-01",
+  "conversation": {
+    "id": "O-01",
+    "channel": "voice",
+    "startedAt": "2026-11-16T15:00:00.000Z",
+    "endedAt": "2026-11-16T15:00:55.000Z",
+    "endedBy": "receptionist",
+    "language": null
+  },
+  "firm": {
+    "id": "frm-e142f91d8602",
+    "timeZone": "America/New_York"
+  },
+  "policy": {
+    "revision": 1,
+    "approved": true
+  },
+  "classification": {
+    "callType": {
+      "id": "existing-client",
+      "name": "Existing client"
+    },
+    "source": "receptionist-judgement",
+    "confidence": null,
+    "needsReview": false,
+    "changedFrom": [],
+    "category": null,
+    "practiceArea": null,
+    "categorySource": "unmapped",
+    "taken": true,
+    "namedPerson": null
+  },
+  "qualification": {
+    "prospect": false,
+    "reason": "unclassified"
+  },
+  "contact": {
+    "firstName": null,
+    "lastName": null,
+    "fullName": "Alex Moore",
+    "phone": "555-0142",
+    "email": null
+  },
+  "facts": [
+    {
+      "field": "caller_name",
+      "status": "answered",
+      "value": "Alex Moore",
+      "source": "caller-reported",
+      "required": true,
+      "confirmed": null
+    },
+    {
+      "field": "phone",
+      "status": "answered",
+      "value": "555-0142",
+      "source": "caller-reported",
+      "required": true,
+      "confirmed": true
+    },
+    {
+      "field": "case_name",
+      "status": "answered",
+      "value": "the Moore matter",
+      "source": "caller-reported",
+      "required": true,
+      "confirmed": null
+    }
+  ],
+  "outcome": {
+    "required": "transfer",
+    "happened": "put-through",
+    "target": "case-team",
+    "targetAvailable": true
+  },
+  "urgency": [],
+  "followUp": {
+    "decision": "rules",
+    "owed": false,
+    "blocked": null,
+    "owedAt": null,
+    "opened": false,
+    "rules": {
+      "clockStartsAt": "call-ended",
+      "ownerRole": "intake manager",
+      "acceptWithinMinutes": 15,
+      "callBackWithinMinutes": 60,
+      "escalateTo": "managing partner"
+    },
+    "clockStartedAt": null,
+    "acceptBy": null,
+    "callBackBy": null
+  },
+  "evidence": {
+    "qualityRecord": {
+      "verdict": "clean",
+      "findings": 0
+    },
+    "recording": null,
+    "transcript": null
+  },
+  "readyAt": "2026-11-16T15:00:57.000Z",
+  "provenance": {
+    "builder": "intake-lead-builder",
+    "builderVersion": "3.0.0",
+    "evaluatedAt": "2026-11-16T15:00:55.000Z",
+    "taxonomyVersion": 1,
+    "policyInForceAtStart": null
+  }
+}

@@ -363,7 +363,7 @@
               "required": ["name", "example"],
               "additionalProperties": false,
               "properties": {
-                "name": { "enum": ["intake-lead/draft-2"] },
+                "name": { "enum": ["intake-lead/draft-2", "intake-lead/draft-3"], "description": "Draft 3 is sent with publication headers: the attempt number, and the time it was sent" },
                 "example": { "type": "string", "description": "A file in docs/contracts/intake-lead/examples/, without .json" },
                 "changes": { "type": "object", "description": "A dotted path in the payload, and its new value (any JSON)" }
               }

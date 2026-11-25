@@ -46,7 +46,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SCENARIOS = ROOT / "docs" / "contracts" / "scenarios"
 CONTRACT_EXAMPLES = ROOT / "docs" / "contracts" / "intake-lead" / "examples"
-INGEST = {"intake-lead/draft-2": "/api/ingest/intake-lead/draft-2"}
+INGEST = {"intake-lead/draft-2": "/api/ingest/intake-lead/draft-2", "intake-lead/draft-3": "/api/ingest/intake-lead/draft-3"}
 BUILD = ROOT / ".scenariobuild"
 
 OFFSET = re.compile(r"^\+(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$")
@@ -71,9 +71,11 @@ class Api:
     def __init__(self, base: str):
         self.base = base
 
-    def call(self, method: str, path: str, body=None):
+    def call(self, method: str, path: str, body=None, headers=None):
         data = None if body is None else json.dumps(body).encode("utf-8")
         req = urllib.request.Request(self.base + path, data=data, method=method)
+        for name, value in (headers or {}).items():
+            req.add_header(name, value)
         if data is not None:
             req.add_header("Content-Type", "application/json")
         try:
@@ -137,6 +139,7 @@ class LabAdapter:
         self.aliases = {}       # scenario firm id -> the sender's id for it (contract leads)
         self.canonical = {}     # scenario firm id -> its canonical id, when provisioned
         self.contract = {}      # scenario lead id -> the contract it came in
+        self.attempts = {}      # scenario lead id -> draft-3 publications so far
         self.tokens = {}  # scenario firm -> a signed-in firm user's token
         self.access = {}  # (firm, lead, boundary) -> allowed | refused  # what intake answered the channel when it repeated a lead's event
         self.pending_mapping = {}
@@ -275,7 +278,13 @@ class LabAdapter:
         """The channel sends a lead's event; intake records it, or says it did not, and the channel keeps it."""
         firm_id, body, _ = self.sent[lead_id]
         if lead_id in self.contract:
-            status, res = self.api.call("POST", INGEST[self.contract[lead_id]], body)
+            headers = None
+            if self.contract[lead_id] == "intake-lead/draft-3":
+                # Publication metadata: a later time and a higher attempt on every send, never in the payload.
+                self.attempts[lead_id] = self.attempts.get(lead_id, 0) + 1
+                headers = {"Lead-Published-At": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+                           "Lead-Publication-Attempt": str(self.attempts[lead_id])}
+            status, res = self.api.call("POST", INGEST[self.contract[lead_id]], body, headers)
             if status in (409, 422):
                 self.told[lead_id] = "conflict" if status == 409 else "refused"
                 return

@@ -155,12 +155,36 @@ let sendLead (c: Ctx) (firmId: string) : EndpointHandler =
 /// A lead in the intake-lead/draft-2 contract (docs/contracts/intake-lead/README.md). The body is
 /// kept exactly as sent; refusals are Domain.Fail (422, 409); a write the database did not take is a
 /// 503 that tells the sender to keep the lead and send it again, as for sendLead.
-let ingestDraft2 (c: Ctx) : EndpointHandler =
+/// Draft-3 publication metadata from the request headers; a header of the wrong shape is a 422.
+let private publicationOf (ctx: HttpContext) : Dispatch.Publication =
+    let header (name: string) =
+        match ctx.Request.Headers.TryGetValue name with
+        | true, v when not (String.IsNullOrWhiteSpace(v.ToString())) -> Some(v.ToString().Trim())
+        | _ -> None
+    let publishedAt =
+        match header "Lead-Published-At" with
+        | None -> Nullable()
+        | Some v ->
+            match DateTimeOffset.TryParse(v, Globalization.CultureInfo.InvariantCulture, Globalization.DateTimeStyles.AssumeUniversal) with
+            | true, t -> Nullable(t.ToUnixTimeMilliseconds())
+            | _ -> fail 422 $"Lead-Published-At: {v} is not an ISO 8601 time"
+    let attempt =
+        match header "Lead-Publication-Attempt" with
+        | None -> Nullable()
+        | Some v ->
+            match Int32.TryParse v with
+            | true, n when n >= 1 -> Nullable n
+            | _ -> fail 422 $"Lead-Publication-Attempt: {v} is not 1, 2, …"
+    { PublishedAt = publishedAt; Attempt = attempt }
+
+/// A lead in an intake lead contract: the route says which. Draft 3 reads its publication headers.
+let ingestContract (c: Ctx) (contract: string) : EndpointHandler =
     fun ctx ->
         task {
             let! raw = readBody ctx
+            let publication = if contract = LeadContract.draft3 then publicationOf ctx else Dispatch.noPublication
             let recorded =
-                try Ok(Dispatch.ingest c.Db raw)
+                try Ok(Dispatch.ingestAs c.Db contract raw publication)
                 with
                 | Db.Unavailable reason -> Error reason
                 | :? Data.Common.DbException as e -> Error e.Message

@@ -7,7 +7,8 @@ center's simulator produced reaches a fake CRM through delivery. Delivery takes 
 | File | What it is |
 |---|---|
 | [draft-2.schema.json](draft-2.schema.json) | An **exact copy** of intake's schema (`../intake-policy-lab/docs/lead-contract.schema.json`). Never edited here: `python tools/check_contracts.py` fails if it differs from intake's. A new draft is a new file and a new route |
-| [examples/](examples/) | Two leads as the simulators wrote them: a person's call (the call center) and the AI's (the voice agent). Synthetic |
+| [draft-3.schema.json](draft-3.schema.json) | An exact copy of intake's draft 3 (`lead-contract.draft-3.schema.json`), checked the same way |
+| [examples/](examples/) | Draft 2: two leads as the simulators wrote them, a person's call and the AI's. Draft 3 (`draft-3-*`): two from intake's conformance suite, under canonical firm ids. Synthetic |
 | `POST /api/ingest/intake-lead/draft-2` | The route ([api.md](../../api.md)) |
 | [tools/publish_leads.py](../../../tools/publish_leads.py) | Posts a folder of lead files to it, unchanged. Reads the files only |
 
@@ -75,6 +76,28 @@ was approved.
 | `urgency[]` | Kept in the payload | Not acted on, by choice: the window to act comes from the category alone, and firms get to leads when they can |
 | Everything else | Kept in the payload | Not acted on yet |
 
+## Draft 3
+
+**Lab (milestone 3, delivery's side), 2026-11-25.** The lead the call center publishes: draft 2
+plus `readyAt` and `provenance` (which builder, evaluated when, under which taxonomy). Intake owns
+it ([its contract](../../../../intake-policy-lab/docs/lead-contract.md), "Draft 3"); the copy
+here is checked against intake's like draft 2's.
+
+- **Route:** `POST /api/ingest/intake-lead/draft-3`, beside draft 2's. Each takes only its own
+  contract.
+- **Idempotency on the lead's content only.** When an attempt was sent travels in headers
+  (`Lead-Published-At`, `Lead-Publication-Attempt`), never in the payload, so a retry of the
+  stored lead is a duplicate (200), never a conflict. The first and latest publication and the
+  highest attempt are kept beside the lead.
+- **The window to act starts at the interaction's completion** (`conversation.endedAt`), and so
+  do the fallback and escalation clocks (`Store.clockStart`): a lead published late is late, and
+  one published after its window closed expires.
+- **Acceptance across repositories:** `python tools/acceptance_m3.py --api …` runs intake's worker
+  on every conformance request and publishes each lead twice to a running API. Run on
+  2026-11-25 on Node 22.18 against a fresh database: 10 firms provisioned under canonical ids, 65
+  leads built and published twice, every retry a duplicate, 65 delivered once each to their own
+  firm.
+
 ## Firm identity
 
 **Lab (milestone 2), 2026-11-25.** A firm is an operational tenant, apart from the commercial
@@ -99,8 +122,8 @@ opaque ids issued outside delivery and never parsed: 1 to 64 letters, digits and
   fixture names like `general-firm`), its firm id maps by hand to a firm here
   (`PUT /api/firm-aliases/{alias}`); an alias never moves to another firm. Retired when every
   sender sends canonical ids.
-- **The window to act runs from receipt,** not from `conversation.endedAt`: simulated calls
-  carry simulated times, and a lead published late would start already expired.
+- **Draft 2's window to act runs from receipt,** not from `conversation.endedAt`: simulated
+  calls carry simulated times. Draft 3 starts it at completion (above).
 - **A file-based publisher.** The call center writes files; `publish_leads.py` posts them. No
   broker, no new service.
 

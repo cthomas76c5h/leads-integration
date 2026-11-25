@@ -54,6 +54,7 @@
     <EmbeddedResource Include="..\..\..\docs\lead-delivery\delivery-timing.json" LogicalName="delivery-timing.json" />
     <!-- The intake lead contract: an exact copy of intake's schema (tools/check_contracts.py compares them). -->
     <EmbeddedResource Include="..\..\..\docs\contracts\intake-lead\draft-2.schema.json" LogicalName="intake-lead.draft-2.schema.json" />
+    <EmbeddedResource Include="..\..\..\docs\contracts\intake-lead\draft-3.schema.json" LogicalName="intake-lead.draft-3.schema.json" />
   </ItemGroup>
 
   <ItemGroup>

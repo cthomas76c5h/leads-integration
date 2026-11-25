@@ -162,7 +162,7 @@ written in, then its `changes`; what the channel is told then includes `conflict
 
 Every scenario the lab's simulator runs, a scenario for each delivery rule that
 had none, RFC-008's ten failure-injection scenarios, and a receiver contract for
-every kind in the catalog, four for the intake lead contract and firm identity (`contract-lead-*`, `firm-provisioned`): 35 scenarios (34 `lab`, 1 `proposed`) and 16
+every kind in the catalog, five for the intake lead contract and firm identity (`contract-lead-*`, `firm-provisioned`): 36 scenarios (35 `lab`, 1 `proposed`) and 16
 receivers. A `proposed` scenario fails on the lab today; its `today` field says
 how the lab differs. All of them run (see above): every `lab` scenario passes,
 and every `proposed` one fails or is unsupported, for the reason its `today`

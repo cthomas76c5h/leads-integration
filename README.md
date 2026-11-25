@@ -38,6 +38,9 @@ adapter, so a change inside the center never reaches a destination. The lab's le
 are imported from a read-only copy of the legacy system's data and synthetic traffic; they
 are evidence of what firms need, not a source the product keeps.
 
+How every repository fits together, the decisions that span them (S-1 to S-8) and the
+suite's milestones are in the center's [suite docs](../call-center-lab/docs/suite/README.md).
+
 ## Start here
 
 New to this work? Read these in order. The first three are the current direction;
@@ -48,7 +51,7 @@ the rest describe this lab, for when you need them.
 | Agreed: build on it | Draft: expect it to change |
 |---|---|
 | The glossary, and the decisions in [answers.md](docs/lead-delivery/answers.md) (each marked *Decided*) | [RFC-001 to RFC-010](docs/rfc/README.md): proposed, awaiting approval. RFC-007 (the model and build order) and RFC-008 (the guarantees and evidence, which revises RFC-007) set the build; RFC-009 (routing by category) and RFC-010 (one lead, two lifecycles) are the newest |
-| The direction in [docs/business/](docs/business/): a dependable intake service built on the call center as the source of truth ([where this sits](#where-this-sits)). (The earlier decision to build the product new, in RFC-007's slices, is superseded; see [next-12-months.md](docs/business/next-12-months.md#where-we-are)) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a draft, with 35 scenarios (including RFC-008's ten failure-injection scenarios) and a receiver contract for every catalog kind; the runner plays them against the lab (`python tools/run_scenarios.py`); no CRM contract confirmed against its sandbox |
+| The direction in [docs/business/](docs/business/): a dependable intake service built on the call center as the source of truth ([where this sits](#where-this-sits)). (The earlier decision to build the product new, in RFC-007's slices, is superseded; see [next-12-months.md](docs/business/next-12-months.md#where-we-are)) | The scenario and receiver formats in [contracts/](docs/contracts/README.md): a draft, with 36 scenarios (including RFC-008's ten failure-injection scenarios) and a receiver contract for every catalog kind; the runner plays them against the lab (`python tools/run_scenarios.py`); no CRM contract confirmed against its sandbox |
 | Every rule in the [domain model](docs/lead-delivery/README.md) marked *Lab* or *Production* | Every rule marked *Proposed*: agreed direction, not built |
 
 A scenario marked `"model": "proposed"` is expected to fail against the lab

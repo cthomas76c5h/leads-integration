@@ -50,7 +50,8 @@ let endpoints (c: Ctx) : Endpoint list =
           [ route "/api/firms" (g (createFirm c))
             routef "/api/firms/{%s}/leads" (fun id -> g (sendLead c id))
             // A lead in a versioned contract, as the call center publishes it (docs/contracts/intake-lead/).
-            route "/api/ingest/intake-lead/draft-2" (g (ingestDraft2 c))
+            route "/api/ingest/intake-lead/draft-2" (g (ingestContract c LeadIntegrations.LeadContract.draft2))
+            route "/api/ingest/intake-lead/draft-3" (g (ingestContract c LeadIntegrations.LeadContract.draft3))
             routef "/api/firms/{%s}/connections" (fun id -> g (createConnection c id))
             routef "/api/connections/{%s}/test" (fun id -> g (testConnection c id))
             routef "/api/connections/{%s}/send-missed" (fun id -> g (sendMissed c id))

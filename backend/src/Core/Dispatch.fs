@@ -164,7 +164,14 @@ type Ingested =
       LeadId: string
       InteractionId: string }
 
-/// A lead in the intake-lead/draft-2 contract, as the call center publishes it
+/// When a contract lead was published: request headers, metadata only (draft 3).
+type Publication =
+    { PublishedAt: Nullable<int64>
+      Attempt: Nullable<int> }
+
+let noPublication = { PublishedAt = Nullable(); Attempt = Nullable() }
+
+/// A lead in an intake lead contract (draft 2 or 3), as the call center publishes it
 /// (docs/contracts/intake-lead/README.md). Checked against the contract's schema first; then, in one
 /// transaction, the sender's firm is resolved by its canonical id (or, for a sender not yet on
 /// canonical ids, through its alias), a repeat is recognised by firm and
@@ -172,8 +179,12 @@ type Ingested =
 /// together. The same payload again is a duplicate (nothing planned or sent again); a different one
 /// for the same interaction, or the same lead id for another interaction, is a conflict and changes
 /// nothing.
-let ingest (db: Database) (raw: string) : Ingested =
-    let parsed, _ = LeadContract.parse raw
+///
+/// Draft 3 adds: idempotency on the lead's content only, with each publication's metadata kept
+/// beside it (a retry is never a conflict), and the window to act from the interaction's
+/// completion (suite S-5).
+let ingestAs (db: Database) (contract: string) (raw: string) (publication: Publication) : Ingested =
+    let parsed, _ = LeadContract.parseAs contract raw
     let eventId, ids, duplicate =
         write db (fun s ->
             let firmId =
@@ -182,7 +193,9 @@ let ingest (db: Database) (raw: string) : Ingested =
                 | None ->
                     fail 422 $"firm.id: {parsed.SenderFirmId} is not a known firm: no firm was provisioned under it, and no alias maps it"
             match Store.contractByInteraction s firmId parsed.InteractionId with
-            | Some prior when prior.PayloadHash = parsed.Hash -> prior.EventId, [||], true
+            | Some prior when prior.PayloadHash = parsed.Hash && prior.Contract = parsed.Contract ->
+                Store.notePublication s prior.EventId publication.PublishedAt publication.Attempt
+                prior.EventId, [||], true
             | Some prior ->
                 fail 409 $"conflict: interaction {parsed.InteractionId} was already recorded (lead {prior.EventId}) with a different payload; nothing changed"
             | None ->
@@ -195,7 +208,7 @@ let ingest (db: Database) (raw: string) : Ingested =
                         s
                         { EventId = e.Id
                           FirmId = firmId
-                          Contract = LeadContract.draft2
+                          Contract = parsed.Contract
                           LeadId = parsed.LeadId
                           InteractionId = parsed.InteractionId
                           SenderFirmId = parsed.SenderFirmId
@@ -203,8 +216,14 @@ let ingest (db: Database) (raw: string) : Ingested =
                           PolicyApproved = parsed.PolicyApproved
                           PayloadHash = parsed.Hash
                           ReceivedAt = e.CreatedAt
+                          Publication =
+                            { FirstPublishedAt = publication.PublishedAt
+                              LastPublishedAt = publication.PublishedAt
+                              Attempts = publication.Attempt }
                           Payload = Unchecked.defaultof<_> }
                         raw
+                    if parsed.Contract = LeadContract.draft3 then
+                        Store.setWindowFrom s e.Id parsed.CompletedAt (Categories.ofLead parsed.Lead).Category
                     e.Id, ids, false)
     read db (fun s ->
         let e = (Store.tryEvent s eventId).Value
@@ -214,6 +233,9 @@ let ingest (db: Database) (raw: string) : Ingested =
         { Intake = { Event = e; Deliveries = deliveries; Duplicate = duplicate }
           LeadId = parsed.LeadId
           InteractionId = parsed.InteractionId })
+
+/// A draft-2 lead (milestone 1's route): no publication metadata, the window from receipt.
+let ingest (db: Database) (raw: string) : Ingested = ingestAs db LeadContract.draft2 raw noPublication
 
 let testConnection (db: Database) (connectionId: string) (lead: Lead) (template: string option) =
     let c = read db (fun s -> (Store.connectionOrFail s connectionId).Connection)
@@ -434,7 +456,8 @@ let runFallbacks (db: Database) (nowMs: int64) : int =
                 // The fallback's own clock (Urgency.fallbackAfterMs), not a share of the window to act,
                 // or at once when the usual destinations are paused: waiting cannot deliver.
                 let allHeld = held > 0 && other = 0
-                if allHeld || nowMs - e.CreatedAt >= Urgency.fallbackAfterMs (Categories.ofLead e.Lead).Category then
+                let category = (Categories.ofLead e.Lead).Category
+                if allHeld || nowMs - Store.clockStart s e.Id category >= Urgency.fallbackAfterMs category then
                     let c = (Store.connectionOrFail s connectionId).Connection
                     Store.insertDelivery s (newDelivery e c "pending" null Unchecked.defaultof<RoutingDecision> nowMs) None
                     Store.emit s "FallbackUsed" e.FirmId e.Id c.Id
@@ -464,9 +487,9 @@ let runHandOffs (db: Database) (nowMs: int64) : int =
                      AND e.created_at > $1 AND """ + owedSql)
                 [ nowMs - 2L * 86_400_000L ]
                 (fun r -> Read.str r 0, Read.str r 1, Read.str r 2, Read.int64 r 3)
-        for id, firmId, lead, createdAt in waiting do
+        for id, firmId, lead, _ in waiting do
             let category = (Categories.ofLead (Json.deserialize<Lead> lead)).Category
-            if nowMs - createdAt >= Urgency.fallbackAfterMs category then
+            if nowMs - Store.clockStart s id category >= Urgency.fallbackAfterMs category then
                 s.Execute "UPDATE events SET escalated_at=$2 WHERE id=$1" [ id; nowMs ] |> ignore
                 Store.emit s "HandOffEscalated" firmId id null
                 changed <- changed + 1

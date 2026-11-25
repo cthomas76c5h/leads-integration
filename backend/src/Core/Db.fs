@@ -460,7 +460,11 @@ let openDatabase (path: string) : Database =
           "firms", "canonical_id", "TEXT NULL"
           "firms", "account_id", "TEXT NULL"
           "firms", "provisioned_at", "INTEGER NULL"
-          "firms", "provisioning_updated_at", "INTEGER NULL" ] do
+          "firms", "provisioning_updated_at", "INTEGER NULL"
+          // Draft-3 publication metadata (request headers): never part of the payload or its hash.
+          "lead_contracts", "first_published_at", "INTEGER NULL"
+          "lead_contracts", "last_published_at", "INTEGER NULL"
+          "lead_contracts", "publication_attempts", "INTEGER NULL" ] do
         use probe = conn.CreateCommand()
         probe.CommandText <- $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = '{column}'"
         if Convert.ToInt64(probe.ExecuteScalar()) = 0L then

@@ -20,8 +20,12 @@ ROOT = Path(__file__).resolve().parent.parent
 CONTRACTS = ROOT / "docs" / "contracts"
 TAXONOMY = ROOT / "docs" / "call-categories" / "taxonomy.json"
 INTAKE_LEAD = CONTRACTS / "intake-lead"
-# Intake owns the lead contract; this repository keeps a copy it must not change.
-INTAKE_SOURCE = ROOT.parent / "intake-policy-lab" / "docs" / "lead-contract.schema.json"
+# Intake owns the lead contract; this repository keeps copies it must not change.
+INTAKE_DOCS = ROOT.parent / "intake-policy-lab" / "docs"
+LEAD_SCHEMAS = {  # contract -> (our copy, intake's original)
+    "intake-lead/draft-2": ("draft-2.schema.json", "lead-contract.schema.json"),
+    "intake-lead/draft-3": ("draft-3.schema.json", "lead-contract.draft-3.schema.json"),
+}
 
 
 def load(path: Path):
@@ -164,16 +168,19 @@ def main() -> int:
             failed = True
             print(f"{path.relative_to(ROOT)}: {p}")
 
-    lead_schema_path = INTAKE_LEAD / "draft-2.schema.json"
-    lead_schema = load(lead_schema_path)
-    checked += 1
-    if INTAKE_SOURCE.exists() and INTAKE_SOURCE.read_bytes() != lead_schema_path.read_bytes():
-        failed = True
-        print(f"{lead_schema_path.relative_to(ROOT)}: differs from intake's {INTAKE_SOURCE.name}; copy it again, never edit it here")
-    lead_validator = Draft202012Validator(lead_schema)
+    lead_validators = {}
+    for contract, (ours, theirs) in LEAD_SCHEMAS.items():
+        path = INTAKE_LEAD / ours
+        checked += 1
+        source = INTAKE_DOCS / theirs
+        if source.exists() and source.read_bytes() != path.read_bytes():
+            failed = True
+            print(f"{path.relative_to(ROOT)}: differs from intake's {theirs}; copy it again, never edit it here")
+        lead_validators[contract] = Draft202012Validator(load(path))
     for path in sorted((INTAKE_LEAD / "examples").glob("*.json")):
         doc = load(path)
-        problems = schema_problems(lead_validator, doc)
+        validator = lead_validators.get(doc.get("contract"))
+        problems = [f"contract {doc.get('contract')!r} is not one this repository takes"] if validator is None else schema_problems(validator, doc)
         category = doc.get("classification", {}).get("category")
         area = doc.get("classification", {}).get("practiceArea")
         if category is not None and category not in categories:

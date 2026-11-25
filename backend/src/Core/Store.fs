@@ -242,19 +242,55 @@ type LeadContractRecord =
       PolicyApproved: bool
       PayloadHash: string
       ReceivedAt: int64
+      Publication: Publication
       Payload: Text.Json.JsonElement }
+
+/// When a contract lead was published, from the sender's request headers (draft 3). Metadata, not
+/// content: it changes with each attempt and never makes a retry look like another lead.
+and Publication =
+    { FirstPublishedAt: Nullable<int64>
+      LastPublishedAt: Nullable<int64>
+      Attempts: Nullable<int> }
+
+let private nullable (v: Nullable<'T>) = if v.HasValue then box v.Value else null
 
 let insertLeadContract (s: Session) (r: LeadContractRecord) (rawPayload: string) =
     s.Execute
         """INSERT INTO lead_contracts (event_id, firm_id, contract, lead_id, interaction_id, sender_firm_id,
-                                       policy_revision, policy_approved, payload, payload_hash, received_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)"""
+                                       policy_revision, policy_approved, payload, payload_hash, received_at,
+                                       first_published_at, last_published_at, publication_attempts)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)"""
         [ r.EventId; r.FirmId; r.Contract; r.LeadId; r.InteractionId; r.SenderFirmId
-          r.PolicyRevision; r.PolicyApproved; rawPayload; r.PayloadHash; r.ReceivedAt ]
+          r.PolicyRevision; r.PolicyApproved; rawPayload; r.PayloadHash; r.ReceivedAt
+          nullable r.Publication.FirstPublishedAt; nullable r.Publication.LastPublishedAt; nullable r.Publication.Attempts ]
     |> ignore
 
+/// Another publication of a lead already recorded: keeps the earliest and latest times and the
+/// highest attempt. Never touches the lead or its payload.
+let notePublication (s: Session) (eventId: string) (publishedAt: Nullable<int64>) (attempt: Nullable<int>) =
+    if publishedAt.HasValue || attempt.HasValue then
+        s.Execute
+            """UPDATE lead_contracts SET
+                 first_published_at = CASE WHEN $2 IS NULL THEN first_published_at ELSE MIN(COALESCE(first_published_at, $2), $2) END,
+                 last_published_at = CASE WHEN $2 IS NULL THEN last_published_at ELSE MAX(COALESCE(last_published_at, $2), $2) END,
+                 publication_attempts = CASE WHEN $3 IS NULL THEN publication_attempts ELSE MAX(COALESCE(publication_attempts, $3), $3) END
+               WHERE event_id = $1"""
+            [ eventId; nullable publishedAt; nullable attempt ]
+        |> ignore
+
+/// When a lead's hand-off clock started: the interaction's completion for a draft-3 lead, receipt
+/// for every other (its window to act ends a fixed time after it, so the start is read back from it).
+let clockStart (s: Session) (eventId: string) (category: string) : int64 =
+    s.TryOne "SELECT created_at, handoff_due_at FROM events WHERE id=$1" [ eventId ] (fun r -> Read.int64 r 0, Read.int64N r 1)
+    |> Option.map (fun (created, due) -> if due.HasValue then due.Value - Urgency.windowMs category else created)
+    |> Option.defaultValue 0L
+
+/// The window to act from the interaction's completion, not receipt (suite S-5): a draft-3 lead.
+let setWindowFrom (s: Session) (eventId: string) (startedAt: int64) (category: string) =
+    s.Execute "UPDATE events SET handoff_due_at=$2 WHERE id=$1 AND test=0" [ eventId; startedAt + Urgency.windowMs category ] |> ignore
+
 let private contractColumns =
-    "event_id, firm_id, contract, lead_id, interaction_id, sender_firm_id, policy_revision, policy_approved, payload_hash, received_at, payload"
+    "event_id, firm_id, contract, lead_id, interaction_id, sender_firm_id, policy_revision, policy_approved, payload_hash, received_at, payload, first_published_at, last_published_at, publication_attempts"
 
 let private readContract (r: Data.Common.DbDataReader) =
     { EventId = Read.str r 0
@@ -267,6 +303,7 @@ let private readContract (r: Data.Common.DbDataReader) =
       PolicyApproved = Read.bool r 7
       PayloadHash = Read.str r 8
       ReceivedAt = Read.int64 r 9
+      Publication = { FirstPublishedAt = Read.int64N r 11; LastPublishedAt = Read.int64N r 12; Attempts = Read.intN r 13 }
       Payload = Text.Json.JsonDocument.Parse(Read.str r 10).RootElement.Clone() }
 
 let tryLeadContract (s: Session) (eventId: string) =

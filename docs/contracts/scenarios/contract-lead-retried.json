@@ -1,0 +1,79 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "contract-lead-retried",
+  "story": "The call center publishes a draft-3 lead for a provisioned firm, loses the answer, and publishes the same stored lead again: a later publication time, a higher attempt. The lead's content is the same, so delivery recognises it as the lead already recorded, not a conflict, and sends it once.",
+  "slice": 1,
+  "model": "lab",
+  "proves": [
+    "docs/contracts/intake-lead/README.md#what-happens-to-a-lead (idempotency on the lead's content only: publication metadata never makes a retry a conflict)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A",
+        "canonicalId": "frm-9k2w7q4m"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "new-matter",
+        "practiceArea": "criminal",
+        "conversation": "call-9501",
+        "contract": {
+          "name": "intake-lead/draft-3",
+          "example": "draft-3-ai-new-criminal-matter"
+        }
+      }
+    },
+    {
+      "at": "+2m",
+      "fault": {
+        "kind": "intake-event-repeated",
+        "lead": "lead-1"
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+5m",
+      "capture": {
+        "lead": "lead-1",
+        "is": "recorded",
+        "count": 1,
+        "channelTold": "recorded"
+      }
+    },
+    {
+      "at": "+5m",
+      "delivery": {
+        "lead": "lead-1",
+        "destination": "email",
+        "state": "accepted",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "event": {
+        "name": "LeadRecorded",
+        "lead": "lead-1",
+        "count": 1
+      }
+    }
+  ]
+}
