@@ -68,9 +68,9 @@ export const api = {
   referenceLeads: () => request<ReferenceLead[]>('GET', '/api/reference-leads'),
 
   connections: (q: { kind?: string; status?: 'active' | 'needs-reconnection' | 'disabled' | 'stopped' } = {}) => request<Connection[]>('GET', `/api/connections${qs(q)}`),
-  createConnection: (firmId: string, body: { kind: string; name?: string; deliveryUrl?: string }) =>
+  createConnection: (firmId: string, body: { kind: string; name?: string; deliveryUrl?: string; settings?: Record<string, string> }) =>
     request<Connection>('POST', `/api/firms/${enc(firmId)}/connections`, body),
-  patchConnection: (id: string, body: { enabled?: boolean; deliveryUrl?: string; reactivate?: true }) =>
+  patchConnection: (id: string, body: { enabled?: boolean; deliveryUrl?: string; reactivate?: true; settings?: Record<string, string> }) =>
     request<Connection>('PATCH', `/api/connections/${enc(id)}`, body),
   preview: (id: string, variant: 'full' | 'sparse' = 'full') => request<Preview>('GET', `/api/connections/${enc(id)}/preview${qs({ variant })}`),
   testConnection: (id: string) => request<Delivery>('POST', `/api/connections/${enc(id)}/test`),

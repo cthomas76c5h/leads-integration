@@ -186,6 +186,42 @@ let find kind =
 let label kind =
     tryFind kind |> Option.map _.Label |> Option.defaultValue kind
 
+/// The settings a person may set on a destination of this kind: where it delivers, and nothing
+/// else. Routing, chat leads and the fallback role change only through approval; the rest
+/// (stage, revision, pause) is the lab's own.
+let settingFields (kind: string) : string list =
+    match kind with
+    | "email" -> [ "recipients" ]
+    | "sms" -> [ "to" ]
+    | _ -> []
+
+let private emailShape = System.Text.RegularExpressions.Regex(@"^[^@\s,]+@[^@\s,]+\.[^@\s,]+$")
+let private phoneShape = System.Text.RegularExpressions.Regex(@"^\+[0-9]{8,15}$")
+
+/// The settings, checked and tidied, as (key, value) pairs; an empty value means "remove it".
+/// A key the kind does not take, or a value of the wrong shape, is a 422 that says what it takes.
+let checkSettings (kind: string) (given: System.Collections.Generic.IDictionary<string, string>) : (string * string) list =
+    if isNull given then []
+    else
+        let allowed = settingFields kind
+        [ for KeyValue(key, raw) in given ->
+              if not (List.contains key allowed) then
+                  let takes = if allowed.IsEmpty then "no settings" else "only " + System.String.Join(", ", allowed)
+                  Domain.fail 422 $"settings.{key}: a {kind} destination takes {takes}"
+              let value = if isNull raw then "" else raw.Trim()
+              match key with
+              | _ when value = "" -> key, ""
+              | "recipients" ->
+                  let addresses = value.Split(',', System.StringSplitOptions.RemoveEmptyEntries ||| System.StringSplitOptions.TrimEntries)
+                  match addresses |> Array.tryFind (emailShape.IsMatch >> not) with
+                  | Some bad -> Domain.fail 422 $"settings.recipients: {bad} is not an email address"
+                  | None -> key, System.String.Join(", ", addresses)
+              | "to" ->
+                  let digits = value.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "")
+                  if phoneShape.IsMatch digits then key, digits
+                  else Domain.fail 422 $"settings.to: {value} is not a phone number (+ and 8 to 15 digits)"
+              | _ -> key, value ]
+
 /// Legacy CRM name codes → kind.
 let ofLegacyCode (c: string) =
     match (if isNull c then "" else c.Trim()) with

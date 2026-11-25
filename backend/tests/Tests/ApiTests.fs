@@ -365,4 +365,53 @@ let tests =
                   Expect.equal (Db.read t.Db (fun s -> (Store.leadOrFail s leadA).Deliveries.Length)) 1 "the refused resend made nothing"
               finally
                   app.StopAsync().Wait()
+          }
+
+          test "a destination is created with where it delivers, and delivers there" {
+              use t = new TempDb()
+              let app, client = server t.Db
+              try
+                  let firmId = (json (post client "/api/firms" """{"name":"Settings Firm"}""")).GetProperty("id").GetString()
+                  let created = post client $"/api/firms/{firmId}/connections" """{"kind":"email","settings":{"recipients":" intake@example.com ,partner@example.com"}}"""
+                  Expect.equal (int created.StatusCode) 201 "created"
+                  let conn = json created
+                  Expect.equal (conn.GetProperty("settings").GetProperty("recipients").GetString()) "intake@example.com, partner@example.com" "kept, tidied"
+                  let sms = json (post client $"/api/firms/{firmId}/connections" """{"kind":"sms","settings":{"to":"+1 (555) 555-0199"}}""")
+                  Expect.equal (sms.GetProperty("settings").GetProperty("to").GetString()) "+15555550199" "a phone number, digits only"
+                  // The one gap a demo hit: an email destination made through the API, then a lead to it.
+                  post client $"/api/firms/{firmId}/leads" "{}" |> ignore
+                  drain t.Db client
+                  let ds = json (client.GetAsync($"/api/deliveries?firmId={firmId}").Result)
+                  let email = ds.EnumerateArray() |> Seq.find (fun d -> d.GetProperty("kind").GetString() = "email")
+                  Expect.equal (email.GetProperty("status").GetString()) "delivered" "the email destination delivers"
+              finally
+                  app.StopAsync().Wait()
+          }
+
+          test "settings take only where a kind delivers: anything else, or the wrong shape, is refused" {
+              use t = new TempDb()
+              let app, client = server t.Db
+              try
+                  let firmId = (json (post client "/api/firms" """{"name":"Settings Firm"}""")).GetProperty("id").GetString()
+                  let refused (body: string) (why: string) =
+                      let res = post client $"/api/firms/{firmId}/connections" body
+                      Expect.equal (int res.StatusCode) 422 why
+                      (json res).GetProperty("error").GetString()
+                  Expect.stringContains (refused """{"kind":"email","settings":{"routeCategories":"new-matter"}}""" "routing is approved, never set") "only recipients" "says what it takes"
+                  refused """{"kind":"email","settings":{"role":"fallback"}}""" "the fallback role is agreed, never set" |> ignore
+                  Expect.stringContains (refused """{"kind":"webhook","settings":{"to":"+15555550199"}}""" "a webhook has no settings") "no settings" "says so"
+                  refused """{"kind":"email","settings":{"recipients":"intake@example.com, not-an-address"}}""" "every address checked" |> ignore
+                  refused """{"kind":"sms","settings":{"to":"call me"}}""" "a phone number" |> ignore
+                  Expect.equal (Db.read t.Db Store.allConnections).Length 0 "nothing was created"
+                  // Changing it: set, then remove; refused keys leave it as it was.
+                  let id = (json (post client $"/api/firms/{firmId}/connections" """{"kind":"email","settings":{"recipients":"a@example.com"}}""")).GetProperty("id").GetString()
+                  let patch (body: string) = client.PatchAsync($"/api/connections/{id}", new StringContent(body, Encoding.UTF8, "application/json")).Result
+                  let changed = json (patch """{"settings":{"recipients":"b@example.com"}}""")
+                  Expect.equal (changed.GetProperty("settings").GetProperty("recipients").GetString()) "b@example.com" "changed"
+                  Expect.equal (int (patch """{"settings":{"stage":"live"}}""").StatusCode) 422 "the lab's own settings are not for setting"
+                  Expect.equal (Db.read t.Db (fun s -> (Store.connectionOrFail s id).Connection.Settings["recipients"])) "b@example.com" "unchanged by a refusal"
+                  let removed = json (patch """{"settings":{"recipients":""}}""")
+                  Expect.isFalse (removed.GetProperty("settings").TryGetProperty("recipients") |> fst) "removed"
+              finally
+                  app.StopAsync().Wait()
           } ]

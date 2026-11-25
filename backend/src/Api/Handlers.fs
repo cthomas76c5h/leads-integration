@@ -31,13 +31,18 @@ let private zoneOrFail (zone: string) =
 type NewLead = { Variant: string; CallType: string; Webchat: bool; ReferenceLead: string; ConversationId: string }
 
 [<CLIMutable>]
-type NewConnection = { Kind: string; Name: string; DeliveryUrl: string }
+type NewConnection =
+    { Kind: string
+      Name: string
+      DeliveryUrl: string
+      Settings: Dictionary<string, string> }
 
 [<CLIMutable>]
 type ConnectionPatch =
     { Enabled: Nullable<bool>
       DeliveryUrl: string
-      Reactivate: Nullable<bool> }
+      Reactivate: Nullable<bool>
+      Settings: Dictionary<string, string> }
 
 [<CLIMutable>]
 type PlanChange = { PriceId: string }
@@ -220,8 +225,11 @@ let private connection (c: Ctx) id = Db.read c.Db (fun s -> (Store.connectionOrF
 let createConnection (c: Ctx) (firmId: string) : EndpointHandler =
     fun ctx ->
         task {
-            let! b = body { Kind = null; Name = null; DeliveryUrl = null } ctx
+            let! b = body { Kind = null; Name = null; DeliveryUrl = null; Settings = null } ctx
             let k = Catalog.find b.Kind
+            let settings = Dictionary<string, string>()
+            for key, value in Catalog.checkSettings k.Kind b.Settings do
+                if value <> "" then settings[key] <- value
             let firm = Db.read c.Db (fun s -> Store.firmOrFail s firmId)
             let url =
                 if String.IsNullOrWhiteSpace b.DeliveryUrl then $"{c.Cfg.Origin}/receiver/crm/{k.Kind}"
@@ -238,7 +246,7 @@ let createConnection (c: Ctx) (firmId: string) : EndpointHandler =
                   Source = Source.manual
                   SourceRef = null
                   Credentials = k.CredentialFields |> Array.map (fun f -> Import.credential k.Kind f null)
-                  Settings = Dictionary()
+                  Settings = settings
                   Enabled = true
                   Status = "active"
                   DisabledReason = null
@@ -253,9 +261,17 @@ let createConnection (c: Ctx) (firmId: string) : EndpointHandler =
 let patchConnection (c: Ctx) (id: string) : EndpointHandler =
     fun ctx ->
         task {
-            let! b = body { Enabled = Nullable(); DeliveryUrl = null; Reactivate = Nullable() } ctx
+            let! b = body { Enabled = Nullable(); DeliveryUrl = null; Reactivate = Nullable(); Settings = null } ctx
             Db.write c.Db (fun s ->
                 let x = (Store.connectionOrFail s id).Connection
+                let x =
+                    match Catalog.checkSettings x.Kind b.Settings with
+                    | [] -> x
+                    | changes ->
+                        let settings = Dictionary<string, string>(x.Settings)
+                        for key, value in changes do
+                            if value = "" then settings.Remove key |> ignore else settings[key] <- value
+                        { x with Settings = settings }
                 let x = if b.Enabled.HasValue then Dispatch.setPaused s x b.Enabled.Value else x
                 let x =
                     if String.IsNullOrWhiteSpace b.DeliveryUrl then x
