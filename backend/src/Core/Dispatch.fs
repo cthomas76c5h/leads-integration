@@ -166,7 +166,8 @@ type Ingested =
 
 /// A lead in the intake-lead/draft-2 contract, as the call center publishes it
 /// (docs/contracts/intake-lead/README.md). Checked against the contract's schema first; then, in one
-/// transaction, the sender's firm is resolved through its alias, a repeat is recognised by firm and
+/// transaction, the sender's firm is resolved by its canonical id (or, for a sender not yet on
+/// canonical ids, through its alias), a repeat is recognised by firm and
 /// interaction, and the lead, its deliveries (the outbox) and the original payload are written
 /// together. The same payload again is a duplicate (nothing planned or sent again); a different one
 /// for the same interaction, or the same lead id for another interaction, is a conflict and changes
@@ -176,9 +177,10 @@ let ingest (db: Database) (raw: string) : Ingested =
     let eventId, ids, duplicate =
         write db (fun s ->
             let firmId =
-                match Store.tryFirmAlias s parsed.SenderFirmId with
+                match Store.resolveSenderFirm s parsed.SenderFirmId with
                 | Some id -> id
-                | None -> fail 422 $"firm.id: {parsed.SenderFirmId} is not a known firm (no alias maps it; PUT /api/firm-aliases/{parsed.SenderFirmId})"
+                | None ->
+                    fail 422 $"firm.id: {parsed.SenderFirmId} is not a known firm: no firm was provisioned under it, and no alias maps it"
             match Store.contractByInteraction s firmId parsed.InteractionId with
             | Some prior when prior.PayloadHash = parsed.Hash -> prior.EventId, [||], true
             | Some prior ->

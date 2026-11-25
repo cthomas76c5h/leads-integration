@@ -19,8 +19,16 @@ The region a firm keeps its office hours in, as an IANA name (America/Los_Angele
 _Avoid_: offset, EST/PST (they ignore daylight saving)
 
 **Firm**:
-A law firm (or other business) whose calls Answering AI answers.
+A law firm (or other business) whose calls Answering AI answers: an operational tenant, with its own policy and destinations. Its **canonical id** is opaque, issued by the provisioning boundary, and never parsed; delivery keeps its own id beside it. *Lab (M2).*
 _Avoid_: client, account, customer
+
+**Billing account**:
+The commercial customer that pays. One billing account may hold several firms (offices, brands). *Decided (suite S-2); billing still keeps one account per firm.*
+_Avoid_: firm (for the payer), customer
+
+**Provisioning boundary**:
+The one route through which a firm gets its canonical id, its name, time zone and billing account: `PUT /api/provisioning/firms/{canonicalId}`. The call center provisions through it at first. *Lab (M2).*
+_Avoid_: firm sync, import
 
 **Brand**:
 The name and look under which a firm meets Answering AI. Presentation only: it never decides behaviour, tenancy or billing.

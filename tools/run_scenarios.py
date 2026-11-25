@@ -135,6 +135,7 @@ class LabAdapter:
         self.sent = {}  # scenario lead id -> (firm id, intake body, conversation): what the channel keeps
         self.told = {}
         self.aliases = {}       # scenario firm id -> the sender's id for it (contract leads)
+        self.canonical = {}     # scenario firm id -> its canonical id, when provisioned
         self.contract = {}      # scenario lead id -> the contract it came in
         self.tokens = {}  # scenario firm -> a signed-in firm user's token
         self.access = {}  # (firm, lead, boundary) -> allowed | refused  # what intake answered the channel when it repeated a lead's event
@@ -147,7 +148,12 @@ class LabAdapter:
         self.api.ok("POST", "/api/test/clock", {"at": self.t0})
         given = self.scenario["given"]
         for f in given["firms"]:
-            self.firms[f["id"]] = self.api.ok("POST", "/api/firms", {"name": f["name"]})["id"]
+            if "canonicalId" in f:
+                provisioned = self.api.ok("PUT", f"/api/provisioning/firms/{f['canonicalId']}", {"name": f["name"]})
+                self.firms[f["id"]] = provisioned["firmId"]
+                self.canonical[f["id"]] = f["canonicalId"]
+            else:
+                self.firms[f["id"]] = self.api.ok("POST", "/api/firms", {"name": f["name"]})["id"]
             if "alias" in f:
                 self.aliases[f["id"]] = f["alias"]
                 self.api.ok("PUT", f"/api/firm-aliases/{f['alias']}", {"firmId": self.firms[f["id"]]})
@@ -219,10 +225,11 @@ class LabAdapter:
 
     def _contract_payload(self, lead):
         """The contract lead the scenario describes: an example, with the scenario's firm, category and
-        conversation written in, then its changes. A firm with no alias sends an id nothing maps."""
+        conversation written in, then its changes. The firm is named by its canonical id when it was
+        provisioned, else by its alias; a firm with neither sends an id nothing maps."""
         c = lead["contract"]
         payload = json.loads((CONTRACT_EXAMPLES / f"{c['example']}.json").read_text(encoding="utf-8"))
-        payload["firm"]["id"] = self.aliases.get(lead["firm"], f"no-alias-{lead['firm']}")
+        payload["firm"]["id"] = self.canonical.get(lead["firm"]) or self.aliases.get(lead["firm"], f"unknown-{lead['firm']}")
         payload["classification"]["category"] = lead["category"]
         payload["classification"]["practiceArea"] = lead.get("practiceArea")
         conversation = lead.get("conversation") or lead["id"]

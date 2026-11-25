@@ -1,0 +1,113 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "firm-provisioned",
+  "story": "Two firms are provisioned through the provisioning boundary under canonical, opaque ids. The call center publishes a lead for each, naming the firm by that id: each reaches its own firm's destination and no other. A lead naming a firm nobody provisioned is refused, and nothing is recorded for it.",
+  "slice": 1,
+  "model": "lab",
+  "proves": [
+    "docs/contracts/intake-lead/README.md#firm-identity (a lead names its firm by the canonical id the provisioning boundary gave it)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A",
+        "canonicalId": "frm-7q2m9x4c"
+      },
+      {
+        "id": "firm-b",
+        "name": "Example Firm B",
+        "canonicalId": "frm-b4k1pz8d"
+      },
+      {
+        "id": "firm-c",
+        "name": "Example Firm C"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "email-a",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      },
+      {
+        "id": "email-b",
+        "firm": "firm-b",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-a",
+        "firm": "firm-a",
+        "category": "existing-client",
+        "conversation": "call-9001",
+        "contract": {
+          "name": "intake-lead/draft-2",
+          "example": "person-existing-client"
+        }
+      }
+    },
+    {
+      "at": "+1m",
+      "lead": {
+        "id": "lead-b",
+        "firm": "firm-b",
+        "category": "new-matter",
+        "practiceArea": "criminal",
+        "conversation": "call-9002",
+        "contract": {
+          "name": "intake-lead/draft-2",
+          "example": "ai-new-criminal-matter"
+        }
+      }
+    },
+    {
+      "at": "+2m",
+      "lead": {
+        "id": "lead-c",
+        "firm": "firm-c",
+        "category": "existing-client",
+        "conversation": "call-9003",
+        "contract": {
+          "name": "intake-lead/draft-2",
+          "example": "person-existing-client"
+        }
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+5m",
+      "delivery": {
+        "lead": "lead-a",
+        "destination": "email-a",
+        "state": "accepted",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "delivery": {
+        "lead": "lead-b",
+        "destination": "email-b",
+        "state": "accepted",
+        "count": 1
+      }
+    },
+    {
+      "at": "+5m",
+      "capture": {
+        "lead": "lead-c",
+        "is": "not-recorded",
+        "channelTold": "refused"
+      }
+    }
+  ]
+}

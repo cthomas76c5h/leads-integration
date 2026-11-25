@@ -36,7 +36,7 @@ each was recognised as already recorded.
 | Delivery, retries, failure classes | **Delivery (this repository)** | Everything after the lead is accepted |
 | Raw usage | Call center | Not read yet (a gap below) |
 | Rating and invoicing | Delivery (billing) | Today from leads, not usage (a gap below) |
-| Firm identity | **Unresolved** | An explicit alias table, by hand |
+| Firm identity | **The call center**, through the provisioning boundary: canonical, opaque ids (M2) | Each firm here carries its canonical id; aliases remain for senders not yet on canonical ids |
 
 ## What happens to a lead
 
@@ -75,11 +75,30 @@ was approved.
 | `urgency[]` | Kept in the payload | Not acted on, by choice: the window to act comes from the category alone, and firms get to leads when they can |
 | Everything else | Kept in the payload | Not acted on yet |
 
+## Firm identity
+
+**Lab (milestone 2), 2026-11-25.** A firm is an operational tenant, apart from the commercial
+billing account that holds it; one account may hold several firms. Both have canonical,
+opaque ids issued outside delivery and never parsed: 1 to 64 letters, digits and `. _ : -`.
+
+- **The provisioning boundary** (`PUT /api/provisioning/firms/{canonicalId}`,
+  [Provisioning.fs](../../../backend/src/Core/Provisioning.fs)) is the only way a firm here gets
+  a canonical id. A new id creates the firm, or links an existing one (`adopt`, for a firm
+  imported from the legacy systems); the same id again is idempotent and sets the name, time
+  zone and account to what provisioning says. A firm never carries two canonical ids, and a
+  canonical id never moves to another firm. Each provisioning that creates or links emits
+  `FirmProvisioned`.
+- **A lead names its firm** by `firm.id`: resolved as a canonical id first, then as an alias.
+  An alias may never equal a canonical id, so the two can't disagree.
+- **The firm's own id here** (`firm_…`) stays delivery's: every table keys on it, and only the
+  boundary and the contract lead see the canonical one.
+
 ## Temporary, until the suite decides
 
-- **Firm aliases.** A sender's firm id (`general-firm`) maps by hand to a firm here
-  (`PUT /api/firm-aliases/{alias}`); an alias never moves to another firm. Replaced when the
-  suite shares one firm id.
+- **Firm aliases.** For a sender not yet on canonical ids (the simulators send readable
+  fixture names like `general-firm`), its firm id maps by hand to a firm here
+  (`PUT /api/firm-aliases/{alias}`); an alias never moves to another firm. Retired when every
+  sender sends canonical ids.
 - **The window to act runs from receipt,** not from `conversation.endedAt`: simulated calls
   carry simulated times, and a lead published late would start already expired.
 - **A file-based publisher.** The call center writes files; `publish_leads.py` posts them. No
@@ -94,4 +113,6 @@ was approved.
 | `classification.needsReview`, `confidence` | Not used to hold a lead for review |
 | Usage evidence is not read | Billing still rates leads, not the center's usage |
 | No authentication on the route | Lab only |
-| No shared firm id | Aliases by hand |
+| Senders still send fixture names | Aliases by hand until the center and intake key firms by canonical id |
+| One billing account per firm in billing | Provisioning records each firm's account; billing does not group firms by it yet (suite X-5, M6) |
+| No authentication on the provisioning boundary | Lab only: in production only the provisioning service may call it |

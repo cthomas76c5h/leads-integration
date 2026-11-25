@@ -290,10 +290,22 @@ let firmAliases (s: Session) =
 let tryFirmAlias (s: Session) (alias: string) =
     s.TryOne "SELECT firm_id FROM firm_aliases WHERE alias=$1" [ alias ] (fun r -> Read.str r 0)
 
+/// The firm here that carries this canonical id (suite S-2), if any.
+let tryFirmByCanonical (s: Session) (canonicalId: string) =
+    s.TryOne "SELECT id FROM firms WHERE canonical_id=$1" [ canonicalId ] (fun r -> Read.str r 0)
+
+/// The firm a sender names: by its canonical id first; else, for senders not yet on canonical
+/// ids, through an alias set by hand.
+let resolveSenderFirm (s: Session) (senderFirmId: string) =
+    match tryFirmByCanonical s senderFirmId with
+    | Some id -> Some id
+    | None -> tryFirmAlias s senderFirmId
+
 /// Maps an alias to a firm. Setting it again to the same firm changes nothing; to another firm is refused.
 let setFirmAlias (s: Session) (alias: string) (firmId: string) (nowMs: int64) : FirmAlias =
     if String.IsNullOrWhiteSpace alias then fail 422 "alias: the sender's firm id"
     firmOrFail s firmId |> ignore
+    if (tryFirmByCanonical s alias).IsSome then fail 422 $"{alias} is a firm's canonical id: it already resolves, and needs no alias"
     match tryFirmAlias s alias with
     | Some existing when existing <> firmId -> fail 409 $"the alias {alias} already names firm {existing}"
     | Some _ -> ()
@@ -1137,6 +1149,10 @@ type FirmDetail =
       IssueCount: int
       LiveDestinations: int
       Active: bool
+      /// Given by the provisioning boundary (suite S-2); null until provisioned.
+      CanonicalId: string
+      /// The billing account provisioning put the firm in; null until provisioned.
+      AccountId: string
       /// IANA name (Zones.fs).
       TimeZone: string
       SourcesDetail: FirmSource[]
@@ -1198,8 +1214,13 @@ let firmDetail (s: Session) (id: string) (setups: obj[]) : FirmDetail =
     let f = firmOrFail s id
     let srcs = sourcesOf s id
     let conns = connectionsOf s id |> Array.map _.Connection
+    let canonicalId, accountId =
+        s.TryOne "SELECT canonical_id, account_id FROM firms WHERE id=$1" [ id ] (fun r -> Read.str r 0, Read.str r 1)
+        |> Option.defaultValue (null, null)
     { Id = f.Id
       Name = f.Name
+      CanonicalId = canonicalId
+      AccountId = accountId
       Sources = srcs |> Array.map _.System |> Array.distinct
       KeyFingerprint = f.KeyFingerprint
       ConnectionKinds = conns |> Array.map _.Kind |> Array.distinct

@@ -68,6 +68,10 @@ export interface FirmSummary {
 }
 
 export interface FirmDetail extends FirmSummary {
+  /** Given by the provisioning boundary; null until provisioned. */
+  canonicalId: string | null;
+  /** The billing account provisioning put the firm in. */
+  accountId: string | null;
   timeZone: string;
   sourcesDetail: FirmSource[];
   contactTypes: { name: string; active: boolean; mapping: CallMapping }[];

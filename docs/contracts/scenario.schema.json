@@ -89,6 +89,10 @@
                 "type": "string",
                 "description": "Fictional, always"
               },
+              "canonicalId": {
+                "type": "string",
+                "description": "Provisioned through the provisioning boundary under this canonical, opaque firm id instead of created by the lab (suite S-2). A contract lead then names the firm by it"
+              },
               "alias": {
                 "type": "string",
                 "description": "The sender's own id for this firm (a contract lead's firm.id), mapped to it by hand until firm ids are shared (docs/contracts/intake-lead/README.md). A firm without one refuses contract leads"

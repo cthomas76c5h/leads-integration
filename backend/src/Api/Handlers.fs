@@ -186,6 +186,25 @@ let leadContract (c: Ctx) (id: string) : EndpointHandler =
         | None -> error 404 $"lead {id} was not taken in a contract" ctx
 
 [<CLIMutable>]
+type ProvisionBody = { Name: string; TimeZone: string; AccountId: string; Adopt: string }
+
+/// The provisioning boundary (suite S-2): a new canonical id is 201, the same one again 200.
+let provisionFirm (c: Ctx) (canonicalId: string) : EndpointHandler =
+    fun ctx ->
+        task {
+            let! b = body { Name = null; TimeZone = null; AccountId = null; Adopt = null } ctx
+            let request: Provisioning.Request = { Name = b.Name; TimeZone = b.TimeZone; AccountId = b.AccountId; Adopt = b.Adopt }
+            let firm, isNew = Db.write c.Db (fun s -> Provisioning.provision s canonicalId request (now ()))
+            return! (if isNew then created firm else ok firm) ctx
+        }
+
+let provisionedFirm (c: Ctx) (canonicalId: string) : EndpointHandler =
+    fun ctx ->
+        match Db.read c.Db (fun s -> Provisioning.tryGet s canonicalId) with
+        | Some f -> ok f ctx
+        | None -> error 404 $"no firm is provisioned as {canonicalId}" ctx
+
+[<CLIMutable>]
 type AliasBody = { FirmId: string }
 
 let firmAliases (c: Ctx) : EndpointHandler = fun ctx -> ok (Db.read c.Db Store.firmAliases) ctx

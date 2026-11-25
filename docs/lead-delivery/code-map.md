@@ -154,6 +154,7 @@ Every timestamp is UTC milliseconds; delivery rules are elapsed durations and ne
 ## 6. Where the lab's data comes from
 
 - **Firms and destinations:** the legacy importers ([backend/src/Import/](../../backend/src/Import/)) read the legacy systems' data → `Import.apply`. Today the lab imports legacy data; the lead will come from the call center ([Proposed](../../README.md#where-this-sits)). Secrets are reduced to presence and a fingerprint in `Import.credential`; import findings come from `Issues.compute`.
+- **Firm identity:** `PUT /api/provisioning/firms/{canonicalId}` → `Handlers.provisionFirm` → `Provisioning.provision`, one write: creates the firm or adopts an existing one, sets its canonical id (unique, `firms_canonical`), name, time zone and billing account, and emits `FirmProvisioned`. `Store.resolveSenderFirm` resolves a contract lead's `firm.id`: canonical id first, then `firm_aliases`.
 - **Leads from the call center:** `tools/publish_leads.py` posts the leads its simulator wrote (`out/leads/`) to the contract route above; until firm ids are shared, a sender's firm id maps to a firm here through `firm_aliases`.
 - **Call types → call categories:** `Categories.classify`, from `docs/call-categories/taxonomy.json` (see [call-categories](../call-categories/README.md)).
 - **Synthetic leads:** `Seed.lead` and `Seed.run`, which go through `Dispatch.publish` like real leads.
@@ -175,6 +176,7 @@ Every timestamp is UTC milliseconds; delivery rules are elapsed durations and ne
 | [RoutingTests.fs](../../backend/tests/Tests/RoutingTests.fs) | Each destination's rule decides alone; routing changes go live only when approved, and waiting deliveries keep their revision |
 | [LeaseTests.fs](../../backend/tests/Tests/LeaseTests.fs) | One worker wins a claim; deadline order; what follows an unknown outcome; resend refused while in flight; resolving an unknown outcome |
 | [IntakeTests.fs](../../backend/tests/Tests/IntakeTests.fs) | One lead per conversation; a lead the database could not take is not recorded at all |
+| [ProvisioningTests.fs](../../backend/tests/Tests/ProvisioningTests.fs) | Milestone 2: a canonical id creates or adopts a firm once; provisioning owns the name, zone and account; one account holds several firms; refusals; a lead names its firm by canonical id, and an alias never shadows one |
 | [IngestTests.fs](../../backend/tests/Tests/IngestTests.fs) | Milestone 1: a contract lead recorded with its payload; repeats, conflicts and refusals; lead, deliveries and payload commit together; the sender's category routes; retried while a receiver is down; delivered after a restart; end to end to the fake receiver |
 | [CorrectionTests.fs](../../backend/tests/Tests/CorrectionTests.fs) | A correction supersedes; billing re-rated while open, credited after close, never charged again |
 | [ContractTests.fs](../../backend/tests/Tests/ContractTests.fs) | Each kind's delivery contract against the code, both ways |

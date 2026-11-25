@@ -5,6 +5,10 @@
       "source": "RFC-007 §5.3",
       "meaning": "Intake took a call or chat, lead or not"
     },
+    "FirmProvisioned": {
+      "source": "suite S-2; docs/api.md, provisioning",
+      "meaning": "The provisioning boundary created a firm under its canonical id, or linked an existing one to it"
+    },
     "LeadRecorded": {
       "source": "README §7",
       "meaning": "A lead was recorded with its planned deliveries"

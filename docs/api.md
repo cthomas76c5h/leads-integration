@@ -88,6 +88,8 @@ interface FirmSummary {
 }
 
 interface FirmDetail extends FirmSummary {
+  canonicalId: string | null;       // given by the provisioning boundary; null until provisioned
+  accountId: string | null;         // the billing account provisioning put it in
   timeZone: string;                 // IANA name ('America/New_York' by default): the firm's office hours and the dates it reads
   sourcesDetail: FirmSource[];
   contactTypes: { name: string; active: boolean; mapping: CallMapping }[]; // legacy routing: a lead goes out only if its callType matches an active one
@@ -139,6 +141,17 @@ interface LeadContractRecord {
 
 /** Until the suite shares firm ids: the sender's firm id, mapped by hand to a firm here. */
 interface FirmAlias { alias: string; firmId: string; createdAt: number }
+
+/** A firm as the provisioning boundary gave it (suite S-2): its canonical id, issued outside
+ *  delivery and never parsed, beside the firm's id here. */
+interface ProvisionedFirm {
+  canonicalId: string;           // opaque: 1–64 characters, letters, digits and . _ : -
+  firmId: string;                // the firm here (FirmDetail.id)
+  name: string;
+  timeZone: string;              // IANA name
+  accountId: string | null;      // the commercial billing account it belongs to (opaque); one account may hold several firms
+  provisionedAt: number; updatedAt: number;
+}
 
 interface LeadEvent { id: string; firmId: string; test: boolean; createdAt: number; lead: Lead }
 
@@ -505,9 +518,11 @@ Every `/api/portal/leads` route needs `Authorization: Bearer {token}` (401 witho
 | GET | `/api/firms/{id}/report` | | `FirmReport`: the last 7 days, production leads |
 | POST | `/api/firms` | `{ name, timeZone? }` | `FirmDetail` (source `manual`; `timeZone` defaults to `America/New_York`) |
 | PATCH | `/api/firms/{id}` | `{ timeZone }` | `FirmDetail`. Set by Answering AI; 422 unless an IANA name (`America/Los_Angeles`) |
-| POST | `/api/ingest/intake-lead/draft-2` | an `intake-lead/draft-2` lead, exactly as its schema (`docs/contracts/intake-lead/draft-2.schema.json`) | 201 `{ event: LeadEvent, deliveries: Delivery[], mapping: CallMapping, duplicate: false, leadId, interactionId }`. The firm is `firm.id` through its alias (`PUT /api/firm-aliases/{alias}`). Recorded once per firm and `conversation.id`, with the original payload, in the same transaction as its deliveries. The same payload again: **200**, `duplicate: true`, nothing planned or sent again. A different payload for the same interaction, or the same `leadId` for another interaction: **409**, nothing changed. **422**: not JSON, another contract, a payload the schema refuses (`error` lists each problem as `path: problem`, at most 20), a category not in the taxonomy, or a firm with no alias. **503** `{ error, recorded: false }` with `Retry-After` as for the route below |
+| POST | `/api/ingest/intake-lead/draft-2` | an `intake-lead/draft-2` lead, exactly as its schema (`docs/contracts/intake-lead/draft-2.schema.json`) | 201 `{ event: LeadEvent, deliveries: Delivery[], mapping: CallMapping, duplicate: false, leadId, interactionId }`. The firm is `firm.id` as its canonical id (`PUT /api/provisioning/firms/{canonicalId}`), or else through its alias (`PUT /api/firm-aliases/{alias}`), kept for senders that do not yet send canonical ids. Recorded once per firm and `conversation.id`, with the original payload, in the same transaction as its deliveries. The same payload again: **200**, `duplicate: true`, nothing planned or sent again. A different payload for the same interaction, or the same `leadId` for another interaction: **409**, nothing changed. **422**: not JSON, another contract, a payload the schema refuses (`error` lists each problem as `path: problem`, at most 20), a category not in the taxonomy, or a firm with no alias. **503** `{ error, recorded: false }` with `Retry-After` as for the route below |
+| PUT | `/api/provisioning/firms/{canonicalId}` | `{ name, timeZone?, accountId?, adopt?: string }` | `ProvisionedFirm`. **The provisioning boundary** (suite S-2): the only way a firm gets its canonical id. A new canonical id creates the firm (**201**), or with `adopt` links an existing firm here to it (one imported from the legacy systems). The same id again is idempotent: **200**, with `name`, `timeZone` and `accountId` updated to what provisioning says (provisioning is their source of truth). **409** when `adopt` names a firm already linked to another canonical id; **422** for an id of the wrong shape, no name, a time zone that is not an IANA name, or an id already used as an alias. Emits `FirmProvisioned` when it creates or links. No authentication in the lab: in production only the provisioning service may call it |
+| GET | `/api/provisioning/firms/{canonicalId}` | | `ProvisionedFirm`; 404 if not provisioned |
 | GET | `/api/firm-aliases` | | `FirmAlias[]` |
-| PUT | `/api/firm-aliases/{alias}` | `{ firmId }` | `FirmAlias`. Maps a sender's firm id to a firm here; temporary, until firm ids are shared. 404 for an unknown firm; 409 if the alias already names another firm |
+| PUT | `/api/firm-aliases/{alias}` | `{ firmId }` | `FirmAlias`. Maps a sender's firm id to a firm here; temporary, for senders not yet on canonical ids. 404 for an unknown firm; 409 if the alias already names another firm; 422 if it is a firm's canonical id (that already resolves) |
 | POST | `/api/firms/{id}/leads` | `{ variant?: 'full' \| 'sparse', callType?: string, webchat?: boolean, referenceLead?: string, conversationId?: string }` | 201 `{ event: LeadEvent, deliveries: Delivery[], mapping: CallMapping, duplicate: false }`. `conversationId` is the channel's id for the call or chat: intake records one lead per firm and conversation, so a repeat is answered **200** with the lead already recorded, its deliveries and `duplicate: true`, and nothing is planned or sent again (RFC-008 §4.1; the legacy system answers 208). Without one, every request is a new lead. **503** `{ error, recorded: false }` with `Retry-After` when the lead could not be committed (the database did not take the write): nothing was recorded, planned or sent, and the channel keeps its copy and sends it again. One delivery per enabled, active connection, each with its routing `decision`; `skipped` with a reason when routing excludes it or the lead lacks what the destination requires. `referenceLead` sends that reference lead as-is; `callType` then replaces its call type (e.g. the firm's own name for the same category) |
 | GET | `/api/call-categories` | | `Taxonomy` |
 | GET | `/api/call-categories/classify?name=` | | `CallMapping` |

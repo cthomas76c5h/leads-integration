@@ -35,6 +35,7 @@ let endpoints (c: Ctx) : Endpoint list =
             routef "/api/leads/{%s}/classification" (fun id -> g (classification c id))
             routef "/api/leads/{%s}/contract" (fun id -> g (leadContract c id))
             route "/api/firm-aliases" (g (firmAliases c))
+            routef "/api/provisioning/firms/{%s}" (fun id -> g (provisionedFirm c id))
             routef "/api/leads/{%s}/billing" (fun id -> g (leadBilling c id))
             route "/api/deliveries" (g (listDeliveries c))
             route "/api/deliveries/summary" (g (deliverySummary c))
@@ -68,7 +69,10 @@ let endpoints (c: Ctx) : Endpoint list =
             routef "/api/client/setups/{%s}/connect" (fun t -> g (clientConnect c t))
             routef "/api/client/setups/{%s}/decision" (fun t -> g (clientDecision c t))
             routef "/ack/{%s}" (fun id -> g (ackConfirm c id)) ]
-      PUT [ routef "/api/firm-aliases/{%s}" (fun alias -> g (setFirmAlias c alias)) ]
+      PUT
+          [ routef "/api/firm-aliases/{%s}" (fun alias -> g (setFirmAlias c alias))
+            // The provisioning boundary (suite S-2): the only way a firm gets its canonical id.
+            routef "/api/provisioning/firms/{%s}" (fun id -> g (provisionFirm c id)) ]
       PATCH
           [ routef "/api/firms/{%s}" (fun id -> g (patchFirm c id))
             routef "/api/connections/{%s}" (fun id -> g (patchConnection c id))

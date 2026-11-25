@@ -455,7 +455,12 @@ let openDatabase (path: string) : Database =
           "events", "escalated_at", "INTEGER NULL"
           "events", "expired_at", "INTEGER NULL"
           // The channel's conversation id (RFC-008 §4.1): one lead per conversation, whatever the channel repeats.
-          "events", "conversation_id", "TEXT NULL" ] do
+          "events", "conversation_id", "TEXT NULL"
+          // The firm's canonical id and billing account, as the provisioning boundary gave them (suite S-2).
+          "firms", "canonical_id", "TEXT NULL"
+          "firms", "account_id", "TEXT NULL"
+          "firms", "provisioned_at", "INTEGER NULL"
+          "firms", "provisioning_updated_at", "INTEGER NULL" ] do
         use probe = conn.CreateCommand()
         probe.CommandText <- $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = '{column}'"
         if Convert.ToInt64(probe.ExecuteScalar()) = 0L then
@@ -466,6 +471,9 @@ let openDatabase (path: string) : Database =
     use renamed = conn.CreateCommand()
     renamed.CommandText <- "UPDATE firm_sources SET system = 'legacy' WHERE system = 'api2'; UPDATE connections SET source = 'legacy' WHERE source = 'api2'"
     renamed.ExecuteNonQuery() |> ignore
+    use canonical = conn.CreateCommand()
+    canonical.CommandText <- "CREATE UNIQUE INDEX IF NOT EXISTS firms_canonical ON firms(canonical_id) WHERE canonical_id IS NOT NULL"
+    canonical.ExecuteNonQuery() |> ignore
     use unique = conn.CreateCommand()
     unique.CommandText <- "CREATE UNIQUE INDEX IF NOT EXISTS events_conversation ON events(firm_id, conversation_id) WHERE conversation_id IS NOT NULL"
     unique.ExecuteNonQuery() |> ignore
