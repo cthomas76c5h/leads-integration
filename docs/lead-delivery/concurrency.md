@@ -43,6 +43,23 @@ written in the same transaction as the change they describe.
 Because writes are serialised, a check followed by a write in the same transaction
 cannot be overtaken: whatever committed before the transaction began is what it sees.
 
+**On PostgreSQL** (RFC-011; the suite standardizes on it) the same guarantee holds another way.
+Writers run concurrently, with no in-process lock:
+
+- **`Db.write` runs `SERIALIZABLE`.** PostgreSQL aborts a transaction that a concurrent one could
+  have changed (40001), so the outcome is as if writes had run one at a time. A transaction that
+  loses a race (40001, a deadlock 40P01, or a unique index taking the other writer's row 23505) is
+  run again from the start, up to ten times with a short random pause: a check-then-insert then
+  sees the other writer's row and answers as a repeat. A write's function keeps its effects inside
+  the transaction, so running it again is safe (no write here sends, reads files or waits).
+- **`Db.writeConditional` runs `READ COMMITTED`,** for claims only: each is one conditional
+  `UPDATE … WHERE <still claimable>`, and a second writer waits for the first and re-checks the
+  row, so of two claims one wins. Under `SERIALIZABLE`, many workers claiming from one queue
+  mostly abort each other.
+- **`beginAttempt` locks the destination's row** (`Store.lockConnection`, `SELECT … FOR UPDATE`)
+  before checking whether it is paused or switched off, so a pause can't commit between the check
+  and the attempt (section 7, limit 2).
+
 ## 4. A delivery's lease
 
 ```
@@ -147,6 +164,7 @@ The worker (`Dispatch.work`) keeps up to `Dispatch.maxInFlight` (20) sends runni
 | A destination answers slowly while other leads fall due | `Dispatch.work` claims again as each send finishes; `Store.claimDue` gives one destination at most four leases at once | Only that destination's deliveries wait | `WorkerTests` (fails under the old batch-at-a-time loop) |
 | One firm has a large backlog of urgent leads | `Store.claimDue` ranks everything due in SQL, caps each destination's leases and each firm's share of a claim | Another firm's lead is claimed in the same pass | `WorkerTests` |
 | Several processes write to one database file | Each write transaction begins `IMMEDIATE`; a claim is one conditional write | Writers wait for each other; every lead sent once | `WorkerTests` (six writers, 400 leads) |
+| Several processes write to one PostgreSQL database | `SERIALIZABLE` writes, run again when they lose a race; claims conditional under `READ COMMITTED` | One lead per event, one firm per canonical id, one resend per request, every delivery claimed once | `ConcurrencyTests` (eight writers at once, on both engines; each guarantee shown to fail without its mechanism) |
 | An operator resends while the original still waits | `Dispatch.replay` checks, in its transaction, for a delivery of the lead to that destination still `pending` or `delivering` | Refused (409) until it settles; a bulk resend skips it and says so | `LeaseTests` |
 | A lookup finds the record of an unknown outcome as an operator resolves it | Both write conditionally (`… AND status='unknown' AND resolution IS NULL`) | Whichever commits first settles it; the other changes nothing | `emergency-under-pressure` |
 | Two sweeps look up the same record | Conditional updates in `Dispatch.runVerifications` (`WHERE verified_at IS NULL`, `… AND verify_overdue_at IS NULL`) | Verified or flagged once; the event is emitted once | — |
@@ -175,13 +193,14 @@ destination and a firm each limited to their share of the send slots (`Store.cla
 that SQLite transactions here are deferred, which was wrong (section 3).
 
 1. **Several processes are shown on one machine, not across machines.** The multi-writer test uses separate connections and locks in one process, which meet at SQLite's file lock as separate processes do; no run used separate processes or a network file system (where SQLite's locking is not reliable). Under heavy contention a write that waits more than 5 s fails: the worker retries its pass, and intake answers 503 so the channel sends again.
-2. **PostgreSQL, if adopted, needs one change.** With concurrent writers, `beginAttempt` would lock the destination's row (`SELECT … FOR UPDATE`) so a pause cannot commit between its check and its write; SQLite's single writer gives that for free.
+2. **PostgreSQL's one predicted change is made.** `beginAttempt` locks the destination's row (`Store.lockConnection`); `ConcurrencyTests` shows a pause waiting for it, and committing between check and attempt without it. More was needed than predicted: `SERIALIZABLE` writes, since `Dispatch.replay` and other checks-then-writes have no unique index behind them (eight concurrent resends made eight deliveries under `READ COMMITTED`).
+4. **A destination's send slots are a soft limit on PostgreSQL.** `Store.claimDue` counts the leases a destination already holds, and claims run `READ COMMITTED`, so concurrent workers can briefly lease more than four to one destination. Fairness, not correctness: every delivery is still claimed once.
 3. **Fairness is per claim, not over time.** A firm with many destinations gets four leases on each; shares are not weighted by firm size or plan.
 
 ## 8. Where it is tested
 
 - **Scenarios** (`python tools/run_scenarios.py`): `double-claim`, `pause-during-send`, `crash-after-send`, `crm-timeout`, `relay-timeouts`, `duplicate-intake`, `database-down-at-intake`, `routing-change-during-outage`, `all-routes-down`, `unknown-resolved`, `stall-after-start`, `emergency-under-pressure`. Faults are injected through `POST /api/test/faults` (`Dispatch.Faults`, `Db.WritesFail`).
-- **F# tests**: `LeaseTests` (exclusive claim, deadline order, the policy after unknown), `IntakeTests`, `HandOffTests`, `RoutingTests`, `ContractTests` (each delivery contract against the code), and `InterleavingTests` (section 9), `WorkerTests` (a slow destination, a busy firm, several writers on one file).
+- **F# tests**: `LeaseTests` (exclusive claim, deadline order, the policy after unknown), `IntakeTests`, `HandOffTests`, `RoutingTests`, `ContractTests` (each delivery contract against the code), and `InterleavingTests` (section 9), `WorkerTests` (a slow destination, a busy firm, several writers on one file), `ConcurrencyTests` (eight writers at once on intake, contract ingest, provisioning, resend and claims, and a pause against an attempt: on SQLite and, with `DELIVERY_TEST_PG`, PostgreSQL).
 
 ## 9. The model, checked exhaustively
 

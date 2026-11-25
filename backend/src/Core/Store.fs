@@ -868,6 +868,12 @@ type Claim =
 let private claimable =
     "((status = 'pending' AND next_attempt_at IS NOT NULL AND next_attempt_at <= $2) OR (status = 'delivering' AND COALESCE(lease_until, 0) <= $2))"
 
+/// Locks a destination's row until the transaction ends (PostgreSQL), so a pause or a switch-off can't
+/// commit between a check of its state and a write that depends on it. On SQLite the single writer
+/// already gives that, and there is no row lock to take (concurrency.md §7).
+let lockConnection (s: Session) (id: string) =
+    if s.IsPostgres then s.Query "SELECT 1 FROM connections WHERE id=$1 FOR UPDATE" [ id ] ignore |> ignore
+
 /// Claim one delivery for `worker` if it is claimable: one conditional write, so of two workers
 /// only one can win, and the lease version every later write checks goes up by one.
 let tryClaim (s: Session) (worker: string) (nowMs: int64) (leaseMs: int64) (id: string) : Claim option =

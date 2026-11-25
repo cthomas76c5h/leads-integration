@@ -407,7 +407,7 @@ const RACES = [
     story: "Two worker processes share one SQLite file. Each has its own in-process write lock, so they meet only at SQLite's file lock.",
     lanes: ['P1', 'D', 'P2'],
     steps: [
-      { from: 'P1', to: 'D', kind: 'tx', label: 'BEGIN IMMEDIATE: claim', fn: 'Db.write → Store.claimDue', checks: "IMMEDIATE takes the file's write lock at the start of the transaction", writes: 'leases', why: 'Microsoft.Data.Sqlite begins every write transaction IMMEDIATE by default.' },
+      { from: 'P1', to: 'D', kind: 'tx', label: 'BEGIN IMMEDIATE: claim', fn: 'Db.write → Store.claimDue', checks: "IMMEDIATE takes the file's write lock at the start of the transaction (on PostgreSQL: a conditional update under READ COMMITTED; concurrency.md §3)", writes: 'leases', why: 'Microsoft.Data.Sqlite begins every write transaction IMMEDIATE by default.' },
       { from: 'P2', to: 'D', kind: 'none', label: 'BEGIN IMMEDIATE: waits', fn: 'Db.write (busy_timeout 5 s)', writes: '—', why: 'It waits for the lock instead of reading a snapshot that could go stale before its first write. Our docs said these transactions were deferred: wrong, and corrected.' },
       { from: 'P1', to: 'D', kind: 'tx', label: 'commit', fn: 'Db.write', writes: 'the claim is durable', why: '' },
       { from: 'P2', to: 'D', kind: 'tx', label: 'claim: the next ones', fn: 'Store.tryClaim', checks: "Process 1's deliveries are no longer claimable: the conditional UPDATE matches nothing", writes: 'leases on other deliveries', why: 'Correct across processes because a claim is one conditional write.' },

@@ -84,6 +84,9 @@ let private readAll (cmd: DbCommand) (map: DbDataReader -> 'T) =
 
 /// Statements against one connection, optionally inside a transaction.
 type Session(conn: DbConnection, tx: DbTransaction) =
+    /// On PostgreSQL, where writers run concurrently and a row lock is sometimes needed.
+    member _.IsPostgres = conn :? NpgsqlConnection
+
     member _.Query (sql: string) (args: obj list) (map: DbDataReader -> 'T) : 'T[] =
         use cmd = command conn tx sql args
         readAll cmd map
@@ -109,18 +112,56 @@ let read (db: Database) (f: Session -> 'T) : 'T =
 /// The database could not take a write: nothing in that transaction was committed.
 exception Unavailable of string
 
-/// A write in one transaction, serialised with every other write in this process.
-let write (db: Database) (f: Session -> 'T) : 'T =
+/// How many times a PostgreSQL write is tried when it loses a race (RFC-011 step 3).
+let private attempts = 10
+
+/// A race lost to another writer, which running the transaction again settles: a unique index
+/// took the other writer's row (23505), or the database chose this transaction to give way
+/// (serialization failure 40001, deadlock 40P01).
+let private lostRace (e: exn) =
+    match e with
+    | :? PostgresException as p -> p.SqlState = "23505" || p.SqlState = "40001" || p.SqlState = "40P01"
+    | _ -> false
+
+let private backoff = new ThreadLocal<Random>(fun () -> Random())
+
+let private run (db: Database) (isolation: Data.IsolationLevel) (f: Session -> 'T) : 'T =
     if db.WritesFail then raise (Unavailable "the database is not answering")
-    db.WriteLock.Wait()
-    try
+    let once () =
         use conn = open' db
-        use tx = conn.BeginTransaction()
+        use tx = if db.Engine = Postgres then conn.BeginTransaction isolation else conn.BeginTransaction()
         let result = f (Session(conn, tx))
         tx.Commit()
         result
-    finally
-        db.WriteLock.Release() |> ignore
+    match db.Engine with
+    | Sqlite ->
+        db.WriteLock.Wait()
+        try once () finally db.WriteLock.Release() |> ignore
+    | Postgres ->
+        let rec go n =
+            try once ()
+            with e when n < attempts && lostRace e ->
+                // A short random pause, growing with each try, so racers don't collide again in step.
+                Thread.Sleep(backoff.Value.Next(1, 5 * n + 1))
+                go (n + 1)
+        go 1
+
+/// A write in one transaction.
+///
+/// SQLite: serialised with every other write in this process (one writer at a time).
+/// PostgreSQL: writers run concurrently (RFC-011 step 3), each transaction SERIALIZABLE, so the
+/// result is as if they had run one at a time, as on SQLite: a check followed by a write can't be
+/// overtaken. Conditional updates guard claims and leases, and unique indexes anything recorded
+/// once. A write that loses a race is run again from the start, in a new transaction, and sees what
+/// the other writer committed: a check-then-insert then answers as a repeat. The function must
+/// therefore keep its effects inside the transaction, as every write here does.
+let write (db: Database) (f: Session -> 'T) : 'T = run db Data.IsolationLevel.Serializable f
+
+/// A write whose correctness rests only on conditional single-row updates (a claim: `UPDATE …
+/// WHERE <still claimable>`), so it needs no serializability. On PostgreSQL it runs READ COMMITTED,
+/// where a second writer waits for the first and then re-checks the row: of two claims, one wins.
+/// Under SERIALIZABLE, many workers claiming from one queue would mostly abort each other.
+let writeConditional (db: Database) (f: Session -> 'T) : 'T = run db Data.IsolationLevel.ReadCommitted f
 
 module Read =
     let str (r: DbDataReader) (i: int) : string = if r.IsDBNull i then null else r.GetString i

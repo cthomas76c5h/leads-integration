@@ -642,6 +642,9 @@ let beginAttempt (db: Database) (origin: string) (deliveryId: string) (version: 
         else
             let row = Store.deliveryOrFail s deliveryId
             let d = row.Delivery
+            // The destination's state is checked and the attempt recorded in one step: a pause can't
+            // commit in between (concurrency.md §7).
+            Store.lockConnection s d.ConnectionId
             let stop status reason =
                 Store.setDeliveryState s d.Id status reason (Nullable())
                 // Pending with no next attempt is held, until the destination resumes or is reconnected.
@@ -837,7 +840,7 @@ let private runClaim (db: Database) (http: HttpClient) (opts: Options) (random: 
 /// Claim up to `free` due deliveries and start sending each; returns the sends now running.
 let startDue (db: Database) (http: HttpClient) (opts: Options) (random: unit -> float) (free: int) : Task<unit>[] =
     if free <= 0 then [||]
-    else write db (fun s -> Store.claimDue s workerId (now ()) leaseMs free) |> Array.map (runClaim db http opts random)
+    else Db.writeConditional db (fun s -> Store.claimDue s workerId (now ()) leaseMs free) |> Array.map (runClaim db http opts random)
 
 /// Claim and send everything due now, and wait for all of it (test control and tests: one pass at a
 /// time on a virtual clock). The worker uses `work`, which never waits for a whole batch.
@@ -964,7 +967,7 @@ let continueStalled (db: Database) (http: HttpClient) (opts: Options) (random: u
 /// Test control: another worker tries to claim this delivery; it sends only if it wins the lease.
 let claimAsAnotherWorker (db: Database) (http: HttpClient) (opts: Options) (random: unit -> float) (deliveryId: string) : Task<bool> =
     task {
-        match write db (fun s -> Store.tryClaim s "wkr_second" (now ()) leaseMs deliveryId) with
+        match Db.writeConditional db (fun s -> Store.tryClaim s "wkr_second" (now ()) leaseMs deliveryId) with
         | Some claim ->
             do! runClaim db http opts random claim
             return true

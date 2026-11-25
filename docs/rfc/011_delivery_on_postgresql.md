@@ -3,7 +3,7 @@
 **Answering AI — Technical Proposal**
 
 **Date:** November 25, 2026
-**Status:** In progress: steps 1 and 2 done (2026-11-25); the decision to move is taken (suite S-8), this is how
+**Status:** In progress: steps 1 to 3 done (2026-11-25); the decision to move is taken (suite S-8), this is how
 **Decision owner:** Engineering
 **Related:** suite S-8 and milestone M4b (`../call-center-lab/docs/suite/`) · [concurrency.md](../lead-delivery/concurrency.md) · RFC-008 (the guarantees the store must keep)
 
@@ -60,7 +60,8 @@ Each step is usable on its own, and passes every test and scenario before the ne
 |---|---|
 | 1 | **Done.** 13 sums over conditions, 2 conditions read as numbers, two-argument `MIN`/`MAX`, `INSERT OR IGNORE` and name order rewritten in forms both accept |
 | 2 | **Done.** `Db` takes a file path (SQLite) or an Npgsql connection string (`Host=…`); the PostgreSQL schema is derived from the one schema (`BIGINT`, identities, `rowid` on the two tables that order by it, `lower(name)`, the append-only trigger as a function); columns added with `ADD COLUMN IF NOT EXISTS`. `DELIVERY_TEST_PG` runs the suite with a database per test. On PostgreSQL it found and fixed: a `GROUP BY` that selected an ungrouped joined column (SQLite allows it), and parameters tested only for null (PostgreSQL can't infer their type: cast). All 207 tests pass on both; the scenarios pass on SQLite |
-| 3 | Next. Early evidence: `WorkerTests`' several writers, each with its own lock, run concurrently on PostgreSQL with every lead sent once and none lost |
+| 3 | **Done.** No in-process lock on PostgreSQL. `Db.write` runs `SERIALIZABLE` and runs a transaction again when it loses a race (unique violation, serialization failure, deadlock), with a short random pause; claims run `READ COMMITTED` through `Db.writeConditional`, since a conditional single-row update needs no more; `beginAttempt` locks the destination's row. `ConcurrencyTests` races eight writers on intake, contract ingest, provisioning, resend and claims, on both engines, and each guarantee was shown to fail with its mechanism removed: without the retry, intake, ingest and provisioning hit unique violations; without `SERIALIZABLE`, eight concurrent resends made eight deliveries; without the row lock, a pause committed mid-attempt. Ten repeated runs on PostgreSQL clean. Found: a destination's send slots are a soft limit under concurrent claims (fairness, not correctness; concurrency.md §7) |
+| 4 | Next: PostgreSQL by default for the API, importer, scenarios and acceptance tool |
 
 **Open: the interleaving explorer.** `InterleavingTests` explores every interleaving of two
 workers, an operator and a receiver by cloning an in-memory SQLite database at each of over a
