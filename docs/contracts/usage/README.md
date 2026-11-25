@@ -30,7 +30,7 @@ of an estimate. They are facts only: **rating alone decides what is billable** (
 
 | Gap | Effect today |
 |---|---|
-| An interaction with usage but no lead (abandoned, lost, a call that left no lead) | Kept, not rated: conversations are still one per lead |
+| An interaction with usage but no lead (abandoned, lost, a call that left no lead) | Kept, not rated: conversations are still one per lead. The statement says how many, by how they ended (check `usage-without-lead`, a note that never flags the account). How to rate them is a business rule still to decide: abandoned and lost calls are presumably free, but a handled call with no lead may only mean its lead hasn't arrived |
 | Usage that arrives after its cycle closed | A closed cycle stays as it was locked; the usage is kept, not re-rated |
 | The category is not in `usage/1` | It comes from the lead, as before; a call without a lead has none |
 | One billing account per firm | Accounts holding several firms wait for M6 (suite X-5) |

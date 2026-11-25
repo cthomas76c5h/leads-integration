@@ -374,6 +374,18 @@ let measuredSeconds (s: Session) (firmId: string) : Map<string, int> =
         (fun r -> Read.str r 0, int ((Read.int64 r 1 + 999L) / 1000L))
     |> Map.ofArray
 
+/// A firm's interactions with usage facts but no lead, that ended in [from, until), counted by how
+/// they ended. Rating counts one conversation per lead, so these are not rated (docs/contracts/usage).
+let usageWithoutLead (s: Session) (firmId: string) (from: int64) (until: int64) : (string * int) list =
+    s.Query
+        """SELECT u.result, COUNT(*) FROM usage_facts u
+           WHERE u.firm_id = $1 AND u.ended_at >= $2 AND u.ended_at < $3
+             AND NOT EXISTS (SELECT 1 FROM events e WHERE e.firm_id = u.firm_id AND e.conversation_id = u.interaction_id)
+           GROUP BY u.result ORDER BY u.result"""
+        [ firmId; from; until ]
+        (fun r -> Read.str r 0, Read.int r 1)
+    |> List.ofArray
+
 // ----- Firm aliases: a sender's firm id, mapped by hand until the suite shares firm ids -----
 
 type FirmAlias = { Alias: string; FirmId: string; CreatedAt: int64 }

@@ -30,9 +30,11 @@ export function BillingOps({ query }: { query: URLSearchParams }) {
   const all = rows.data.filter((r) => (!cycleDay || String(r.cycleDay) === cycleDay) && (!q || r.firmName.toLowerCase().includes(q.toLowerCase())));
   const ready = all.filter((r) => r.ready);
   const problems = all.filter((r) => !r.ready);
-  const flagged = all.filter((r) => r.checks.length > 0);
+  // A note ('info') is shown, but only a control that needs a person flags the account.
+  const needsLook = (r: BillingAccountRow) => r.checks.some((c) => c.severity !== 'info');
+  const flagged = all.filter(needsLook);
   // Data problems and controls first, then the biggest differences: what needs explaining before the switch.
-  const weight = (r: BillingAccountRow) => (r.ready ? 0 : 2e9) + (r.checks.length ? 1e9 : 0) + Math.abs(r.legacyCents === null ? 0 : r.totalCents - r.legacyCents);
+  const weight = (r: BillingAccountRow) => (r.ready ? 0 : 2e9) + (needsLook(r) ? 1e9 : 0) + Math.abs(r.legacyCents === null ? 0 : r.totalCents - r.legacyCents);
   const shown = (view === 'ready' ? ready : view === 'problems' ? problems : view === 'flagged' ? flagged : all).slice().sort((a, b) => weight(b) - weight(a));
   const compared = ready.filter((r) => r.legacyCents !== null);
   const newTotal = compared.reduce((n, r) => n + r.totalCents, 0);
@@ -112,7 +114,7 @@ function Row({ r }: { r: BillingAccountRow }) {
       <td>
         {r.ready ? <span className="badge ok">Ready</span> : <span className="badge warn">Data problem</span>}
         {r.problems.map((p) => <span key={p} className="sub">{p}</span>)}
-        {r.checks.map((c) => <span key={c.code} className={`sub ${c.severity === 'bad' ? 'bad' : 'warn-text'}`}>{c.message}</span>)}
+        {r.checks.map((c) => <span key={c.code} className={`sub ${c.severity === 'bad' ? 'bad' : c.severity === 'warn' ? 'warn-text' : 'muted'}`}>{c.message}</span>)}
       </td>
     </tr>
   );

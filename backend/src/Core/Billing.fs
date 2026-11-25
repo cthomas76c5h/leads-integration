@@ -340,11 +340,18 @@ let rate (s: Session) (a: Account) (from: int64) (until: int64) (nowMs: int64) :
         |> Array.filter (fun l -> l.CreatedAt >= from && l.CreatedAt < until)
     let state (l: Store.LeadSummary) = if isNull (box l.HandOff) then "" else l.HandOff.State
     let free = cs.Length - billable.Length
+    let unrated = Store.usageWithoutLead s a.FirmId from until
     let checks =
         [| if segments.Length = 0 then { Code = "no-plan"; Severity = "bad"; Message = "No subscription on the price book for this cycle" }
            if included > 0 && units > 2 * included then { Code = "usage-spike"; Severity = "warn"; Message = $"{units} billable conversations against {included} included: more than double" }
            if cs.Length >= 10 && free * 100 / cs.Length > 40 then
                { Code = "free-share"; Severity = "warn"; Message = $"{free * 100 / cs.Length}%% of conversations were free: check the rules are not misfiring" }
+           // Calls the center measured that left no lead: not rated, since rating counts one per lead. Seen,
+           // so nobody takes the statement for every call (docs/contracts/usage, "Gaps").
+           if not unrated.IsEmpty then
+               let n = unrated |> List.sumBy snd
+               let how = String.Join(", ", unrated |> List.map (fun (result, count) -> $"{count} {result}"))
+               { Code = "usage-without-lead"; Severity = "info"; Message = $"{n} interactions with usage facts but no lead were not rated ({how})" }
            for x in subs do
                if x.DiscountPct > 0 && x.DiscountUntil.HasValue && x.DiscountUntil.Value < nowMs then
                    { Code = "discount-expired"; Severity = "warn"; Message = $"A {x.DiscountPct}%% discount ({x.DiscountReason}) ended; confirm it is no longer applied" } |]

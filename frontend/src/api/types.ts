@@ -449,7 +449,8 @@ export type SetupAction = 'send' | 'test' | 'confirm' | 'go-live' | 'discard';
 
 export type Tier = 'answer' | 'deliver' | 'insight';
 export interface Price { id: string; plan: string; version: number; tier: Tier; name: string; monthlyCents: number; included: number; overageCents: number; effectiveFrom: number }
-export interface StatementCheck { code: string; severity: 'bad' | 'warn'; message: string }
+/** 'info' is shown but never flags an account (usage-without-lead: measured calls that left no lead). */
+export interface StatementCheck { code: string; severity: 'bad' | 'warn' | 'info'; message: string }
 export interface Statement {
   timeZone: string;
   firmId: string; firmName: string; cycleFrom: number; cycleTo: number; inProgress: boolean; lockedAt: number | null;

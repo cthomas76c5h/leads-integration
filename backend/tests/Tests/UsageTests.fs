@@ -82,6 +82,29 @@ let tests =
             Expect.equal (r.Usage.Payload.GetProperty("handled_in_language").GetString()) "es" "kept as sent"
         }
 
+        test "measured calls that left no lead are not rated, and the statement says so without flagging it" {
+            use t = new TempDb()
+            let firmId = firm t
+            let clock = now ()
+            let ended (interaction: string) (result: string) =
+                withFields [ "interaction", str interaction; "result", str result; "ended_at", num (clock - 60_000L); "started_at", num (clock - 120_000L) ]
+            Billing.ingestUsage t.Db (ended "call-gone-1" "Abandoned") |> ignore
+            Billing.ingestUsage t.Db (ended "call-gone-2" "Abandoned") |> ignore
+            Billing.ingestUsage t.Db (ended "call-handled" "Handled") |> ignore
+            // One with its lead: rated as that lead, so not counted here.
+            Dispatch.intake t.Db firmId "call-with-lead" (sampleLead ()) |> ignore
+            Billing.ingestUsage t.Db (ended "call-with-lead" "PutThrough") |> ignore
+            Db.write t.Db (fun s ->
+                Billing.seedPriceBook s clock
+                Billing.seedAccounts s clock (fun _ -> "answer") None None)
+            let st = Db.write t.Db (fun s -> Billing.statement s firmId "current" (now ()))
+            Expect.equal st.Conversations 1 "one conversation: the lead"
+            let note = st.Checks |> Array.find (fun c -> c.Code = "usage-without-lead")
+            Expect.equal note.Severity "info" "a note, not a flag"
+            Expect.stringContains note.Message "3 interactions" "counted"
+            Expect.stringContains note.Message "2 Abandoned, 1 Handled" "by how they ended"
+        }
+
         test "rating takes a lead's length from its interaction's usage facts, not the estimate" {
             use t = new TempDb()
             let firmId = firm t

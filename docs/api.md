@@ -408,7 +408,7 @@ interface Statement {
   /** The same conversations under the legacy minutes formula: the shadow comparison. */
   legacy: { minutes: number; noChargeMinutes: number; noChargeAllowance: number; wrapup: number; billedMinutes: number;
             planMinutes: number | null; overageMinutes: number; overageRateCents: number | null; totalCents: number | null; problems: string[] };
-  checks: { code: string; severity: 'bad' | 'warn'; message: string }[];   // controls before an invoice goes out
+  checks: { code: string; severity: 'bad' | 'warn' | 'info'; message: string }[];   // controls before an invoice goes out; 'info' is shown, never flags the account (e.g. usage-without-lead: measured calls that left no lead, not rated)
 }
 
 interface BillingAccountRow { firmId: string; firmName: string; cycleDay: 1 | 15; plan: string | null; tier: string | null;
