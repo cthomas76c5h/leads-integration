@@ -28,6 +28,7 @@
     <Compile Include="Categories.fs" />
     <Compile Include="Urgency.fs" />
     <Compile Include="LeadContract.fs" />
+    <Compile Include="UsageContract.fs" />
     <Compile Include="Db.fs" />
     <Compile Include="Store.fs" />
     <Compile Include="Provisioning.fs" />

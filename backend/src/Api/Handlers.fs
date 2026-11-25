@@ -203,6 +203,29 @@ let ingestContract (c: Ctx) (contract: string) : EndpointHandler =
                 return! (if r.Intake.Duplicate then ok answer else created answer) ctx
         }
 
+/// The call center's usage facts for one ended interaction (usage/1). Refusals are Domain.Fail (422,
+/// 409); a write the database didn't take is a 503, so the center keeps the record and sends it again.
+let ingestUsage (c: Ctx) : EndpointHandler =
+    fun ctx ->
+        task {
+            let! raw = readBody ctx
+            let recorded =
+                try Ok(Billing.ingestUsage c.Db raw)
+                with
+                | Db.Unavailable reason -> Error reason
+                | :? Data.Common.DbException as e -> Error e.Message
+            match recorded with
+            | Error reason ->
+                ctx.Response.Headers.RetryAfter <- "30"
+                return! writeJson 503 (box {| error = $"not recorded: {reason}. Keep the record and send it again"; recorded = false |}) ctx
+            | Ok r ->
+                let answer = {| usage = r.Usage; duplicate = r.Duplicate |}
+                return! (if r.Duplicate then ok answer else created answer) ctx
+        }
+
+let firmUsage (c: Ctx) (firmId: string) : EndpointHandler =
+    fun ctx -> ok (Db.read c.Db (fun s -> Store.firmOrFail s firmId |> ignore; Store.firmUsage s firmId)) ctx
+
 let leadContract (c: Ctx) (id: string) : EndpointHandler =
     fun ctx ->
         match Db.read c.Db (fun s -> Store.tryLeadContract s id) with

@@ -141,6 +141,22 @@ interface LeadContractRecord {
   payload: unknown;              // the original payload, unchanged
 }
 
+/** One interaction's usage facts as the call center published them (usage/1, C6), kept as they
+ *  came: immutable, and never a judgement of what is billable (suite S-3: rating alone decides). */
+interface UsageFact {
+  firmId: string;                // the firm here
+  interaction: string;           // the center's interaction id; a lead's conversation.id
+  contract: string;              // 'usage/1'
+  revision: number | null;       // the firm's approved revision in force
+  startedAt: number; endedAt: number;
+  durationMs: number;            // arrival to end, measured: what rating uses for the call's length
+  result: 'PutThrough' | 'Message' | 'Handled' | 'Abandoned' | 'Lost';
+  answeredBy: string | null;
+  payloadHash: string;           // sha256 of the payload in canonical form
+  receivedAt: number;
+  payload: unknown;              // as published, unknown fields included
+}
+
 /** Until the suite shares firm ids: the sender's firm id, mapped by hand to a firm here. */
 interface FirmAlias { alias: string; firmId: string; createdAt: number }
 
@@ -524,6 +540,8 @@ Every `/api/portal/leads` route needs `Authorization: Bearer {token}` (401 witho
 | PUT | `/api/provisioning/firms/{canonicalId}` | `{ name, timeZone?, accountId?, adopt?: string }` | `ProvisionedFirm`. **The provisioning boundary** (suite S-2): the only way a firm gets its canonical id. A new canonical id creates the firm (**201**), or with `adopt` links an existing firm here to it (one imported from the legacy systems). The same id again is idempotent: **200**, with `name`, `timeZone` and `accountId` updated to what provisioning says (provisioning is their source of truth). **409** when `adopt` names a firm already linked to another canonical id; **422** for an id of the wrong shape, no name, a time zone that is not an IANA name, or an id already used as an alias. Emits `FirmProvisioned` when it creates or links. No authentication in the lab: in production only the provisioning service may call it |
 | GET | `/api/provisioning/firms/{canonicalId}` | | `ProvisionedFirm`; 404 if not provisioned |
 | POST | `/api/ingest/intake-lead/draft-3` | an `intake-lead/draft-3` lead (`docs/contracts/intake-lead/draft-3.schema.json`); headers `Lead-Published-At` (ISO 8601, UTC) and `Lead-Publication-Attempt` (1, 2, …), both optional | As for draft-2, with three differences. **Idempotency is on the lead's content only**: the headers are publication metadata, so a retry with a later `Lead-Published-At` is the same lead (**200**, `duplicate: true`), never a conflict; the first and latest publication times and the highest attempt are kept (`LeadContractRecord.publication`). **The window to act starts at the interaction's completion** (`conversation.endedAt`), not at receipt (suite S-5): a lead published late is late. A header of the wrong shape is a **422** |
+| POST | `/api/ingest/usage/1` | a `usage/1` record as the call center publishes it (C6; `docs/contracts/usage/`) | 201 `{ usage: UsageFact, duplicate: false }`. One per firm and interaction, the firm resolved as for leads (canonical id, else alias). Only an ended interaction (`ended_at` set, `result` not `Open`): usage facts are immutable. The same record again: **200**, `duplicate: true`; a different one for the same interaction: **409**. **422**: another contract, a field it reads missing or of the wrong type, an open interaction, or an unknown firm; fields it doesn't read are accepted and kept. **503** as for leads. Rating then takes a lead's length from its interaction's `duration_ms` instead of an estimate |
+| GET | `/api/firms/{id}/usage` | | `UsageFact[]`, newest first |
 | GET | `/api/firm-aliases` | | `FirmAlias[]` |
 | PUT | `/api/firm-aliases/{alias}` | `{ firmId }` | `FirmAlias`. Maps a sender's firm id to a firm here; temporary, for senders not yet on canonical ids. 404 for an unknown firm; 409 if the alias already names another firm; 422 if it is a firm's canonical id (that already resolves) |
 | POST | `/api/firms/{id}/leads` | `{ variant?: 'full' \| 'sparse', callType?: string, webchat?: boolean, referenceLead?: string, conversationId?: string }` | 201 `{ event: LeadEvent, deliveries: Delivery[], mapping: CallMapping, duplicate: false }`. `conversationId` is the channel's id for the call or chat: intake records one lead per firm and conversation, so a repeat is answered **200** with the lead already recorded, its deliveries and `duplicate: true`, and nothing is planned or sent again (RFC-008 §4.1; the legacy system answers 208). Without one, every request is a new lead. **503** `{ error, recorded: false }` with `Retry-After` when the lead could not be committed (the database did not take the write): nothing was recorded, planned or sent, and the channel keeps its copy and sends it again. One delivery per enabled, active connection, each with its routing `decision`; `skipped` with a reason when routing excludes it or the lead lacks what the destination requires. `referenceLead` sends that reference lead as-is; `callType` then replaces its call type (e.g. the firm's own name for the same category) |

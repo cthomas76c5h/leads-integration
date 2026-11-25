@@ -476,6 +476,24 @@ CREATE TABLE IF NOT EXISTS lead_contracts (
 CREATE UNIQUE INDEX IF NOT EXISTS lead_contracts_interaction ON lead_contracts(firm_id, interaction_id);
 CREATE UNIQUE INDEX IF NOT EXISTS lead_contracts_lead ON lead_contracts(firm_id, lead_id);
 
+-- One interaction's usage facts as the call center published them (usage/1, C6): immutable, one per
+-- firm and interaction. Rating reads its measured duration; it never says what is billable (S-3).
+CREATE TABLE IF NOT EXISTS usage_facts (
+  firm_id TEXT NOT NULL REFERENCES firms(id),
+  interaction_id TEXT NOT NULL,
+  contract TEXT NOT NULL,
+  revision INTEGER NULL,
+  started_at INTEGER NOT NULL,
+  ended_at INTEGER NOT NULL,
+  duration_ms INTEGER NOT NULL,
+  result TEXT NOT NULL,
+  answered_by TEXT NULL,
+  payload TEXT NOT NULL,
+  payload_hash TEXT NOT NULL,
+  received_at INTEGER NOT NULL,
+  PRIMARY KEY (firm_id, interaction_id)
+);
+
 -- Until the suite shares firm ids: a sender's firm id, mapped by hand to a firm here.
 CREATE TABLE IF NOT EXISTS firm_aliases (
   alias TEXT PRIMARY KEY,

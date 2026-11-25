@@ -384,6 +384,17 @@
             }
           }
         },
+        "usage": {
+          "description": "The call center publishes the usage facts of a lead's interaction (C6, usage/1, docs/contracts/usage/): measured, so rating uses them instead of a synthetic duration. The interaction ended at this step's time",
+          "type": "object",
+          "required": ["lead", "durationMs"],
+          "additionalProperties": false,
+          "properties": {
+            "lead": { "$ref": "#/$defs/id" },
+            "durationMs": { "type": "integer", "minimum": 0 },
+            "result": { "enum": ["PutThrough", "Message", "Handled", "Abandoned", "Lost"], "default": "Handled" }
+          }
+        },
         "receiver": {
           "description": "From this time on, the destination's receiver answers like this",
           "type": "object",

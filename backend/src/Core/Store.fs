@@ -316,6 +316,64 @@ let contractByInteraction (s: Session) (firmId: string) (interactionId: string) 
 let contractByLeadId (s: Session) (firmId: string) (leadId: string) =
     s.TryOne $"SELECT {contractColumns} FROM lead_contracts WHERE firm_id=$1 AND lead_id=$2" [ firmId; leadId ] readContract
 
+// ----- Usage facts from the call center (usage/1, C6): immutable, one per firm and interaction -----
+
+type UsageFact =
+    { FirmId: string
+      Interaction: string
+      Contract: string
+      Revision: Nullable<int64>
+      StartedAt: int64
+      EndedAt: int64
+      DurationMs: int64
+      Result: string
+      AnsweredBy: string
+      PayloadHash: string
+      ReceivedAt: int64
+      Payload: Text.Json.JsonElement }
+
+let private usageCols =
+    "firm_id, interaction_id, contract, revision, started_at, ended_at, duration_ms, result, answered_by, payload_hash, received_at, payload"
+
+let private readUsage (r: Data.Common.DbDataReader) =
+    { FirmId = Read.str r 0
+      Interaction = Read.str r 1
+      Contract = Read.str r 2
+      Revision = Read.int64N r 3
+      StartedAt = Read.int64 r 4
+      EndedAt = Read.int64 r 5
+      DurationMs = Read.int64 r 6
+      Result = Read.str r 7
+      AnsweredBy = Read.str r 8
+      PayloadHash = Read.str r 9
+      ReceivedAt = Read.int64 r 10
+      Payload = Text.Json.JsonDocument.Parse(Read.str r 11).RootElement.Clone() }
+
+let tryUsage (s: Session) (firmId: string) (interaction: string) =
+    s.TryOne $"SELECT {usageCols} FROM usage_facts WHERE firm_id=$1 AND interaction_id=$2" [ firmId; interaction ] readUsage
+
+let firmUsage (s: Session) (firmId: string) =
+    s.Query $"SELECT {usageCols} FROM usage_facts WHERE firm_id=$1 ORDER BY ended_at DESC, interaction_id" [ firmId ] readUsage
+
+let insertUsage (s: Session) (u: UsageFact) (rawPayload: string) =
+    s.Execute
+        $"INSERT INTO usage_facts ({usageCols}) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)"
+        [ u.FirmId; u.Interaction; u.Contract; (if u.Revision.HasValue then box u.Revision.Value else null)
+          u.StartedAt; u.EndedAt; u.DurationMs; u.Result; u.AnsweredBy; u.PayloadHash; u.ReceivedAt; rawPayload ]
+    |> ignore
+
+/// Each of a firm's leads whose interaction has usage facts: its measured length in whole seconds,
+/// rounded up, by event id. A lead joins its usage through its conversation id, which is the
+/// center's interaction id.
+let measuredSeconds (s: Session) (firmId: string) : Map<string, int> =
+    s.Query
+        """SELECT e.id, u.duration_ms FROM events e
+           JOIN usage_facts u ON u.firm_id = e.firm_id AND u.interaction_id = e.conversation_id
+           WHERE e.firm_id = $1"""
+        [ firmId ]
+        (fun r -> Read.str r 0, int ((Read.int64 r 1 + 999L) / 1000L))
+    |> Map.ofArray
+
 // ----- Firm aliases: a sender's firm id, mapped by hand until the suite shares firm ids -----
 
 type FirmAlias = { Alias: string; FirmId: string; CreatedAt: int64 }

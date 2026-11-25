@@ -35,6 +35,7 @@ let endpoints (c: Ctx) : Endpoint list =
             routef "/api/leads/{%s}/classification" (fun id -> g (classification c id))
             routef "/api/leads/{%s}/contract" (fun id -> g (leadContract c id))
             route "/api/firm-aliases" (g (firmAliases c))
+            routef "/api/firms/{%s}/usage" (fun id -> g (firmUsage c id))
             routef "/api/provisioning/firms/{%s}" (fun id -> g (provisionedFirm c id))
             routef "/api/leads/{%s}/billing" (fun id -> g (leadBilling c id))
             route "/api/deliveries" (g (listDeliveries c))
@@ -52,6 +53,8 @@ let endpoints (c: Ctx) : Endpoint list =
             // A lead in a versioned contract, as the call center publishes it (docs/contracts/intake-lead/).
             route "/api/ingest/intake-lead/draft-2" (g (ingestContract c LeadIntegrations.LeadContract.draft2))
             route "/api/ingest/intake-lead/draft-3" (g (ingestContract c LeadIntegrations.LeadContract.draft3))
+            // The call center's usage facts (C6): rating reads their measured length (suite S-3).
+            route "/api/ingest/usage/1" (g (ingestUsage c))
             routef "/api/firms/{%s}/connections" (fun id -> g (createConnection c id))
             routef "/api/connections/{%s}/test" (fun id -> g (testConnection c id))
             routef "/api/connections/{%s}/send-missed" (fun id -> g (sendMissed c id))

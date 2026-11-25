@@ -50,6 +50,10 @@ _Avoid_: event, message, contact, CRM lead
 A lead taken in a versioned contract (today `intake-lead/draft-2`, the lead the call center publishes), kept as it came beside the lead delivery works with. The category it carries is used as given; its call type's name is never read. *Lab.* See [intake-lead](docs/contracts/intake-lead/README.md).
 _Avoid_: external lead, webhook lead
 
+**Usage facts**:
+What one ended interaction used, as the call center publishes it (`usage/1`): its length and parts, how it ended, who answered. Facts only: whether it is billable is rating's to decide. Rating takes a lead's length from them where they exist. *Lab (M5).* See [usage](docs/contracts/usage/README.md).
+_Avoid_: billing record, billable usage
+
 **Firm alias**:
 A sender's id for a firm (`general-firm`), mapped by hand to a firm here until the suite shares one firm id. Never moved to another firm. *Lab; temporary.*
 _Avoid_: firm key, mapping

@@ -25,6 +25,7 @@
     <Compile Include="IngestTests.fs" />
     <Compile Include="ProvisioningTests.fs" />
     <Compile Include="Draft3Tests.fs" />
+    <Compile Include="UsageTests.fs" />
     <Compile Include="CorrectionTests.fs" />
     <Compile Include="ContractTests.fs" />
     <Compile Include="InterleavingTests.fs" />

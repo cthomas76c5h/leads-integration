@@ -46,6 +46,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SCENARIOS = ROOT / "docs" / "contracts" / "scenarios"
 CONTRACT_EXAMPLES = ROOT / "docs" / "contracts" / "intake-lead" / "examples"
+USAGE_EXAMPLE = ROOT / "docs" / "contracts" / "usage" / "usage-1.example.json"
 INGEST = {"intake-lead/draft-2": "/api/ingest/intake-lead/draft-2", "intake-lead/draft-3": "/api/ingest/intake-lead/draft-3"}
 BUILD = ROOT / ".scenariobuild"
 
@@ -145,6 +146,7 @@ class LabAdapter:
         self.canonical = {}     # scenario firm id -> its canonical id, when provisioned
         self.contract = {}      # scenario lead id -> the contract it came in
         self.attempts = {}      # scenario lead id -> draft-3 publications so far
+        self.lead_steps = {}    # scenario lead id -> its lead step
         self.tokens = {}  # scenario firm -> a signed-in firm user's token
         self.access = {}  # (firm, lead, boundary) -> allowed | refused  # what intake answered the channel when it repeated a lead's event
         self.pending_mapping = {}
@@ -216,6 +218,8 @@ class LabAdapter:
     def step(self, step: dict):
         if "lead" in step:
             self._lead(step["lead"])
+        elif "usage" in step:
+            self._usage(step["usage"], self.t0 + offset_ms(step["at"]))
         elif "receiver" in step:
             self._receiver(step["receiver"])
         elif "action" in step:
@@ -251,7 +255,23 @@ class LabAdapter:
             node[last] = value
         return payload
 
+    def _usage(self, u, ended_at):
+        """The center's usage facts for a lead's interaction (usage/1): its example, with this lead's
+        interaction, firm and measured duration, ended now."""
+        lead = self.lead_steps.get(u["lead"])
+        if lead is None:
+            raise Unsupported("usage for a lead the scenario never recorded")
+        payload = json.loads(USAGE_EXAMPLE.read_text(encoding="utf-8"))
+        payload["interaction"] = lead.get("conversation") or lead["id"]
+        payload["firm"] = self.canonical.get(lead["firm"]) or self.aliases.get(lead["firm"], f"unknown-{lead['firm']}")
+        payload["ended_at"] = ended_at
+        payload["started_at"] = ended_at - u["durationMs"]
+        payload["duration_ms"] = u["durationMs"]
+        payload["result"] = u.get("result", "Handled")
+        self.api.ok("POST", "/api/ingest/usage/1", payload)
+
     def _lead(self, lead):
+        self.lead_steps[lead["id"]] = lead
         if "contract" in lead:
             self.contract[lead["id"]] = lead["contract"]["name"]
             body = self._contract_payload(lead)

@@ -22,6 +22,9 @@ TAXONOMY = ROOT / "docs" / "call-categories" / "taxonomy.json"
 INTAKE_LEAD = CONTRACTS / "intake-lead"
 # Intake owns the lead contract; this repository keeps copies it must not change.
 INTAKE_DOCS = ROOT.parent / "intake-policy-lab" / "docs"
+# The center owns usage/1 (C6) and publishes an example of its current version; this is a copy.
+USAGE_EXAMPLE = CONTRACTS / "usage" / "usage-1.example.json"
+CENTER_USAGE_EXAMPLE = ROOT.parent / "call-center-lab" / "docs" / "contracts" / "usage" / "usage-1.example.json"
 LEAD_SCHEMAS = {  # contract -> (our copy, intake's original)
     "intake-lead/draft-2": ("draft-2.schema.json", "lead-contract.schema.json"),
     "intake-lead/draft-3": ("draft-3.schema.json", "lead-contract.draft-3.schema.json"),
@@ -191,6 +194,15 @@ def main() -> int:
         for p in problems:
             failed = True
             print(f"{path.relative_to(ROOT)}: {p}")
+
+    checked += 1
+    usage = load(USAGE_EXAMPLE)
+    if usage.get("contract") != "usage/1":
+        failed = True
+        print(f"{USAGE_EXAMPLE.relative_to(ROOT)}: contract is {usage.get('contract')!r}, not usage/1")
+    if CENTER_USAGE_EXAMPLE.exists() and CENTER_USAGE_EXAMPLE.read_bytes() != USAGE_EXAMPLE.read_bytes():
+        failed = True
+        print(f"{USAGE_EXAMPLE.relative_to(ROOT)}: differs from the center's example; copy it again, never edit it here")
 
     print(f"{checked} contract files checked, {'problems found' if failed else 'all valid'}")
     return 1 if failed else 0

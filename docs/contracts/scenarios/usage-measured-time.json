@@ -1,0 +1,82 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "usage-measured-time",
+  "story": "Two callers leave before giving a name. For one, the call center publishes its usage facts: the call lasted 45 seconds, so it is not a hang-up and is billable. For the other no usage arrives, and its time is still the lab's estimate for a nameless call: under 20 seconds, a free hang-up. Rating uses what was measured whenever it has it.",
+  "slice": 10,
+  "model": "lab",
+  "proves": [
+    "docs/contracts/usage/README.md (rating reads the center's measured duration: usage/1, suite S-3)"
+  ],
+  "given": {
+    "clock": "2026-11-16T08:00:00-05:00",
+    "firms": [
+      {
+        "id": "firm-a",
+        "name": "Example Firm A",
+        "canonicalId": "frm-u5g3m8t1"
+      }
+    ],
+    "destinations": [
+      {
+        "id": "email",
+        "firm": "firm-a",
+        "kind": "email",
+        "role": "usual"
+      }
+    ]
+  },
+  "when": [
+    {
+      "at": "+0m",
+      "lead": {
+        "id": "lead-1",
+        "firm": "firm-a",
+        "category": "existing-client",
+        "conversation": "call-9701",
+        "contract": {
+          "name": "intake-lead/draft-3",
+          "example": "draft-3-person-put-through",
+          "changes": { "contact.firstName": null, "contact.lastName": null, "contact.fullName": null }
+        }
+      }
+    },
+    {
+      "at": "+1m",
+      "usage": {
+        "lead": "lead-1",
+        "durationMs": 45000,
+        "result": "Handled"
+      }
+    },
+    {
+      "at": "+2m",
+      "lead": {
+        "id": "lead-2",
+        "firm": "firm-a",
+        "category": "existing-client",
+        "conversation": "call-9702",
+        "contract": {
+          "name": "intake-lead/draft-3",
+          "example": "draft-3-person-put-through",
+          "changes": { "contact.firstName": null, "contact.lastName": null, "contact.fullName": null }
+        }
+      }
+    }
+  ],
+  "then": [
+    {
+      "at": "+5m",
+      "billing": {
+        "lead": "lead-1",
+        "is": "billable"
+      }
+    },
+    {
+      "at": "+5m",
+      "billing": {
+        "lead": "lead-2",
+        "is": "free"
+      }
+    }
+  ]
+}

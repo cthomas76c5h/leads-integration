@@ -137,7 +137,9 @@ let seconds (e: LeadEvent) (category: string) =
 
 /// Each production lead as a conversation, with the rule that made it free, oldest first. `corrected`:
 /// a lead's current category where it was corrected (Store.corrected); else its category at intake.
-let conversationsWith (corrected: Map<string, string>) (events: LeadEvent[]) : Conversation[] =
+/// `measured`: a lead's length in seconds from the call center's usage facts (Store.measuredSeconds);
+/// a lead without them keeps the lab's estimate (`seconds`).
+let conversationsMeasured (corrected: Map<string, string>) (measured: Map<string, int>) (events: LeadEvent[]) : Conversation[] =
     let ordered = events |> Array.sortBy _.CreatedAt
     ordered
     |> Array.mapi (fun i e ->
@@ -145,7 +147,10 @@ let conversationsWith (corrected: Map<string, string>) (events: LeadEvent[]) : C
             match corrected.TryFind e.Id with
             | Some c -> c
             | None -> (Categories.ofLead e.Lead).Category
-        let secs = seconds e category
+        let secs =
+            match measured.TryFind e.Id with
+            | Some m -> m
+            | None -> seconds e category
         let hangUp = String.IsNullOrWhiteSpace e.Lead.FirstName && secs < 20
         let repeat =
             not (String.IsNullOrWhiteSpace e.Lead.Phone)
@@ -165,7 +170,49 @@ let conversationsWith (corrected: Map<string, string>) (events: LeadEvent[]) : C
           // Fair use: a conversation over 20 minutes counts as two.
           Units = (if isNull rule then (if secs > 1200 then 2 else 1) else 0) })
 
+/// Without measured lengths (each lead's is estimated).
+let conversationsWith (corrected: Map<string, string>) (events: LeadEvent[]) = conversationsMeasured corrected Map.empty events
+
 let conversations (events: LeadEvent[]) = conversationsWith Map.empty events
+
+// ----- Usage facts from the call center (usage/1, C6) -----
+
+/// What taking a usage record did.
+type UsageIngested = { Usage: Store.UsageFact; Duplicate: bool }
+
+/// The call center's usage facts for one ended interaction (docs/contracts/usage/README.md). In one
+/// transaction: the firm resolved as for leads (canonical id, else alias); the same record again is a
+/// duplicate, a different one for the same interaction a conflict; otherwise kept as it came. Facts
+/// only: whether the call is billable is rating's to decide, from these and the lead (suite S-3).
+let ingestUsage (db: Database) (raw: string) : UsageIngested =
+    let u = UsageContract.parse raw
+    let firmId, duplicate =
+        write db (fun s ->
+            let firmId =
+                match Store.resolveSenderFirm s u.SenderFirmId with
+                | Some id -> id
+                | None -> fail 422 $"firm: {u.SenderFirmId} is not a known firm: no firm was provisioned under it, and no alias maps it"
+            match Store.tryUsage s firmId u.Interaction with
+            | Some prior when prior.PayloadHash = u.Hash -> firmId, true
+            | Some _ -> fail 409 $"conflict: interaction {u.Interaction} already has other usage facts; usage facts never change"
+            | None ->
+                Store.insertUsage
+                    s
+                    { FirmId = firmId
+                      Interaction = u.Interaction
+                      Contract = UsageContract.usage1
+                      Revision = u.Revision
+                      StartedAt = u.StartedAt
+                      EndedAt = u.EndedAt
+                      DurationMs = u.DurationMs
+                      Result = u.Result
+                      AnsweredBy = u.AnsweredBy
+                      PayloadHash = u.Hash
+                      ReceivedAt = now ()
+                      Payload = Unchecked.defaultof<_> }
+                    raw
+                firmId, false)
+    { Usage = read db (fun s -> (Store.tryUsage s firmId u.Interaction).Value); Duplicate = duplicate }
 
 // ----- Cycles -----
 
@@ -276,7 +323,7 @@ let rate (s: Session) (a: Account) (from: int64) (until: int64) (nowMs: int64) :
                 |> List.filter (isNull >> not)
                 |> String.concat "; " },
             p)
-    let cs = conversationsWith (Store.corrected s a.FirmId) (eventsBetween s a.FirmId from (min until nowMs))
+    let cs = conversationsMeasured (Store.corrected s a.FirmId) (Store.measuredSeconds s a.FirmId) (eventsBetween s a.FirmId from (min until nowMs))
     let billable = cs |> Array.filter _.Billable
     let units = billable |> Array.sumBy _.Units
     let included = segments |> Array.sumBy (fun (x, _) -> x.Included)
@@ -339,7 +386,7 @@ let rate (s: Session) (a: Account) (from: int64) (until: int64) (nowMs: int64) :
 /// (the repeat rule's reach) as context.
 let conversationOf (s: Session) (e: LeadEvent) : Conversation =
     let context = eventsBetween s e.FirmId (e.CreatedAt - 10L * minute) (e.CreatedAt + 1L)
-    conversationsWith (Store.corrected s e.FirmId) context |> Array.find (fun c -> c.EventId = e.Id)
+    conversationsMeasured (Store.corrected s e.FirmId) (Store.measuredSeconds s e.FirmId) context |> Array.find (fun c -> c.EventId = e.Id)
 
 /// Close a cycle's usage (RFC-003): each conversation before `until` not yet rated is rated from its
 /// current classification and kept as it was (UsageRated). Called when a cycle's statement is locked;
@@ -351,7 +398,7 @@ let closeCycle (s: Session) (firmId: string) (until: int64) : int =
             [ firmId; until ]
             (fun r -> Read.str r 0)
         |> Array.choose (Store.tryEvent s)
-    let cs = conversationsWith (Store.corrected s firmId) unrated
+    let cs = conversationsMeasured (Store.corrected s firmId) (Store.measuredSeconds s firmId) unrated
     for c in cs do
         s.Execute "INSERT INTO usage (event_id, cycle_until, billable, rule, rated_at) VALUES ($1,$2,$3,$4,$5)" [ c.EventId; until; c.Billable; c.Rule; now () ] |> ignore
         Store.emit s "UsageRated" firmId c.EventId null
