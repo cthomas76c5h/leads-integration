@@ -271,9 +271,9 @@ let notePublication (s: Session) (eventId: string) (publishedAt: Nullable<int64>
     if publishedAt.HasValue || attempt.HasValue then
         s.Execute
             """UPDATE lead_contracts SET
-                 first_published_at = CASE WHEN $2 IS NULL THEN first_published_at ELSE MIN(COALESCE(first_published_at, $2), $2) END,
-                 last_published_at = CASE WHEN $2 IS NULL THEN last_published_at ELSE MAX(COALESCE(last_published_at, $2), $2) END,
-                 publication_attempts = CASE WHEN $3 IS NULL THEN publication_attempts ELSE MAX(COALESCE(publication_attempts, $3), $3) END
+                 first_published_at = CASE WHEN $2 IS NOT NULL AND (first_published_at IS NULL OR $2 < first_published_at) THEN $2 ELSE first_published_at END,
+                 last_published_at = CASE WHEN $2 IS NOT NULL AND (last_published_at IS NULL OR $2 > last_published_at) THEN $2 ELSE last_published_at END,
+                 publication_attempts = CASE WHEN $3 IS NOT NULL AND (publication_attempts IS NULL OR $3 > publication_attempts) THEN $3 ELSE publication_attempts END
                WHERE event_id = $1"""
             [ eventId; nullable publishedAt; nullable attempt ]
         |> ignore
@@ -431,7 +431,7 @@ let attemptsOf (s: Session) (deliveryId: string) =
 
 let private deliveryCols =
     """d.id, d.event_id, d.connection_id, c.name, c.kind, f.id, f.name, d.test, d.status, d.reason, d.next_attempt_at, d.replay_of, d.created_at, d.template, d.has_template, d.decision, d.resend,
-     d.verified_at, d.verify_overdue_at, c.settings LIKE '%"duplicates":"lookup"%', d.resolution"""
+     d.verified_at, d.verify_overdue_at, CASE WHEN c.settings LIKE '%"duplicates":"lookup"%' THEN 1 ELSE 0 END, d.resolution"""
 
 let private deliveryFrom =
     "FROM deliveries d JOIN connections c ON c.id = d.connection_id JOIN firms f ON f.id = c.firm_id"
@@ -592,8 +592,8 @@ let deliverySummary (s: Session) (test: bool) (firmId: string) (since: int64) (n
     let accepted, refused, notSent =
         let sql, args =
             scoped
-                $"""SELECT COALESCE(SUM(d.status = 'delivered'), 0), COALESCE(SUM(d.status IN ('failed', 'cancelled', 'unknown')), 0),
-                           COALESCE(SUM(d.status = 'skipped'), 0)
+                $"""SELECT COALESCE(CAST(SUM(CASE WHEN d.status = 'delivered' THEN 1 ELSE 0 END) AS BIGINT), 0), COALESCE(CAST(SUM(CASE WHEN d.status IN ('failed', 'cancelled', 'unknown') THEN 1 ELSE 0 END) AS BIGINT), 0),
+                           COALESCE(CAST(SUM(CASE WHEN d.status = 'skipped' THEN 1 ELSE 0 END) AS BIGINT), 0)
                     FROM deliveries d JOIN connections c ON c.id = d.connection_id
                     WHERE d.test = $1 AND d.created_at >= $2 AND {newestPerPair}"""
                 [ box test; box since ]
@@ -709,10 +709,10 @@ let private reachesPersonSql = Catalog.reachesPerson |> Seq.map (fun k -> $"'{k}
 let private leadSql =
     """SELECT e.id, e.firm_id, f.name, e.test, e.lead, e.created_at,
               COUNT(d.id),
-              COALESCE(SUM(d.status = 'delivered'), 0),
-              COALESCE(SUM(d.status IN ('failed', 'cancelled', 'unknown')), 0),
-              COALESCE(SUM(d.status = 'skipped'), 0),
-              COALESCE(SUM(d.status = 'delivering' OR (d.status = 'pending' AND d.next_attempt_at IS NOT NULL)), 0),
+              COALESCE(CAST(SUM(CASE WHEN d.status = 'delivered' THEN 1 ELSE 0 END) AS BIGINT), 0),
+              COALESCE(CAST(SUM(CASE WHEN d.status IN ('failed', 'cancelled', 'unknown') THEN 1 ELSE 0 END) AS BIGINT), 0),
+              COALESCE(CAST(SUM(CASE WHEN d.status = 'skipped' THEN 1 ELSE 0 END) AS BIGINT), 0),
+              COALESCE(CAST(SUM(CASE WHEN d.status = 'delivering' OR (d.status = 'pending' AND d.next_attempt_at IS NOT NULL) THEN 1 ELSE 0 END) AS BIGINT), 0),
               (SELECT MIN(a.at) FROM attempts a JOIN deliveries x ON x.id = a.delivery_id
                 WHERE x.event_id = e.id AND a.outcome = 'delivered'),
               (SELECT c2.name || CASE WHEN c2.settings LIKE '%"role":"fallback"%' THEN '|fallback' ELSE '' END
@@ -720,10 +720,10 @@ let private leadSql =
                 WHERE x.event_id = e.id AND a.outcome = 'delivered'
                 ORDER BY a.at, CASE WHEN c2.kind IN (""" + reachesPersonSql + """) THEN 0 ELSE 1 END LIMIT 1),
               -- Not sent because the rule excludes it; a lead problem still owes the firm a hand-off.
-              COALESCE(SUM(d.status = 'skipped' AND COALESCE(d.reason, '') NOT LIKE 'lead problem:%'), 0),
-              COALESCE(SUM(d.status = 'pending' AND d.next_attempt_at IS NULL), 0),
+              COALESCE(CAST(SUM(CASE WHEN d.status = 'skipped' AND COALESCE(d.reason, '') NOT LIKE 'lead problem:%' THEN 1 ELSE 0 END) AS BIGINT), 0),
+              COALESCE(CAST(SUM(CASE WHEN d.status = 'pending' AND d.next_attempt_at IS NULL THEN 1 ELSE 0 END) AS BIGINT), 0),
               e.ack_required, e.acknowledged_at, e.escalated_at,
-              EXISTS (SELECT 1 FROM attempts a JOIN deliveries x ON x.id = a.delivery_id WHERE x.event_id = e.id),
+              CASE WHEN EXISTS (SELECT 1 FROM attempts a JOIN deliveries x ON x.id = a.delivery_id WHERE x.event_id = e.id) THEN 1 ELSE 0 END,
               e.conversation_id,
               (SELECT k.category FROM classifications k WHERE k.event_id = e.id AND k.source <> 'intake' ORDER BY k.seq DESC LIMIT 1),
               (SELECT k.practice_area FROM classifications k WHERE k.event_id = e.id AND k.source <> 'intake' ORDER BY k.seq DESC LIMIT 1)
@@ -1211,7 +1211,7 @@ let private countIssues (conns: Connection seq) =
 
 /// The firm list, filtered in memory: a few thousand firms is small.
 let listFirms (s: Session) (q: FirmQuery) : int * FirmSummary[] =
-    let firms = s.Query $"SELECT {firmCols} FROM firms ORDER BY name COLLATE NOCASE" [] readFirm
+    let firms = s.Query $"SELECT {firmCols} FROM firms ORDER BY lower(name), name" [] readFirm
     let sources =
         s.Query "SELECT firm_id, system FROM firm_sources" [] (fun r -> Read.str r 0, Read.str r 1)
         |> Array.groupBy fst

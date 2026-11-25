@@ -72,8 +72,8 @@ let all (s: Session) (nowMs: int64) : Row[] =
     let week =
         byConnection
             s
-            $"""SELECT d.connection_id, SUM(d.status = 'delivered'), SUM(d.status IN ('failed', 'cancelled')),
-                       SUM(d.status = 'skipped'), SUM({Store.sendingOrRetrying})
+            $"""SELECT d.connection_id, CAST(SUM(CASE WHEN d.status = 'delivered' THEN 1 ELSE 0 END) AS BIGINT), CAST(SUM(CASE WHEN d.status IN ('failed', 'cancelled') THEN 1 ELSE 0 END) AS BIGINT),
+                       CAST(SUM(CASE WHEN d.status = 'skipped' THEN 1 ELSE 0 END) AS BIGINT), CAST(SUM(CASE WHEN {Store.sendingOrRetrying} THEN 1 ELSE 0 END) AS BIGINT)
                 FROM deliveries d WHERE d.test = 0 AND d.created_at >= $1 AND {Store.newestPerPair}
                 GROUP BY d.connection_id"""
             [ nowMs - weekMs ]

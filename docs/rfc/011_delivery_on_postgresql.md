@@ -1,0 +1,69 @@
+# RFC-011: Delivery on PostgreSQL
+
+**Answering AI — Technical Proposal**
+
+**Date:** November 25, 2026
+**Status:** Proposed; the decision to move is taken (suite S-8), this is how
+**Decision owner:** Engineering
+**Related:** suite S-8 and milestone M4b (`../call-center-lab/docs/suite/`) · [concurrency.md](../lead-delivery/concurrency.md) · RFC-008 (the guarantees the store must keep)
+
+---
+
+## 1. Why, and what must not change
+
+The suite standardizes on PostgreSQL (S-8), and delivery must move before usage integration
+(M5). Each service keeps its own data: delivery gets its own database, not the center's.
+
+What must not change is everything RFC-008 and [concurrency.md](../lead-delivery/concurrency.md)
+promise: a lead recorded with its deliveries in one transaction; one claim per delivery; a
+lease that a stale worker can't act on; nothing sent twice or lost when writers race. Today
+some of those rest on SQLite's single writer. On PostgreSQL they must rest on constraints and
+transaction isolation instead.
+
+## 2. What depends on SQLite today (verified, 2026-11-25)
+
+| What | Where | On PostgreSQL |
+|---|---|---|
+| **Summing conditions:** `SUM(d.status = 'delivered')`, 13 places | `Store.fs` 595–596, 712–724; `Destinations.fs` 75–76 | Invalid: a condition is not a number. `SUM(CASE WHEN … THEN 1 ELSE 0 END)` works on both |
+| **A condition read as a number:** `c.settings LIKE '%…%'` selected as a column | `Store.fs` 434, 718 | Returns a boolean the reader takes as an integer: `CASE WHEN … THEN 1 ELSE 0 END` |
+| **`SUM` over a 64-bit column returns a decimal** | the same 13 | `CAST(SUM(…) AS BIGINT)`, on both |
+| `INTEGER` columns (74), holding UTC milliseconds | `Db.fs` schema | 32-bit in PostgreSQL: every one becomes `BIGINT` (SQLite treats `BIGINT` as `INTEGER`) |
+| Two-argument `MIN`/`MAX` | `Store.fs` 274–276 | `LEAST`/`GREATEST`, which SQLite lacks: a `CASE` works on both |
+| `INSERT OR IGNORE` | `Terms.fs` 57 | `INSERT … ON CONFLICT DO NOTHING`, on both |
+| `COLLATE NOCASE` | `Db.fs` 121; `Store.fs` 1214 | `lower(name)`, on both |
+| Ties broken by `rowid` | `Store.fs` 1101, 1111 | No `rowid`: an explicit sequence column |
+| Append-only triggers with `RAISE(ABORT, …)` | `Db.fs`, `approvals_append_only_u/_d` | A trigger function in PL/pgSQL |
+| `PRAGMA foreign_keys`, `busy_timeout`, `journal_mode = WAL`; columns added by probing `pragma_table_info` | `Db.fs` 34, 431, 469 | Not needed, or `ALTER TABLE … ADD COLUMN IF NOT EXISTS` |
+| **One writer at a time:** an in-process `SemaphoreSlim`, and every write transaction `IMMEDIATE` | `Db.fs` 13, 87–97; concurrency.md §1 | Writers run concurrently. Check-then-insert (intake, ingest, provisioning) must rely on the unique indexes and retry, or take a row or advisory lock |
+| Tests: a temporary database file per test; `WorkerTests` "writers with separate locks share one file"; `InterleavingTests` | `Support.fs`, 27 uses of Sqlite types in 8 files | A database per test from a template; "separate processes share one database" |
+| Reading a legacy SQLite file | `src/Import/` | Unchanged: it is a source to read, not delivery's store |
+
+`LIKE` is case-insensitive in SQLite and case-sensitive in PostgreSQL. Every `LIKE` in the
+code matches text delivery wrote itself, in a fixed case, so none should change behaviour;
+step 2 checks it by running the whole suite on both.
+
+## 3. How
+
+Each step is usable on its own, and passes every test and scenario before the next starts.
+
+| Step | Work | Done when |
+|---|---|---|
+| 1 | **SQL that runs on both.** The rows of §2 that have a form valid in both, written that way, still on SQLite | Every test and scenario passes on SQLite, unchanged |
+| 2 | **The store chooses its database by its connection string.** `Db` gains a PostgreSQL session (Npgsql, already a dependency of the importer); the schema in `BIGINT`, the triggers per database. Tests run against either: `DELIVERY_DB=postgres` makes each test take a database from a template on the server in `backend/compose.yaml` | The whole suite passes on both |
+| 3 | **Concurrency on PostgreSQL's terms.** Remove the in-process write lock for PostgreSQL. Check-then-insert paths retry on a unique violation and answer as a repeat; claims and leases use conditional updates that touch one row. `WorkerTests` and `InterleavingTests` run with separate connections as separate processes | Both pass on PostgreSQL, with concurrency.md updated |
+| 4 | **PostgreSQL by default.** The API, importer, scenarios and acceptance tool use it; the lab's data is re-imported (it is all re-importable: the legacy importer, seed and simulate) | Scenarios and `tools/acceptance_m3.py` pass on PostgreSQL |
+| 5 | **SQLite removed** from delivery's store | No SQLite store code left; the legacy importer still reads its SQLite source |
+
+## 4. Risks
+
+| Risk | Answer |
+|---|---|
+| A race that SQLite's single writer hid | Step 3 runs the existing race tests against PostgreSQL before it becomes the default |
+| Tests much slower with a database per test | A template database is a file copy on the server; measure in step 2 and share one database per test module if it isn't fast enough |
+| Developers without Docker | `backend/compose.yaml` is one command; any PostgreSQL 16 works through the connection string |
+
+## 5. To approve
+
+1. The five steps, in order, each passing everything before the next.
+2. Delivery's own database on its own server in development (`backend/compose.yaml`, local port 55433), separate from the center's.
+3. SQLite removed from delivery's store at the end (step 5), not kept as a second backend.

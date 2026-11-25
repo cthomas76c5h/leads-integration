@@ -54,7 +54,7 @@ let publish (s: Session) (title: string) (summary: string) (body: string) (kind:
 
 let accept (s: Session) (version: int) (firmId: string) (userId: string) (role: string) (nowMs: int64) =
     s.Execute
-        "INSERT OR IGNORE INTO terms_acceptances (version, firm_id, user_id, role, at) VALUES ($1,$2,$3,$4,$5)"
+        "INSERT INTO terms_acceptances (version, firm_id, user_id, role, at) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING"
         [ version; firmId; userId; role; nowMs ]
     |> ignore
 

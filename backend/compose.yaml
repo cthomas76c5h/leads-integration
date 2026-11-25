@@ -1,0 +1,25 @@
+# Delivery's own PostgreSQL for development and tests (RFC-011, suite S-8). Local only:
+#   docker compose -f backend/compose.yaml up -d
+# Tests create a database per test from a template, so this server can be shared by every run.
+# Synthetic data only, like the rest of the lab.
+name: lead-integrations
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: delivery
+      POSTGRES_PASSWORD: delivery
+      POSTGRES_DB: delivery
+    ports:
+      - "127.0.0.1:55433:5432"
+    volumes:
+      - delivery-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U delivery"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+volumes:
+  delivery-pg:
