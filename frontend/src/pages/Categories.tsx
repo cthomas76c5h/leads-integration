@@ -36,7 +36,7 @@ export function Categories({ query }: { query: URLSearchParams }) {
         <div className="tile"><span>Categories</span><strong>{t.categories.filter((c) => c.isCallCategory).length}</strong><small className="muted">kinds of call, plus {t.categories.filter((c) => !c.isCallCategory).length} that are not calls</small></div>
         <div className="tile"><span>Practice areas</span><strong>{t.practiceAreas.length}</strong><small className="muted">for new matters</small></div>
         <div className="tile">
-          <span>Agree with api-2's lead flag</span>
+          <span>Agree with the legacy lead flag</span>
           <strong>{a.activeTypes ? `${((a.activeTypesClassifiedNewMatter / a.activeTypes) * 100).toFixed(1)}%` : '—'}</strong>
           <small className="muted">{a.activeTypesClassifiedNewMatter} of {a.activeTypes} active types are new matters</small>
         </div>

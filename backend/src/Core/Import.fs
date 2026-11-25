@@ -34,7 +34,7 @@ type ImportedFirm =
 type Batch =
     { System: string
       Firms: ImportedFirm[]
-      /// Connections whose firm is missing in the source (e.g. api-2 CRM rows with no client).
+      /// Connections whose firm is missing in the source (e.g. legacy CRM rows with no client).
       Orphans: ImportedConnection[]
       Skipped: int
       Notes: string list }

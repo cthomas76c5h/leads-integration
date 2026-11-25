@@ -1,4 +1,4 @@
-/* Ported from the webhook-lab prototype (flow.css): tokens, buttons, chips, nodes, journey, toast. */
+/* Ported from an earlier prototype (flow.css): tokens, buttons, chips, nodes, journey, toast. */
 /* React Flow's own styles first, so the overrides below win (same order as the prototype). */
 @import '@xyflow/react/dist/style.css';
 :root {

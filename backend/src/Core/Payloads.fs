@@ -1,6 +1,6 @@
 /// One canonical lead → the body each destination receives. The CRM shapes
-/// follow api-2's serializers (leads/serializers/lead_serializers.py and
-/// leads/integrations/crms/*.py); the standard body follows webhook-lab lead.ts.
+/// follow what the legacy system sends each CRM today; the standard body is
+/// the lead contract in docs/api.md.
 module LeadIntegrations.Payloads
 
 open System
@@ -196,7 +196,7 @@ let build
               "email", str l.Email
               "phone", str l.Phone
               "notes", arr [ obj [ "name", str "Message Details"; "body", str (fullMessage l) ] ]
-              // api-2 resolves each label to a Lawmatics custom-field id at send time.
+              // The legacy system resolves each label to a Lawmatics custom-field id at send time.
               "custom_fields", arr (l.Custom |> Seq.map (fun c -> obj [ "label", str c.Label; "value", str c.Data ])) ]
         |> json
     | "lead-docket" ->

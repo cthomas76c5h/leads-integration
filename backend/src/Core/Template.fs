@@ -1,5 +1,5 @@
-/// JSON body templates: {{field}} and {{field|default:'text'}} (webhook-lab
-/// template.ts). Values are JSON-escaped, so a placeholder sits inside a JSON
+/// JSON body templates: {{field}} and {{field|default:'text'}}.
+/// Values are JSON-escaped, so a placeholder sits inside a JSON
 /// string. An unknown `custom.*` field renders empty (answers differ per call
 /// type); any other unknown field is a typo and an error.
 module LeadIntegrations.Template

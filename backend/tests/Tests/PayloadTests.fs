@@ -23,7 +23,7 @@ let tests =
                         | Ok b -> Expect.equal (FakeCrm.check k.Kind b.ContentType b.Body) [] "receiver accepts it"
                     } ]
 
-          test "Clio Grow gets inbox_lead with N/A for empty fields (api-2 ClioSerializer)" {
+          test "Clio Grow gets inbox_lead with N/A for empty fields (the legacy system ClioSerializer)" {
               let lead = { sampleLead () with Email = "" }
               match Payloads.build "clio-grow" (Dictionary()) (fun _ -> true) null "evt_1" "F" lead with
               | Ok b ->

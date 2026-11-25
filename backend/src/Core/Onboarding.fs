@@ -1,4 +1,4 @@
-/// Operator-assisted onboarding (RFC-001 §4–6, webhook-lab onboarding.ts):
+/// Operator-assisted onboarding:
 /// the operator configures, the client connects and approves a specific
 /// version, the system tests, the operator activates. Edits after go-live make
 /// a draft revision; live leads keep the active revision until activation.

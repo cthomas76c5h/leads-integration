@@ -28,7 +28,7 @@ let tests =
                   | Error e -> failtestf "%s: %A" k.Kind e
           }
 
-          test "names api-2 strips the same way map the same way" {
+          test "names the legacy system strips the same way map the same way" {
               Expect.equal (Categories.classify "*New Personal Injury Case") (Categories.classify "new personal-injury case") "punctuation and case"
           }
 
@@ -57,7 +57,7 @@ let tests =
                              { Name = "*Court Calls"; Active = false }
                              { Name = "Pat Example"; Active = false } |] }
               let off = { Support.firm "2" "No destinations" "k2" [ { Support.conn "20" "mycase" [ ("token", "t") ] with Enabled = false } ] with Active = true }
-              Import.apply t.Db Support.origin (Support.batch Domain.Source.api2 [ imported; off ]) |> ignore
+              Import.apply t.Db Support.origin (Support.batch Domain.Source.legacy [ imported; off ]) |> ignore
               let s = Seed.run t.Db { Seed.defaults with Count = 60; RandomSeed = 7 }
               Expect.equal s.Firms 1 "only the firm with an enabled connection"
               Expect.equal s.Leads 60 "all published"

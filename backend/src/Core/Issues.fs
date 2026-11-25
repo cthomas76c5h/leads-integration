@@ -30,7 +30,7 @@ let compute (kind: string) (creds: CredentialField[]) (settings: System.Collecti
            if kind = "lead-docket" then
                issue "key-is-url" "info" "api_key holds the full POST URL: treat it as a credential"
            if kind = "lawruler" then
-               issue "handler-off" "warn" "The api-2 handler for this CRM is switched off: no lead has been delivered"
+               issue "handler-off" "warn" "The legacy handler for this CRM is switched off: no lead has been delivered"
            if kind = "mycase" && not (has creds "api_key") then
                issue "mycase-no-referral" "info" "No referral source id: MyCase leads arrive without a source"
            if kind = "smokeball" && not (has creds "api_key") then

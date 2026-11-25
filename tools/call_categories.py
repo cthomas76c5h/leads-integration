@@ -124,7 +124,7 @@ class Taxonomy:
 def load_firms(db: Path):
     c = sqlite3.connect(db)
     firms = []
-    crm_firms = {r[0] for r in c.execute("SELECT DISTINCT firm_id FROM connections WHERE source = 'api2'")}
+    crm_firms = {r[0] for r in c.execute("SELECT DISTINCT firm_id FROM connections WHERE source = 'legacy'")}
     for fid, active, cts in c.execute("SELECT id, active, contact_types FROM firms"):
         types = []
         for t in json.loads(cts or "[]"):

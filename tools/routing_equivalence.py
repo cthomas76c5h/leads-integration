@@ -49,7 +49,7 @@ def legacy_key(name: str) -> str:
 def load(db: Path):
     c = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     crms = collections.defaultdict(list)
-    for fid, kind, enabled in c.execute("SELECT firm_id, kind, enabled FROM connections WHERE source = 'api2'"):
+    for fid, kind, enabled in c.execute("SELECT firm_id, kind, enabled FROM connections WHERE source = 'legacy'"):
         crms[fid].append((kind, bool(enabled)))
     firms = []
     for fid, name, active, cts in c.execute("SELECT id, name, active, contact_types FROM firms"):

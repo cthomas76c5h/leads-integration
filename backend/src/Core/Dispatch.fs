@@ -1,5 +1,5 @@
 /// Publishing a lead (event + one outbox row per destination, in one
-/// transaction) and sending outbox rows (webhook-lab dispatcher.ts).
+/// transaction) and sending outbox rows.
 module LeadIntegrations.Dispatch
 
 open System

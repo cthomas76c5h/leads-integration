@@ -10,7 +10,7 @@ open LeadIntegrations.Domain
 /// A firm with one email destination (imported), and its id.
 let private firmWithEmail () =
     let t = new Support.TempDb()
-    Import.apply t.Db Support.origin (Support.batch Source.api2 [ Support.firm "1" "Lease Firm" "k" [ Support.conn "10" "email" [] ] ]) |> ignore
+    Import.apply t.Db Support.origin (Support.batch Source.legacy [ Support.firm "1" "Lease Firm" "k" [ Support.conn "10" "email" [] ] ]) |> ignore
     t, Db.read t.Db (fun s -> (Store.allFirms s |> Array.head).Id)
 
 let private lead callType = { Support.sampleLead () with CallType = callType }

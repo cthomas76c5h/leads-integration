@@ -61,7 +61,7 @@ let tests =
               let imported =
                   { firm "1" "Rose & Associates" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ]; conn "11" "lead-docket" [ ("api_key", "https://x") ] ] with
                       ContactTypes = [| { Name = "Personal Injury"; Active = true } |] }
-              Import.apply t.Db origin (batch Domain.Source.api2 [ imported ]) |> ignore
+              Import.apply t.Db origin (batch Domain.Source.legacy [ imported ]) |> ignore
               let app, client = server t.Db
               try
                   let items = (json (client.GetAsync("/api/firms").Result)).GetProperty("items")
@@ -139,7 +139,7 @@ let tests =
 
           test "a gone receiver disables the connection and its replay is refused" {
               use t = new TempDb()
-              Import.apply t.Db origin (batch Domain.Source.api2 [ firm "1" "A" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ] ] ]) |> ignore
+              Import.apply t.Db origin (batch Domain.Source.legacy [ firm "1" "A" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ] ] ]) |> ignore
               let app, client = server t.Db
               try
                   let c = (Db.read t.Db Store.allConnections).[0].Connection
@@ -161,7 +161,7 @@ let tests =
 
           test "a delivery waiting when its destination is paused is held, not sent, and goes on resume" {
               use t = new TempDb()
-              Import.apply t.Db origin (batch Domain.Source.api2 [ firm "1" "A" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ] ] ]) |> ignore
+              Import.apply t.Db origin (batch Domain.Source.legacy [ firm "1" "A" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ] ] ]) |> ignore
               let app, client = server t.Db
               let patch (id: string) (body: string) =
                   let req = new HttpRequestMessage(HttpMethod.Patch, $"/api/connections/{id}")
@@ -197,7 +197,7 @@ let tests =
 
           test "a flaky receiver is retried until it accepts" {
               use t = new TempDb()
-              Import.apply t.Db origin (batch Domain.Source.api2 [ firm "1" "A" "k" [ conn "10" "mycase" [ "token", "t"; "refresh_token", "r" ] ] ]) |> ignore
+              Import.apply t.Db origin (batch Domain.Source.legacy [ firm "1" "A" "k" [ conn "10" "mycase" [ "token", "t"; "refresh_token", "r" ] ] ]) |> ignore
               let app, client = server t.Db
               try
                   let c = (Db.read t.Db Store.allConnections).[0].Connection
@@ -228,7 +228,7 @@ let tests =
               let imported =
                   { firm "1" "A" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ] ] with
                       ContactTypes = [| { Name = "*New PI Calls"; Active = true }; { Name = "*Court Calls"; Active = false } |] }
-              Import.apply t.Db origin (batch Domain.Source.api2 [ imported ]) |> ignore
+              Import.apply t.Db origin (batch Domain.Source.legacy [ imported ]) |> ignore
               let app, client = server t.Db
               try
                   let firmId = (json (client.GetAsync("/api/firms").Result)).GetProperty("items").Item(0).GetProperty("id").GetString()
@@ -255,7 +255,7 @@ let tests =
               let quiet = { firm "1" "Law Group Quiet" "k1" [] with Active = false }
               let busy = firm "2" "Rose Law" "k2" [ conn "20" "mycase" [ ("api_key", "x") ] ]
               let off = firm "3" "Law Office Off" "k3" [ { conn "30" "mycase" [ ("api_key", "x") ] with Enabled = false } ]
-              Import.apply t.Db origin (batch Domain.Source.api2 [ quiet; busy; off ]) |> ignore
+              Import.apply t.Db origin (batch Domain.Source.legacy [ quiet; busy; off ]) |> ignore
               let _, found = Db.read t.Db (fun s -> Store.listFirms s { Q = "law"; Kind = null; Source = null; IssuesOnly = false; Limit = 10; Offset = 0 })
               Expect.equal (found |> Array.map _.Name) [| "Rose Law"; "Law Office Off"; "Law Group Quiet" |] "live destinations first, then active, then inactive"
               Expect.equal (found |> Array.map _.LiveDestinations) [| 1; 0; 0 |] "and how many are live"
@@ -290,7 +290,7 @@ let tests =
 
           test "leads page, filter, and show the outcome of the latest delivery per connection" {
               use t = new TempDb()
-              Import.apply t.Db origin (batch Domain.Source.api2 [ firm "1" "A" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ] ] ]) |> ignore
+              Import.apply t.Db origin (batch Domain.Source.legacy [ firm "1" "A" "k" [ conn "10" "clio-grow" [ ("api_key", "x") ] ] ]) |> ignore
               let app, client = server t.Db
               try
                   Seed.run t.Db { Seed.defaults with Count = 12; RandomSeed = 3 } |> ignore
@@ -335,7 +335,7 @@ let tests =
 
           test "a firm user signs in with a token and sees only its own firm's leads; every refusal is audited" {
               use t = new TempDb()
-              Import.apply t.Db origin (batch Domain.Source.api2 [ firm "1" "Firm A" "ka" [ conn "10" "email" [] ]; firm "2" "Firm B" "kb" [] ]) |> ignore
+              Import.apply t.Db origin (batch Domain.Source.legacy [ firm "1" "Firm A" "ka" [ conn "10" "email" [] ]; firm "2" "Firm B" "kb" [] ]) |> ignore
               let firmA, firmB =
                   Db.read t.Db (fun s ->
                       let fs = Store.allFirms s

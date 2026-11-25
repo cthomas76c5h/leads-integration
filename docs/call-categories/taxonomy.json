@@ -121,7 +121,7 @@
       "label": "Vendor or solicitation",
       "isCallCategory": true,
       "crm": "skip",
-      "description": "Sales calls, vendors, solicitors. 'Sales / marketing' is the voice platform's own template name for these (RFC-010 §2.1), not a person.",
+      "description": "Sales calls, vendors, solicitors. 'Sales / marketing' is the legacy system's own template name for these (RFC-010 §2.1), not a person.",
       "pattern": "\\b(vendors?|solicit\\w*|sales calls?|marketing calls?|sales (and )?marketing|telemarket\\w*)\\b"
     },
     {

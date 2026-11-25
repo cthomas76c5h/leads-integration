@@ -100,7 +100,7 @@ let private template (kind: string) =
     let path = newFile ()
     let db = Db.openDatabase path
     let creds = if kind = "email" then [] else [ ("api_key", "x") ]
-    Import.apply db Support.origin (Support.batch Source.api2 [ Support.firm "1" "Interleaving Firm" "k" [ Support.conn "10" kind creds ] ]) |> ignore
+    Import.apply db Support.origin (Support.batch Source.legacy [ Support.firm "1" "Interleaving Firm" "k" [ Support.conn "10" kind creds ] ]) |> ignore
     let firmId = Db.read db (fun s -> (Store.allFirms s |> Array.head).Id)
     setClock t0
     let _, ds = Dispatch.publish db firmId (Support.sampleLead ()) false None None

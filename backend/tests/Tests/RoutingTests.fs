@@ -98,7 +98,7 @@ let tests =
         test "a routing change goes live only when approved; waiting deliveries keep their revision unless the firm applies it to them" {
             let setup applyToWaiting =
                 let t = new Support.TempDb()
-                Import.apply t.Db Support.origin (Support.batch Source.api2 [ Support.firm "1" "Revision Firm" "k" [ Support.conn "10" "mycase" [] ] ]) |> ignore
+                Import.apply t.Db Support.origin (Support.batch Source.legacy [ Support.firm "1" "Revision Firm" "k" [ Support.conn "10" "mycase" [] ] ]) |> ignore
                 let firmId, c = Db.read t.Db (fun s -> let f = Store.allFirms s |> Array.head in f.Id, (Store.connectionsOf s f.Id |> Array.head).Connection)
                 let settings = Dictionary<string, string>(c.Settings)
                 settings[Routing.categoriesKey] <- "new-matter,existing-client"

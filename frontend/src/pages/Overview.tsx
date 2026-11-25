@@ -22,7 +22,7 @@ export function Overview() {
   return (
     <>
       <h1>Integrations</h1>
-      <p className="muted">Firms and their delivery configurations imported from api-2, the chatbot and Answering AI. Use this to agree which integrations we support, and how.</p>
+      <p className="muted">Firms and their delivery configurations imported from the legacy systems. Use this to agree which integrations we support, and how.</p>
       {error && <p className="small bad" role="status">Live update failed: {error}</p>}
 
       <div className="tiles">

@@ -29,7 +29,7 @@ let private opts: Dispatch.Options =
 /// Firms, each with one email destination at the local receiver; returns firm ids and connection ids.
 let private firms (t: Support.TempDb) (names: string list) =
     let imported = names |> List.mapi (fun i n -> Support.firm (string (i + 1)) n $"k{i}" [ Support.conn (string (10 + i)) "email" [] ])
-    Import.apply t.Db Support.origin (Support.batch Source.api2 imported) |> ignore
+    Import.apply t.Db Support.origin (Support.batch Source.legacy imported) |> ignore
     Db.read t.Db (fun s ->
         [ for n in names do
               let f = Store.allFirms s |> Array.find (fun f -> f.Name = n)

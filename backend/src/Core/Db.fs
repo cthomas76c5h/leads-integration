@@ -437,6 +437,10 @@ let openDatabase (path: string) : Database =
             use alter = conn.CreateCommand()
             alter.CommandText <- $"ALTER TABLE {table} ADD COLUMN {column} {definition}"
             alter.ExecuteNonQuery() |> ignore
+    // The legacy source's code was renamed; rows imported before keep working.
+    use renamed = conn.CreateCommand()
+    renamed.CommandText <- "UPDATE firm_sources SET system = 'legacy' WHERE system = 'api2'; UPDATE connections SET source = 'legacy' WHERE source = 'api2'"
+    renamed.ExecuteNonQuery() |> ignore
     use unique = conn.CreateCommand()
     unique.CommandText <- "CREATE UNIQUE INDEX IF NOT EXISTS events_conversation ON events(firm_id, conversation_id) WHERE conversation_id IS NOT NULL"
     unique.ExecuteNonQuery() |> ignore

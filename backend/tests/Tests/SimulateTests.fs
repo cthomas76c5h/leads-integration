@@ -18,7 +18,7 @@ let private setup () =
     let showcase =
         { Support.firm "1" "Showcase" "k" conns with
             ContactTypes = [| { Name = "*New Client Calls"; Active = true }; { Name = "*Court Calls"; Active = false } |] }
-    Import.apply t.Db Support.origin (Support.batch Domain.Source.api2 [ showcase ]) |> ignore
+    Import.apply t.Db Support.origin (Support.batch Domain.Source.legacy [ showcase ]) |> ignore
     // Existing leads to spread over the week (published now; the simulation rewrites their history).
     Seed.run t.Db { Seed.defaults with Count = 120; RandomSeed = 3 } |> ignore
     t

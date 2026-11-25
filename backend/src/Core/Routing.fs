@@ -23,8 +23,8 @@ type Rule =
     /// The call categories it takes; practice areas narrow new matters ([] = every one).
     | ByCategory of categories: string list * practiceAreas: string list
 
-/// "Personal Injury" and "personal-injury" are the same contact type (api-2
-/// strips punctuation and case before matching).
+/// "Personal Injury" and "personal-injury" are the same contact type (the legacy
+/// system strips punctuation and case before matching).
 let normalizeType (s: string) =
     (if isNull s then "" else s).ToLowerInvariant() |> String.filter Char.IsLetterOrDigit
 

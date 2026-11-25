@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <Compile Include="MySqlDump.fs" />
-    <Compile Include="Api2.fs" />
+    <Compile Include="Legacy.fs" />
     <Compile Include="Chatbot.fs" />
     <Compile Include="Airi.fs" />
     <Compile Include="Program.fs" />

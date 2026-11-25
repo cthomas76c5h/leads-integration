@@ -44,7 +44,7 @@ let tests =
           test "a timeout is retried only where a second copy is harmless; elsewhere it is unknown" {
               let timedOut = Policy.classify None "no answer in 10000 ms" null 0L
               use t = new Support.TempDb()
-              Import.apply t.Db Support.origin (Support.batch Source.api2 [ Support.firm "1" "Timeout Firm" "k" [ Support.conn "10" "email" []; Support.conn "11" "mycase" [] ] ]) |> ignore
+              Import.apply t.Db Support.origin (Support.batch Source.legacy [ Support.firm "1" "Timeout Firm" "k" [ Support.conn "10" "email" []; Support.conn "11" "mycase" [] ] ]) |> ignore
               let rows = Db.read t.Db (fun s -> Store.allConnections s)
               let conn kind (settings: Map<string, string>) =
                   let c = (rows |> Array.find (fun (r: Store.ConnectionRow) -> r.Connection.Kind = kind)).Connection

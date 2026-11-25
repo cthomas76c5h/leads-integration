@@ -143,7 +143,7 @@ let sendLead (c: Ctx) (firmId: string) : EndpointHandler =
                 return! writeJson 503 (box {| error = $"not recorded: {reason}. Keep the event and send it again"; recorded = false |}) ctx
             | Ok r ->
                 let answer = {| event = r.Event; deliveries = r.Deliveries; mapping = Categories.classify lead.CallType; duplicate = r.Duplicate |}
-                // A repeat is answered as recorded, not as an error: the channel must stop sending it (api-2: 208).
+                // A repeat is answered as recorded, not as an error: the channel must stop sending it (the legacy system answers 208).
                 return! (if r.Duplicate then ok answer else created answer) ctx
         }
 

@@ -7,7 +7,7 @@ open LeadIntegrations.Tests.Support
 let private lab: Address.Policy = { AllowLocal = true }
 
 let private firmId (t: TempDb) =
-    Import.apply t.Db origin (batch Domain.Source.api2 [ firm "1" "Revision & Co" "k" [] ]) |> ignore
+    Import.apply t.Db origin (batch Domain.Source.legacy [ firm "1" "Revision & Co" "k" [] ]) |> ignore
     (Db.read t.Db (fun s -> Store.listFirms s { Q = null; Kind = null; Source = null; IssuesOnly = false; Limit = 5; Offset = 0 }) |> snd).[0].Id
 
 /// Mark a setup's test delivery as accepted (no worker runs in these tests).

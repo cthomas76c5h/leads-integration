@@ -21,11 +21,11 @@ let now () =
     | ValueNone -> DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
 
 module Source =
-    let api2 = "api2"
+    let legacy = "legacy"
     let chatbot = "chatbot"
     let airi = "airi"
     let manual = "manual"
-    let all = [| api2; chatbot; airi; manual |]
+    let all = [| legacy; chatbot; airi; manual |]
 
 type CredentialField =
     { Name: string

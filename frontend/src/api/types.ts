@@ -1,7 +1,7 @@
 // Types from docs/api.md. Change the contract first, then this file.
 
-export type SourceSystem = 'api2' | 'chatbot' | 'airi' | 'manual';
-export const SOURCE_SYSTEMS: SourceSystem[] = ['api2', 'chatbot', 'airi', 'manual'];
+export type SourceSystem = 'legacy' | 'chatbot' | 'airi' | 'manual';
+export const SOURCE_SYSTEMS: SourceSystem[] = ['legacy', 'chatbot', 'airi', 'manual'];
 
 export type Category = 'platform' | 'crm' | 'automation' | 'notify';
 export type AuthScheme = 'api_key' | 'oauth' | 'url' | 'none';

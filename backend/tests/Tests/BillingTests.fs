@@ -16,7 +16,7 @@ let private lead first callType phone = { Support.sampleLead () with FirstName =
 let private firmWithAccount () =
     let t = new Support.TempDb()
     let f = { Support.firm "1" "Billing Firm" "k" [ Support.conn "10" "email" [] ] with ContactTypes = [| { Name = "*New Client Calls"; Active = true } |] }
-    Import.apply t.Db Support.origin (Support.batch Domain.Source.api2 [ f ]) |> ignore
+    Import.apply t.Db Support.origin (Support.batch Domain.Source.legacy [ f ]) |> ignore
     let firmId = Db.read t.Db (fun s -> (Store.allFirms s |> Array.head).Id)
     let record at (l: Lead) =
         Db.write t.Db (fun s -> Store.insertEvent s { Id = Secrets.newId "evt"; FirmId = firmId; Test = false; CreatedAt = at; Lead = l })
@@ -101,7 +101,7 @@ let tests =
                   [ Support.firm "1" "Real Law Office of Someone" "k1" []
                     Support.firm "2" "Another Real Firm LLP" "k2" []
                     Support.firm "3" "Valley Heating & Air - Test" "k3" [] ]
-              Import.apply t.Db Support.origin (Support.batch Domain.Source.api2 firms) |> ignore
+              Import.apply t.Db Support.origin (Support.batch Domain.Source.legacy firms) |> ignore
               Db.write t.Db DemoNames.apply |> ignore
               let names = Db.read t.Db (fun s -> Store.allFirms s |> Array.map (fun f -> f.Id, f.Name))
               Expect.isFalse (names |> Array.exists (fun (_, n) -> n.Contains "Real" || n.Contains "Valley")) "no real name left"

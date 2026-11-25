@@ -1,4 +1,4 @@
-/// Standard Webhooks signatures (standardwebhooks.com), ported from webhook-lab:
+/// Standard Webhooks signatures (standardwebhooks.com):
 ///   webhook-id:        the event id (same on every retry, so receivers can dedupe)
 ///   webhook-timestamp: unix seconds of this attempt
 ///   webhook-signature: v1,<base64 HMAC-SHA256 of "{id}.{timestamp}.{body}">

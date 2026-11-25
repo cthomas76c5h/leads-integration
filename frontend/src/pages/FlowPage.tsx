@@ -1,5 +1,5 @@
 // Delivery graph for one firm: firm → each connection → where it delivers.
-// Ported in spirit from the webhook-lab canvas (React Flow 12 + dagre).
+// Ported in spirit from an earlier prototype's canvas (React Flow 12 + dagre).
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {

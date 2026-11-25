@@ -1,6 +1,6 @@
 /// dotnet run --project src/Import -- <command> [options]
 ///
-///   api2     --pg "Host=localhost;Port=5432;Database=leads;Username=postgres"
+///   legacy   --pg "Host=localhost;Port=5432;Database=leads;Username=postgres"
 ///            (password from pgpass.conf or PGPASSWORD; the session is read-only)
 ///   chatbot  --dump ../../chatbot/backup.sql
 ///   airi     --sqlite ../../airi/client-portal/devdata.sqlite
@@ -41,7 +41,7 @@ let main args =
     let command = if args.Length > 0 then args[0] else "help"
     let db () = Db.openDatabase (arg args "--db" (Environment.GetEnvironmentVariable "DB_PATH" |> Option.ofObj |> Option.defaultValue Db.defaultPath))
     let origin = arg args "--origin" (Environment.GetEnvironmentVariable "ORIGIN" |> Option.ofObj |> Option.defaultValue "http://localhost:5080")
-    let pg = arg args "--pg" (Environment.GetEnvironmentVariable "API2_PG" |> Option.ofObj |> Option.defaultValue "Host=localhost;Port=5432;Database=leads;Username=postgres")
+    let pg = arg args "--pg" (Environment.GetEnvironmentVariable "LEGACY_PG" |> Option.ofObj |> Option.defaultValue "Host=localhost;Port=5432;Database=leads;Username=postgres")
     let dump = arg args "--dump" (IO.Path.Combine(github, "chatbot", "backup.sql"))
     let sqlite = arg args "--sqlite" (IO.Path.Combine(github, "airi", "client-portal", "devdata.sqlite"))
     let run name (read: unit -> Import.Batch) =
@@ -53,12 +53,12 @@ let main args =
             eprintfn "%s import failed: %s" name ex.Message
             1
     match command with
-    | "api2" -> run "api2" (fun () -> Api2.read pg 12)
+    | "legacy" -> run "legacy" (fun () -> Legacy.read pg 12)
     | "chatbot" -> run "chatbot" (fun () -> Chatbot.read dump)
     | "airi" -> run "airi" (fun () -> Airi.read sqlite)
     | "all" ->
-        // api-2 first: it has the most firms, so others merge into its names.
-        [ run "api2" (fun () -> Api2.read pg 12)
+        // The legacy lead system first: it has the most firms, so others merge into its names.
+        [ run "legacy" (fun () -> Legacy.read pg 12)
           run "chatbot" (fun () -> Chatbot.read dump)
           run "airi" (fun () -> Airi.read sqlite) ]
         |> List.max
@@ -118,5 +118,5 @@ let main args =
             eprintfn "simulate: --days, --seed and --crm-leads take numbers"
             2
     | _ ->
-        printfn "usage: import (api2 | chatbot | airi | all | seed | demo-names | simulate) [--db path] [--origin url] [--pg cs] [--dump path] [--sqlite path] [--leads n] [--seed n] [--firm id] [--days n] [--crm-leads n]"
+        printfn "usage: import (legacy | chatbot | airi | all | seed | demo-names | simulate) [--db path] [--origin url] [--pg cs] [--dump path] [--sqlite path] [--leads n] [--seed n] [--firm id] [--days n] [--crm-leads n]"
         if command = "help" then 0 else 2

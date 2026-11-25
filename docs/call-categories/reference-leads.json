@@ -530,7 +530,7 @@
     },
     {
       "id": "vendor-template",
-      "why": "The voice platform's always-on sales template is named \"Sales / marketing\": a sales call, not a person called Sales (RFC-010 §2.1).",
+      "why": "The legacy system's always-on sales template is named \"Sales / marketing\": a sales call, not a person called Sales (RFC-010 §2.1).",
       "expect": { "category": "vendor", "practiceArea": null, "modifiers": [], "crm": "skip" },
       "lead": {
         "firstName": "Jesse", "lastName": "Okoro", "phone": "+15555550148", "email": "jesse.okoro@example.com",

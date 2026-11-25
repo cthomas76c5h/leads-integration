@@ -16,7 +16,7 @@ let private now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 90L * minute
 let private firmWithFallbackTo (kind: string) (credentials: (string * string) list) =
     let t = new Support.TempDb()
     let f = { Support.firm "1" "Fallback Firm" "k" [ Support.conn "10" kind credentials ] with ContactTypes = [| { Name = "*New Client Calls"; Active = true } |] }
-    Import.apply t.Db Support.origin (Support.batch Domain.Source.api2 [ f ]) |> ignore
+    Import.apply t.Db Support.origin (Support.batch Domain.Source.legacy [ f ]) |> ignore
     let firmId = Db.read t.Db (fun s -> (Store.allFirms s |> Array.head).Id)
     let fallback: Connection =
         { Id = Secrets.newId "con"; FirmId = firmId; FirmName = "Fallback Firm"; Kind = "sms"; Name = "Intake SMS"
@@ -160,7 +160,7 @@ let tests =
                   { Support.firm id name $"k{id}" [ Support.conn $"{id}0" "answering-legal" [ ("api_key", "x") ]; Support.conn $"{id}1" "email" [] ] with
                       ContactTypes = [| { Name = "*New Client Calls"; Active = true } |] }
               // Four firms: the simulator also takes the two busiest for its dead-endpoint and paused scenarios.
-              Import.apply t.Db Support.origin (Support.batch Domain.Source.api2 [ firm "1" "Alpha Law"; firm "2" "Beta Law"; firm "3" "Gamma Law"; firm "4" "Delta Law" ]) |> ignore
+              Import.apply t.Db Support.origin (Support.batch Domain.Source.legacy [ firm "1" "Alpha Law"; firm "2" "Beta Law"; firm "3" "Gamma Law"; firm "4" "Delta Law" ]) |> ignore
               Seed.run t.Db { Seed.defaults with Count = 120; RandomSeed = 5 } |> ignore
               let sum = Simulate.run t.Db { Simulate.defaults with Origin = Support.origin; Now = now; CrmLeads = 0 }
               let names = sum.Scenarios |> List.map _.Name

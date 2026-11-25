@@ -14,7 +14,7 @@ both follow this file. Change it first, then both sides.
 
 ```ts
 // Where an imported row came from: the legacy sources the lab imports from today, or 'manual'.
-type SourceSystem = 'api2' | 'chatbot' | 'airi' | 'manual';
+type SourceSystem = 'legacy' | 'chatbot' | 'airi' | 'manual';
 
 type Category = 'platform' | 'crm' | 'automation' | 'notify';
 type AuthScheme = 'api_key' | 'oauth' | 'url' | 'none';

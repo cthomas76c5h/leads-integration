@@ -1,11 +1,11 @@
-/// api-2 (Django, Postgres `leads`): firms are leads_client, CRM configs are
-/// leads_crm, routing is leads_contact. Read-only: the session is opened with
+/// The legacy lead system (Postgres): its firms, their CRM configurations and
+/// the contact types that route leads to them. Read-only: the session is opened with
 /// default_transaction_read_only, so no statement here can write.
 ///
 /// Secrets: CRM api_key / token / refresh_token and the client api_key are read
 /// one row at a time and immediately reduced to present + fingerprint (+ the
 /// match hash for the client key). Lead rows are read only for intake *labels*.
-module LeadIntegrations.Importers.Api2
+module LeadIntegrations.Importers.Legacy
 
 open System
 open System.Collections.Generic
@@ -73,7 +73,7 @@ let read (connectionString: string) (maxLabelsPerFirm: int) : Batch =
         use r = cmd.ExecuteReader()
         while r.Read() do
             let code = str r 2
-            match Catalog.ofApi2Code code with
+            match Catalog.ofLegacyCode code with
             | None ->
                 skipped <- skipped + 1
                 notes.Add $"leads_crm #{str r 0}: unknown CRM code \"{code}\", skipped"
@@ -90,7 +90,7 @@ let read (connectionString: string) (maxLabelsPerFirm: int) : Batch =
                       Kind = kind
                       Name = Catalog.label kind
                       Credentials = creds
-                      Settings = settings [ "api2Code", code; "sendWebchats", (if flag r 8 then "true" else "false") ]
+                      Settings = settings [ "legacyCode", code; "sendWebchats", (if flag r 8 then "true" else "false") ]
                       Enabled = flag r 7 }
                 let clientId = str r 1
                 if isNull clientId || not (clients.ContainsKey clientId) then orphans.Add ic
@@ -145,7 +145,7 @@ let read (connectionString: string) (maxLabelsPerFirm: int) : Batch =
         |> Array.ofSeq
 
     notes.Insert(0, $"{clients.Count} clients, {crmByClient.Values |> Seq.sumBy _.Count} CRM rows with a firm, {contacts.Values |> Seq.sumBy _.Count} contact types, {labels.Count} firms with intake labels")
-    { System = Source.api2
+    { System = Source.legacy
       Firms = firms
       Orphans = orphans.ToArray()
       Skipped = skipped

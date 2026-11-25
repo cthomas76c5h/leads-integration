@@ -81,7 +81,7 @@ let tests =
               let firm =
                   { Support.firm "1" "Showcase" "k" conns with
                       ContactTypes = [| { Name = "*New Client Calls"; Active = true }; { Name = "*Court Calls"; Active = false } |] }
-              Import.apply t.Db Support.origin (Support.batch Domain.Source.api2 [ firm ]) |> ignore
+              Import.apply t.Db Support.origin (Support.batch Domain.Source.legacy [ firm ]) |> ignore
               Seed.run t.Db { Seed.defaults with Count = 120; RandomSeed = 3 } |> ignore
               let now = DateTimeOffset(2026, 11, 19, 17, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds()
               Simulate.run t.Db { Simulate.defaults with Origin = Support.origin; Now = now; CrmLeads = 0 } |> ignore

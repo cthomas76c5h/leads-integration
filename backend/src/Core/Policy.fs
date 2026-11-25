@@ -1,4 +1,4 @@
-/// What to do with each receiver response (ported from webhook-lab policy.ts).
+/// What to do with each receiver response.
 /// These rules decide what an operator sees, so they are explicit and tested.
 module LeadIntegrations.Policy
 

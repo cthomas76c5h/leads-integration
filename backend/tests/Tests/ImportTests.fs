@@ -8,20 +8,20 @@ open LeadIntegrations.Tests.Support
 let tests =
     testList
         "import"
-        [ test "one firm across systems is matched by its Answering Legal key, and re-import is idempotent" {
+        [ test "one firm across systems is matched by its account key, and re-import is idempotent" {
               use t = new TempDb()
-              let api2 =
-                  batch Domain.Source.api2 [ firm "17" "Rose & Associates" "al_key_rose" [ conn "501" "mycase" [ "token", "tok"; "refresh_token", "ref" ] ] ]
+              let legacyBatch =
+                  batch Domain.Source.legacy [ firm "17" "Rose & Associates" "al_key_rose" [ conn "501" "mycase" [ "token", "tok"; "refresh_token", "ref" ] ] ]
               let chatbot =
                   batch Domain.Source.chatbot [ firm "4" "Rose and Associates PLLC" "al_key_rose" [ conn "tenant-4-web-lead" "answering-legal" [ ("api_key", "al_key_rose") ] ] ]
-              Import.apply t.Db origin api2 |> ignore
+              Import.apply t.Db origin legacyBatch |> ignore
               Import.apply t.Db origin chatbot |> ignore
-              Import.apply t.Db origin api2 |> ignore // again: no duplicates
+              Import.apply t.Db origin legacyBatch |> ignore // again: no duplicates
               let total, firms =
                   Db.read t.Db (fun s ->
                       Store.listFirms s { Q = null; Kind = null; Source = null; IssuesOnly = false; Limit = 50; Offset = 0 })
               Expect.equal total 1 "one firm"
-              Expect.equal (Array.sort firms[0].Sources) [| "api2"; "chatbot" |] "known to both"
+              Expect.equal (Array.sort firms[0].Sources) [| "chatbot"; "legacy" |] "known to both"
               Expect.equal firms[0].Name "Rose & Associates" "first name kept"
               let detail = Db.read t.Db (fun s -> Store.firmDetail s firms[0].Id [||])
               Expect.equal detail.Connections.Length 2 "two connections, not three"
@@ -34,7 +34,7 @@ let tests =
               Import.apply
                   t.Db
                   origin
-                  (batch Domain.Source.api2 [ firm "1" "A" secret [ conn "9" "clio-grow" [ "api_key", secret ] ] ])
+                  (batch Domain.Source.legacy [ firm "1" "A" secret [ conn "9" "clio-grow" [ "api_key", secret ] ] ])
               |> ignore
               Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools()
               let bytes = System.IO.File.ReadAllBytes t.Db.Path
@@ -47,7 +47,7 @@ let tests =
 
           test "a key shared by several firms matches none of them, and is flagged" {
               use t = new TempDb()
-              Import.apply t.Db origin (batch Domain.Source.api2 [ firm "1" "Real Firm" "shared" [] ]) |> ignore
+              Import.apply t.Db origin (batch Domain.Source.legacy [ firm "1" "Real Firm" "shared" [] ]) |> ignore
               let web id = conn $"tenant-{id}-web-lead" "answering-legal" [ ("api_key", "shared") ]
               let run = Import.apply t.Db origin (batch Domain.Source.chatbot [ firm "4" "Tenant A" "shared" [ web 4 ]; firm "5" "Tenant B" "shared" [ web 5 ] ])
               let total, _ = Db.read t.Db (fun s -> Store.listFirms s { Q = null; Kind = null; Source = null; IssuesOnly = false; Limit = 50; Offset = 0 })
@@ -59,7 +59,7 @@ let tests =
 
           test "orphaned CRM rows are kept and flagged" {
               use t = new TempDb()
-              Import.apply t.Db origin { batch Domain.Source.api2 [] with Orphans = [| conn "77" "clio-grow" [ ("api_key", "k") ] |] } |> ignore
+              Import.apply t.Db origin { batch Domain.Source.legacy [] with Orphans = [| conn "77" "clio-grow" [ ("api_key", "k") ] |] } |> ignore
               let c = (Db.read t.Db Store.allConnections).[0].Connection
               Expect.exists c.Issues (fun i -> i.Code = "orphaned") "flagged"
           }
@@ -70,7 +70,7 @@ let tests =
                   t.Db
                   origin
                   (batch
-                      Domain.Source.api2
+                      Domain.Source.legacy
                       [ firm "1" "A" "k1" [ conn "1" "mycase" [ "token", "t" ]; conn "2" "mycase" [ "token", "t"; "refresh_token", "r" ] ] ])
               |> ignore
               let cs = Db.read t.Db Store.allConnections |> Array.map _.Connection

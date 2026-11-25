@@ -21,7 +21,7 @@ export const pretty = (text: string): string => {
 export const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 export const SOURCE_LABEL: Record<SourceSystem, string> = {
-  api2: 'api-2',
+  legacy: 'Legacy',
   chatbot: 'Chatbot',
   airi: 'Answering AI',
   manual: 'Manual',
