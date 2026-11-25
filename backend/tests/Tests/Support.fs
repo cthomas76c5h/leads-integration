@@ -6,17 +6,50 @@ open LeadIntegrations
 open LeadIntegrations.Domain
 open LeadIntegrations.Import
 
-/// A fresh database file, deleted when disposed.
+/// The PostgreSQL server the suite runs against, as an Npgsql connection string to a database it may
+/// create others from (RFC-011 step 2): `DELIVERY_TEST_PG="Host=127.0.0.1;Port=55433;Username=delivery;
+/// Password=delivery;Database=delivery"` (backend/compose.yaml). Unset: every test uses SQLite files.
+let postgres = Environment.GetEnvironmentVariable "DELIVERY_TEST_PG" |> Option.ofObj |> Option.filter (String.IsNullOrWhiteSpace >> not)
+
+let onPostgres = postgres.IsSome
+
+let private admin (sql: string) =
+    use c = new Npgsql.NpgsqlConnection(postgres.Value)
+    c.Open()
+    use cmd = c.CreateCommand()
+    cmd.CommandText <- sql
+    cmd.ExecuteNonQuery() |> ignore
+
+/// A fresh database, removed when disposed: a SQLite file, or with DELIVERY_TEST_PG a database of its
+/// own on that server.
 type TempDb() =
-    let db = Db.openTemp ()
+    let pgName = if onPostgres then Some $"t_{Guid.NewGuid():N}" else None
+    let db =
+        match pgName with
+        | Some name ->
+            admin $"CREATE DATABASE {name}"
+            let cs = Npgsql.NpgsqlConnectionStringBuilder(postgres.Value, Database = name, Pooling = true)
+            Db.openDatabase cs.ConnectionString
+        | None -> Db.openTemp ()
     member _.Db = db
     interface IDisposable with
         member _.Dispose() =
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools()
-            for suffix in [ ""; "-wal"; "-shm" ] do
-                try
-                    IO.File.Delete(db.Path + suffix)
-                with _ -> ()
+            match pgName with
+            | Some name ->
+                Npgsql.NpgsqlConnection.ClearAllPools()
+                try admin $"DROP DATABASE IF EXISTS {name} WITH (FORCE)" with _ -> ()
+            | None ->
+                Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools()
+                for suffix in [ ""; "-wal"; "-shm" ] do
+                    try
+                        IO.File.Delete(db.Path + suffix)
+                    with _ -> ()
+
+/// A test that depends on SQLite itself (its files, its backup API): skipped on PostgreSQL.
+let sqliteOnly (name: string) (body: unit -> unit) =
+    Expecto.Tests.test name {
+        if onPostgres then Expecto.Tests.skiptest "depends on SQLite itself" else body ()
+    }
 
 let origin = "http://localhost"
 

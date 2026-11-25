@@ -1,55 +1,81 @@
-/// Thin SQLite helpers, in the style of chatbot/backend-fsharp Db.fs: plain
-/// SQL, positional parameters, explicit column readers. One process owns the
-/// file; writes go through one lock so the delivery worker and the API never
-/// meet SQLITE_BUSY.
+/// The store: plain SQL, positional parameters ($1, $2, …), explicit column readers, on SQLite or
+/// PostgreSQL (RFC-011; the suite standardizes on PostgreSQL, S-8). The database is chosen by its
+/// address: a PostgreSQL connection string ("Host=…") or a SQLite file path. Writes go through
+/// one in-process lock on both for now (RFC-011 step 3 replaces it on PostgreSQL).
 module LeadIntegrations.Db
 
 open System
 open System.Data.Common
 open System.Threading
 open Microsoft.Data.Sqlite
+open Npgsql
 
-type Database(path: string, connectionString: string) =
+type Engine =
+    | Sqlite
+    | Postgres
+
+/// A PostgreSQL connection string, in Npgsql's keyword form ("Host=…;Database=…").
+let isPostgres (address: string) =
+    not (isNull address) && address.Contains("Host=", StringComparison.OrdinalIgnoreCase)
+
+type Database(path: string, connectionString: string, engine: Engine) =
     let writeLock = new SemaphoreSlim(1, 1)
     new(path: string) =
-        Database(
-            path,
-            SqliteConnectionStringBuilder(DataSource = path, Mode = SqliteOpenMode.ReadWriteCreate, Cache = SqliteCacheMode.Private, Pooling = true)
-                .ConnectionString
-        )
+        if isPostgres path then Database(path, path, Postgres)
+        else
+            Database(
+                path,
+                SqliteConnectionStringBuilder(DataSource = path, Mode = SqliteOpenMode.ReadWriteCreate, Cache = SqliteCacheMode.Private, Pooling = true)
+                    .ConnectionString,
+                Sqlite
+            )
     /// A private database in memory (tests): it lives while at least one connection to it stays open.
     static member InMemory(name: string) =
-        Database(name, SqliteConnectionStringBuilder(DataSource = name, Mode = SqliteOpenMode.Memory, Cache = SqliteCacheMode.Shared, Pooling = false).ConnectionString)
+        Database(name, SqliteConnectionStringBuilder(DataSource = name, Mode = SqliteOpenMode.Memory, Cache = SqliteCacheMode.Shared, Pooling = false).ConnectionString, Sqlite)
+    /// Where it is: the SQLite file, or the PostgreSQL connection string.
     member _.Path = path
     member _.ConnectionString = connectionString
+    member _.Engine = engine
     member _.WriteLock = writeLock
     /// Failure injection (RFC-008 §10, test control only): every write fails as if the database had
     /// stopped answering, before its transaction begins. Reads still work, so a scenario can look.
     member val WritesFail = false with get, set
 
-let private open' (db: Database) =
-    let conn = new SqliteConnection(db.ConnectionString)
-    conn.Open()
-    use pragma = conn.CreateCommand()
-    pragma.CommandText <- "PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;"
-    pragma.ExecuteNonQuery() |> ignore
-    conn
+let private open' (db: Database) : DbConnection =
+    match db.Engine with
+    | Postgres ->
+        let conn = new NpgsqlConnection(db.ConnectionString)
+        conn.Open()
+        conn
+    | Sqlite ->
+        let conn = new SqliteConnection(db.ConnectionString)
+        conn.Open()
+        use pragma = conn.CreateCommand()
+        pragma.CommandText <- "PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;"
+        pragma.ExecuteNonQuery() |> ignore
+        conn
 
-let private command (conn: SqliteConnection) (tx: SqliteTransaction) (sql: string) (args: obj list) =
+let private command (conn: DbConnection) (tx: DbTransaction) (sql: string) (args: obj list) =
     let cmd = conn.CreateCommand()
     cmd.CommandText <- sql
     if not (isNull tx) then cmd.Transaction <- tx
+    let positional = conn :? NpgsqlConnection
     args
     |> List.iteri (fun i a ->
         let v: obj =
             match a with
             | null -> box DBNull.Value
             | :? bool as b -> box (if b then 1L else 0L)
+            | :? int as n -> box (int64 n)
             | v -> v
-        cmd.Parameters.AddWithValue($"${i + 1}", v) |> ignore)
+        let p = cmd.CreateParameter()
+        // Npgsql binds $1, $2, … by position when parameters have no names; SQLite by name.
+        if not positional then p.ParameterName <- $"${i + 1}"
+        p.Value <- v
+        cmd.Parameters.Add p |> ignore)
     cmd
 
-let private readAll (cmd: SqliteCommand) (map: DbDataReader -> 'T) =
+let private readAll (cmd: DbCommand) (map: DbDataReader -> 'T) =
     use r = cmd.ExecuteReader()
     let rows = ResizeArray<'T>()
     while r.Read() do
@@ -57,7 +83,7 @@ let private readAll (cmd: SqliteCommand) (map: DbDataReader -> 'T) =
     rows.ToArray()
 
 /// Statements against one connection, optionally inside a transaction.
-type Session(conn: SqliteConnection, tx: SqliteTransaction) =
+type Session(conn: DbConnection, tx: DbTransaction) =
     member _.Query (sql: string) (args: obj list) (map: DbDataReader -> 'T) : 'T[] =
         use cmd = command conn tx sql args
         readAll cmd map
@@ -75,7 +101,7 @@ type Session(conn: SqliteConnection, tx: SqliteTransaction) =
         | :? DBNull -> 0L
         | v -> Convert.ToInt64 v
 
-/// A read. Readers never block writers (WAL).
+/// A read. Readers never block writers (WAL on SQLite; MVCC on PostgreSQL).
 let read (db: Database) (f: Session -> 'T) : 'T =
     use conn = open' db
     f (Session(conn, null))
@@ -83,7 +109,7 @@ let read (db: Database) (f: Session -> 'T) : 'T =
 /// The database could not take a write: nothing in that transaction was committed.
 exception Unavailable of string
 
-/// A write in one transaction, serialised with every other write.
+/// A write in one transaction, serialised with every other write in this process.
 let write (db: Database) (f: Session -> 'T) : 'T =
     if db.WritesFail then raise (Unavailable "the database is not answering")
     db.WriteLock.Wait()
@@ -422,18 +448,48 @@ let repoRoot = IO.Path.GetFullPath(IO.Path.Combine(__SOURCE_DIRECTORY__, "..", "
 
 let defaultPath = IO.Path.Combine(repoRoot, "backend", "data", "lead-integrations.db")
 
+/// The schema in PostgreSQL's terms, from the one schema above (RFC-011 step 2): UTC milliseconds and
+/// counts in 64 bits, identities for SQLite's auto-numbered keys, a `rowid` where queries break
+/// ties by it, case-insensitive name order by lower(name), and the append-only rule as a trigger
+/// function.
+let private postgresSchema =
+    lazy
+        (let lines = schema.Split('\n') |> Array.filter (fun l -> not (l.TrimStart().StartsWith "CREATE TRIGGER"))
+         let text = String.Join("\n", lines)
+         let text = text.Replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY")
+         let text = Text.RegularExpressions.Regex.Replace(text, @"\bINTEGER\b", "BIGINT")
+         let text = Text.RegularExpressions.Regex.Replace(text, @"\bREAL\b", "DOUBLE PRECISION")
+         let text = text.Replace("firms(name COLLATE NOCASE)", "firms(lower(name))")
+         let text =
+             [ "approvals"; "setup_events" ]
+             |> List.fold
+                 (fun (t: string) table ->
+                     t.Replace($"CREATE TABLE IF NOT EXISTS {table} (", $"CREATE TABLE IF NOT EXISTS {table} (\n  rowid BIGINT GENERATED ALWAYS AS IDENTITY,"))
+                 text
+         text
+         + """
+CREATE OR REPLACE FUNCTION append_only() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN RAISE EXCEPTION '% are append-only', TG_TABLE_NAME; END $$;
+DROP TRIGGER IF EXISTS approvals_append_only ON approvals;
+CREATE TRIGGER approvals_append_only BEFORE UPDATE OR DELETE ON approvals FOR EACH ROW EXECUTE FUNCTION append_only();
+""")
+
 let openDatabase (path: string) : Database =
-    let full = IO.Path.GetFullPath path
-    IO.Directory.CreateDirectory(IO.Path.GetDirectoryName full) |> ignore
-    let db = Database(full)
+    let db =
+        if isPostgres path then Database(path)
+        else
+            let full = IO.Path.GetFullPath path
+            IO.Directory.CreateDirectory(IO.Path.GetDirectoryName full) |> ignore
+            Database(full)
     use conn = open' db
-    use wal = conn.CreateCommand()
-    wal.CommandText <- "PRAGMA journal_mode = WAL;"
-    wal.ExecuteNonQuery() |> ignore
+    if db.Engine = Sqlite then
+        use wal = conn.CreateCommand()
+        wal.CommandText <- "PRAGMA journal_mode = WAL;"
+        wal.ExecuteNonQuery() |> ignore
     use cmd = conn.CreateCommand()
-    cmd.CommandText <- schema
+    cmd.CommandText <- (if db.Engine = Postgres then postgresSchema.Value else schema)
     cmd.ExecuteNonQuery() |> ignore
-    // Columns added after a database was first created (SQLite has no ADD COLUMN IF NOT EXISTS).
+    // Columns added after a database was first created.
     for table, column, definition in
         [ "firms", "time_zone", "TEXT NOT NULL DEFAULT 'America/New_York'"
           "deliveries", "decision", "TEXT NULL"
@@ -465,12 +521,20 @@ let openDatabase (path: string) : Database =
           "lead_contracts", "first_published_at", "INTEGER NULL"
           "lead_contracts", "last_published_at", "INTEGER NULL"
           "lead_contracts", "publication_attempts", "INTEGER NULL" ] do
-        use probe = conn.CreateCommand()
-        probe.CommandText <- $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = '{column}'"
-        if Convert.ToInt64(probe.ExecuteScalar()) = 0L then
+        match db.Engine with
+        | Postgres ->
             use alter = conn.CreateCommand()
-            alter.CommandText <- $"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+            let typed = definition.Replace("INTEGER", "BIGINT")
+            alter.CommandText <- $"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {typed}"
             alter.ExecuteNonQuery() |> ignore
+        | Sqlite ->
+            // SQLite has no ADD COLUMN IF NOT EXISTS.
+            use probe = conn.CreateCommand()
+            probe.CommandText <- $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = '{column}'"
+            if Convert.ToInt64(probe.ExecuteScalar()) = 0L then
+                use alter = conn.CreateCommand()
+                alter.CommandText <- $"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+                alter.ExecuteNonQuery() |> ignore
     // The legacy source's code was renamed; rows imported before keep working.
     use renamed = conn.CreateCommand()
     renamed.CommandText <- "UPDATE firm_sources SET system = 'legacy' WHERE system = 'api2'; UPDATE connections SET source = 'legacy' WHERE source = 'api2'"

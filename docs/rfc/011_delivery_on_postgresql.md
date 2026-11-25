@@ -3,7 +3,7 @@
 **Answering AI — Technical Proposal**
 
 **Date:** November 25, 2026
-**Status:** Proposed; the decision to move is taken (suite S-8), this is how
+**Status:** In progress: steps 1 and 2 done (2026-11-25); the decision to move is taken (suite S-8), this is how
 **Decision owner:** Engineering
 **Related:** suite S-8 and milestone M4b (`../call-center-lab/docs/suite/`) · [concurrency.md](../lead-delivery/concurrency.md) · RFC-008 (the guarantees the store must keep)
 
@@ -53,6 +53,20 @@ Each step is usable on its own, and passes every test and scenario before the ne
 | 3 | **Concurrency on PostgreSQL's terms.** Remove the in-process write lock for PostgreSQL. Check-then-insert paths retry on a unique violation and answer as a repeat; claims and leases use conditional updates that touch one row. `WorkerTests` and `InterleavingTests` run with separate connections as separate processes | Both pass on PostgreSQL, with concurrency.md updated |
 | 4 | **PostgreSQL by default.** The API, importer, scenarios and acceptance tool use it; the lab's data is re-imported (it is all re-importable: the legacy importer, seed and simulate) | Scenarios and `tools/acceptance_m3.py` pass on PostgreSQL |
 | 5 | **SQLite removed** from delivery's store | No SQLite store code left; the legacy importer still reads its SQLite source |
+
+## Progress
+
+| Step | State |
+|---|---|
+| 1 | **Done.** 13 sums over conditions, 2 conditions read as numbers, two-argument `MIN`/`MAX`, `INSERT OR IGNORE` and name order rewritten in forms both accept |
+| 2 | **Done.** `Db` takes a file path (SQLite) or an Npgsql connection string (`Host=…`); the PostgreSQL schema is derived from the one schema (`BIGINT`, identities, `rowid` on the two tables that order by it, `lower(name)`, the append-only trigger as a function); columns added with `ADD COLUMN IF NOT EXISTS`. `DELIVERY_TEST_PG` runs the suite with a database per test. On PostgreSQL it found and fixed: a `GROUP BY` that selected an ungrouped joined column (SQLite allows it), and parameters tested only for null (PostgreSQL can't infer their type: cast). All 207 tests pass on both; the scenarios pass on SQLite |
+| 3 | Next. Early evidence: `WorkerTests`' several writers, each with its own lock, run concurrently on PostgreSQL with every lead sent once and none lost |
+
+**Open: the interleaving explorer.** `InterleavingTests` explores every interleaving of two
+workers, an operator and a receiver by cloning an in-memory SQLite database at each of over a
+thousand states (SQLite's backup API). PostgreSQL has nothing as cheap. Step 5 needs a choice:
+keep SQLite in the tests as the explorer's model of the store's logic (its SQL is now the same on
+both), or explore fewer states on PostgreSQL with databases cloned from templates.
 
 ## 4. Risks
 

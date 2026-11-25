@@ -271,9 +271,9 @@ let notePublication (s: Session) (eventId: string) (publishedAt: Nullable<int64>
     if publishedAt.HasValue || attempt.HasValue then
         s.Execute
             """UPDATE lead_contracts SET
-                 first_published_at = CASE WHEN $2 IS NOT NULL AND (first_published_at IS NULL OR $2 < first_published_at) THEN $2 ELSE first_published_at END,
-                 last_published_at = CASE WHEN $2 IS NOT NULL AND (last_published_at IS NULL OR $2 > last_published_at) THEN $2 ELSE last_published_at END,
-                 publication_attempts = CASE WHEN $3 IS NOT NULL AND (publication_attempts IS NULL OR $3 > publication_attempts) THEN $3 ELSE publication_attempts END
+                 first_published_at = CASE WHEN CAST($2 AS BIGINT) IS NOT NULL AND (first_published_at IS NULL OR CAST($2 AS BIGINT) < first_published_at) THEN CAST($2 AS BIGINT) ELSE first_published_at END,
+                 last_published_at = CASE WHEN CAST($2 AS BIGINT) IS NOT NULL AND (last_published_at IS NULL OR CAST($2 AS BIGINT) > last_published_at) THEN CAST($2 AS BIGINT) ELSE last_published_at END,
+                 publication_attempts = CASE WHEN CAST($3 AS BIGINT) IS NOT NULL AND (publication_attempts IS NULL OR CAST($3 AS BIGINT) > publication_attempts) THEN CAST($3 AS BIGINT) ELSE publication_attempts END
                WHERE event_id = $1"""
             [ eventId; nullable publishedAt; nullable attempt ]
         |> ignore
@@ -375,7 +375,7 @@ let setHandOff (s: Session) (e: LeadEvent) (acknowledgedAt: Nullable<int64>) (es
     let category = (Categories.ofLead e.Lead).Category
     s.Execute
         """UPDATE events SET ack_token=COALESCE(ack_token, $5), ack_required=$6, handoff_due_at=$7,
-                  acknowledged_at=$2, acknowledged_via=CASE WHEN $2 IS NULL THEN NULL ELSE 'link' END, escalated_at=$3, expired_at=$4
+                  acknowledged_at=$2, acknowledged_via=CASE WHEN CAST($2 AS BIGINT) IS NULL THEN NULL ELSE 'link' END, escalated_at=$3, expired_at=$4
            WHERE id=$1"""
         [ e.Id; n acknowledgedAt; n escalatedAt; n expiredAt; Secrets.newToken (); Urgency.needsAcknowledgement category
           e.CreatedAt + Urgency.windowMs category ]
@@ -801,7 +801,7 @@ let listLeads (s: Session) (q: LeadQuery) : int * LeadSummary[] =
     let text = if String.IsNullOrWhiteSpace q.Q then null else q.Q.Trim()
     let has (v: string) = not (isNull v) && v.Contains(text, StringComparison.OrdinalIgnoreCase)
     let rows =
-        s.Query $"{leadSql} {whereSql} GROUP BY e.id ORDER BY e.created_at DESC, e.id DESC" (List.ofSeq args) readLead
+        s.Query $"{leadSql} {whereSql} GROUP BY e.id, f.name ORDER BY e.created_at DESC, e.id DESC" (List.ofSeq args) readLead
         |> Array.map fst
         |> Array.filter (fun l ->
             (isNull text || has l.Caller || has l.Phone || has l.CallType || has l.FirmName)
@@ -810,7 +810,7 @@ let listLeads (s: Session) (q: LeadQuery) : int * LeadSummary[] =
     rows.Length, rows |> Array.skip (min rows.Length (max 0 q.Offset)) |> Array.truncate (max 1 (min 500 q.Limit))
 
 let leadOrFail (s: Session) (id: string) : LeadDetail =
-    match s.Query $"{leadSql} WHERE e.id = $1 GROUP BY e.id" [ id ] readLead |> Array.tryHead with
+    match s.Query $"{leadSql} WHERE e.id = $1 GROUP BY e.id, f.name" [ id ] readLead |> Array.tryHead with
     | None -> fail 404 "no such lead"
     | Some(l, lead) ->
         let deliveries =

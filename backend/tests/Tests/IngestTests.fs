@@ -195,16 +195,21 @@ let tests =
             use _ = t
             // The payload's insert fails after the lead and its delivery were written in the same transaction.
             let sql (text: string) =
-                use c = new SqliteConnection($"Data Source={t.Db.Path}")
+                use c: Data.Common.DbConnection =
+                    if onPostgres then new Npgsql.NpgsqlConnection(t.Db.ConnectionString) else new SqliteConnection($"Data Source={t.Db.Path}")
                 c.Open()
                 use cmd = c.CreateCommand()
                 cmd.CommandText <- text
                 cmd.ExecuteNonQuery() |> ignore
-            sql "CREATE TRIGGER refuse_payload BEFORE INSERT ON lead_contracts BEGIN SELECT RAISE(ABORT, 'refused for the test'); END"
+            if onPostgres then
+                sql "CREATE FUNCTION refuse() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'refused for the test'; END $$"
+                sql "CREATE TRIGGER refuse_payload BEFORE INSERT ON lead_contracts FOR EACH ROW EXECUTE FUNCTION refuse()"
+            else
+                sql "CREATE TRIGGER refuse_payload BEFORE INSERT ON lead_contracts BEGIN SELECT RAISE(ABORT, 'refused for the test'); END"
             Expect.throws (fun () -> Dispatch.ingest t.Db (personCall ()) |> ignore) "the transaction fails"
             Expect.equal (counts t.Db) (0L, 0L, 0L) "no lead, no delivery, no payload"
             Expect.isEmpty (Db.read t.Db Store.domainEvents) "nothing emitted"
-            sql "DROP TRIGGER refuse_payload"
+            sql (if onPostgres then "DROP TRIGGER refuse_payload ON lead_contracts" else "DROP TRIGGER refuse_payload")
             Expect.isFalse (Dispatch.ingest t.Db (personCall ())).Intake.Duplicate "recorded when sent again, as new"
             Expect.equal (counts t.Db) (1L, 1L, 1L) "all three, once"
         }

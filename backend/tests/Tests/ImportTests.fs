@@ -36,10 +36,18 @@ let tests =
                   origin
                   (batch Domain.Source.legacy [ firm "1" "A" secret [ conn "9" "clio-grow" [ "api_key", secret ] ] ])
               |> ignore
-              Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools()
-              let bytes = System.IO.File.ReadAllBytes t.Db.Path
-              let text = System.Text.Encoding.UTF8.GetString bytes
-              Expect.isFalse (text.Contains secret) "value not in the file"
+              let text =
+                  if onPostgres then
+                      // Every row of every table, as text.
+                      Db.read t.Db (fun s ->
+                          let tables = s.Query "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'" [] (fun r -> r.GetString 0)
+                          tables
+                          |> Array.map (fun table -> s.Query $"SELECT COALESCE(string_agg(x::text, '|'), '') FROM {table} x" [] (fun r -> r.GetString 0) |> Array.head)
+                          |> String.concat "|")
+                  else
+                      Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools()
+                      System.Text.Encoding.UTF8.GetString(System.IO.File.ReadAllBytes t.Db.Path)
+              Expect.isFalse (text.Contains secret) "value not in the database"
               let c = (Db.read t.Db (fun s -> Store.allConnections s)).[0].Connection
               Expect.isTrue c.Credentials[0].Present "present"
               Expect.equal c.DeliveryUrl "http://localhost/receiver/crm/clio-grow" "points at the fake receiver"

@@ -24,7 +24,11 @@ TypeScript frontend (`frontend/`).
 - Backend style: Oxpecker, plain SQL,
   Expecto tests, `TreatWarningsAsErrors`. F# compiles in file order.
 - Backend: `cd backend && dotnet run --project src/Api` (port 5080) ·
-  tests: `dotnet run --project tests/Tests --artifacts-path ../.testbuild` (the running API locks `bin/`) · import: `dotnet run --project src/Import -- all`
+  tests: `dotnet run --project tests/Tests --artifacts-path ../.testbuild` (the running API locks `bin/`);
+  on PostgreSQL (RFC-011): `docker compose -f backend/compose.yaml up -d`, then the same with
+  `DELIVERY_TEST_PG="Host=127.0.0.1;Port=55433;Username=delivery;Password=delivery;Database=delivery"`.
+  Write SQL both accept: no summing conditions, no ungrouped columns, cast a parameter tested only for null.
+  Import: `dotnet run --project src/Import -- all`
 - Contracts: `python tools/check_contracts.py` (files consistent) · `python tools/run_scenarios.py`
   (every scenario against a fresh lab; `lab` ones must pass). A rule change updates its scenario first.
 - Frontend: `cd frontend && npm run dev` (proxies to 5080) · `npm run build`
