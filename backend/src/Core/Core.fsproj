@@ -27,6 +27,7 @@
     <Compile Include="Synthetic.fs" />
     <Compile Include="Categories.fs" />
     <Compile Include="Urgency.fs" />
+    <Compile Include="LeadContract.fs" />
     <Compile Include="Db.fs" />
     <Compile Include="Store.fs" />
     <Compile Include="Routing.fs" />
@@ -50,6 +51,8 @@
     <EmbeddedResource Include="..\..\..\docs\call-categories\coverage.json" LogicalName="coverage.json" />
     <EmbeddedResource Include="..\..\..\docs\call-categories\reference-leads.json" LogicalName="reference-leads.json" />
     <EmbeddedResource Include="..\..\..\docs\lead-delivery\delivery-timing.json" LogicalName="delivery-timing.json" />
+    <!-- The intake lead contract: an exact copy of intake's schema (tools/check_contracts.py compares them). -->
+    <EmbeddedResource Include="..\..\..\docs\contracts\intake-lead\draft-2.schema.json" LogicalName="intake-lead.draft-2.schema.json" />
   </ItemGroup>
 
   <ItemGroup>

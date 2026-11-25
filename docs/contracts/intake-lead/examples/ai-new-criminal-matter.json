@@ -1,0 +1,191 @@
+{
+  "contract": "intake-lead/draft-2",
+  "leadId": "VA-1",
+  "conversation": {
+    "id": "VA-1",
+    "channel": "voice",
+    "startedAt": "2026-11-21T07:00:00.000Z",
+    "endedAt": "2026-11-21T07:01:45.000Z",
+    "endedBy": "receptionist",
+    "language": null
+  },
+  "firm": {
+    "id": "defence-practice",
+    "timeZone": "America/New_York"
+  },
+  "policy": {
+    "revision": 1,
+    "approved": true
+  },
+  "classification": {
+    "callType": {
+      "id": "criminal",
+      "name": "Criminal"
+    },
+    "source": "receptionist-judgement",
+    "confidence": null,
+    "needsReview": false,
+    "changedFrom": [],
+    "category": "new-matter",
+    "practiceArea": "criminal",
+    "categorySource": "call-type-default",
+    "taken": true,
+    "namedPerson": null
+  },
+  "qualification": {
+    "prospect": true,
+    "reason": "new-matter-taken"
+  },
+  "contact": {
+    "firstName": "Rosa",
+    "lastName": "Delgado",
+    "fullName": null,
+    "phone": "555-0161",
+    "email": null
+  },
+  "facts": [
+    {
+      "field": "first_name",
+      "status": "answered",
+      "value": "Rosa",
+      "source": "caller-reported",
+      "required": true,
+      "confirmed": null
+    },
+    {
+      "field": "last_name",
+      "status": "answered",
+      "value": "Delgado",
+      "source": "caller-reported",
+      "required": true,
+      "confirmed": null
+    },
+    {
+      "field": "phone_number",
+      "status": "answered",
+      "value": "555-0161",
+      "source": "caller-reported",
+      "required": true,
+      "confirmed": true
+    },
+    {
+      "field": "email",
+      "status": "declined",
+      "value": null,
+      "source": null,
+      "required": true,
+      "confirmed": false
+    },
+    {
+      "field": "date_of_arrest",
+      "status": "answered",
+      "value": "Tonight",
+      "source": "caller-reported",
+      "required": true,
+      "confirmed": null
+    },
+    {
+      "field": "charges",
+      "status": "answered",
+      "value": "DUI",
+      "source": "caller-reported",
+      "required": true,
+      "confirmed": null
+    },
+    {
+      "field": "arrest_location",
+      "status": "answered",
+      "value": "Trenton, Mercer County, New Jersey",
+      "source": "caller-reported",
+      "required": true,
+      "confirmed": null
+    },
+    {
+      "field": "next_court_date",
+      "status": "declined",
+      "value": null,
+      "source": null,
+      "required": true,
+      "confirmed": null
+    },
+    {
+      "field": "caller_relationship",
+      "status": "answered",
+      "value": "someone else",
+      "source": "caller-reported",
+      "required": true,
+      "confirmed": null
+    },
+    {
+      "field": "in_custody",
+      "status": "answered",
+      "value": "yes",
+      "source": "caller-reported",
+      "required": true,
+      "confirmed": null
+    },
+    {
+      "field": "custody_facility",
+      "status": "answered",
+      "value": "Mercer County jail",
+      "source": "caller-reported",
+      "required": true,
+      "confirmed": null
+    },
+    {
+      "field": "message",
+      "status": "declined",
+      "value": null,
+      "source": null,
+      "required": false,
+      "confirmed": null
+    },
+    {
+      "field": "referral_source",
+      "status": "answered",
+      "value": "A friend",
+      "source": "caller-reported",
+      "required": false,
+      "confirmed": null
+    }
+  ],
+  "outcome": {
+    "required": "transfer",
+    "happened": "put-through",
+    "target": "on-call",
+    "targetAvailable": true
+  },
+  "urgency": [
+    {
+      "signal": "in-custody",
+      "source": "caller-reported",
+      "field": "in_custody",
+      "value": "yes"
+    }
+  ],
+  "followUp": {
+    "decision": "rules",
+    "owed": false,
+    "blocked": null,
+    "owedAt": null,
+    "opened": false,
+    "rules": {
+      "clockStartsAt": "obligation",
+      "ownerRole": "office manager",
+      "acceptWithinMinutes": 10,
+      "callBackWithinMinutes": 30,
+      "escalateTo": "lead attorney"
+    },
+    "clockStartedAt": null,
+    "acceptBy": null,
+    "callBackBy": null
+  },
+  "evidence": {
+    "qualityRecord": {
+      "verdict": "minor",
+      "findings": 1
+    },
+    "recording": null,
+    "transcript": "out/transcripts/VA-1.txt"
+  }
+}

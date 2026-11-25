@@ -160,4 +160,4 @@ let decideAs (m: Categories.CallMapping) (firm: Store.FirmRow) (c: Store.Connect
 
 /// The decision for one lead, under its classification at intake.
 let decide (firm: Store.FirmRow) (c: Store.ConnectionRow) (lead: Lead) : RoutingDecision =
-    decideAs (Categories.classify lead.CallType) firm c lead
+    decideAs (Categories.ofLead lead) firm c lead

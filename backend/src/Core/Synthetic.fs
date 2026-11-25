@@ -42,7 +42,9 @@ let lead (firmName: string) (variant: string) (n: int) (callType: string) (webch
           Message = "Caller hung up before giving details."
           Source = "Answering AI"
           Webchat = webchat
-          Custom = [||] }
+          Custom = [||]
+          Category = null
+          PracticeArea = null }
     else
         let c = callers[abs n % callers.Length]
         let callType = if System.String.IsNullOrWhiteSpace callType then c.Matter else callType
@@ -54,4 +56,6 @@ let lead (firmName: string) (variant: string) (n: int) (callType: string) (webch
           Message = $"{c.First} {c.Last} called {firmName} about a {callType.ToLowerInvariant()} matter and asked for a callback."
           Source = (if webchat then "Answering AI chat" else "Answering AI")
           Webchat = webchat
-          Custom = customLabels |> Array.truncate 12 |> Array.map (fun l -> { Label = l; Data = answerFor l }) }
+          Custom = customLabels |> Array.truncate 12 |> Array.map (fun l -> { Label = l; Data = answerFor l })
+          Category = null
+          PracticeArea = null }

@@ -195,6 +195,26 @@ let classify (raw: string) : CallMapping =
         { r with Category = "system"; PracticeArea = null; Modifiers = r.Modifiers |> Array.filter ((<>) "named-person"); Crm = crmOf.Value["system"] }
     else r
 
+/// A category id the taxonomy knows, or "unmapped".
+let isCategory (id: string) = id = "unmapped" || (not (isNull id) && crmOf.Value.ContainsKey id)
+
+/// A practice area id the taxonomy knows.
+let isPracticeArea (id: string) =
+    not (isNull id) && (areaRules.Value |> Array.exists (fun (a, _) -> a = id))
+
+/// A lead's classification at intake. A sender that set the category (a contract lead) is taken at
+/// its word: delivery never re-reads the call type's name then (intake-lead/draft-2,
+/// "classification.category"). Otherwise the call type is classified, as for every other lead.
+let ofLead (lead: Lead) : CallMapping =
+    if String.IsNullOrEmpty lead.Category then classify lead.CallType
+    else
+        { Category = lead.Category
+          PracticeArea = (if lead.Category = "new-matter" then lead.PracticeArea else null)
+          Modifiers = [||]
+          Crm = (match crmOf.Value.TryGetValue lead.Category with
+                 | true, crm -> crm
+                 | _ -> null) }
+
 // ----- The taxonomy as the API shows it -----
 
 let private examplesFor (bucket: string) =

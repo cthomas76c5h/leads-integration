@@ -45,7 +45,7 @@ let private recordsOf (s: Session) (e: LeadEvent) : Record[] =
     if rows.Length > 0 then rows
     else
         // A lead recorded before classification records were kept: its intake classification, derived.
-        let m = Categories.classify e.Lead.CallType
+        let m = Categories.ofLead e.Lead
         [| { Seq = 1; Category = m.Category; PracticeArea = m.PracticeArea; Source = "intake"; By = null; At = e.CreatedAt
              TaxonomyVersion = Categories.version () } |]
 
@@ -59,7 +59,7 @@ let private eventOrFail (s: Session) (id: string) =
 /// had a planned delivery of it.
 let private offered (s: Session) (e: LeadEvent) (current: Record) =
     let firm = Store.firmOrFail s e.FirmId
-    let m = Store.correctedMapping (Categories.classify e.Lead.CallType) current.Category current.PracticeArea
+    let m = Store.correctedMapping (Categories.ofLead e.Lead) current.Category current.PracticeArea
     let had =
         s.Query "SELECT connection_id FROM deliveries WHERE event_id=$1 AND status <> 'skipped'" [ e.Id ] (fun r -> Read.str r 0)
         |> set

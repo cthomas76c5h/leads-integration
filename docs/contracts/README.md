@@ -150,6 +150,12 @@ name these scenarios introduce that RFC-008 should adopt (`DeliveryCancelled`,
 `HandOffEscalated`, `HandOffAcknowledged`, `UsageRated`, `UsageCredited`,
 `AccessRefused`).
 
+## The intake lead contract
+
+Delivery takes the call center's leads in intake's contract, `intake-lead/draft-2`: an exact
+copy of its schema, its examples, the mapping, and what is temporary are in
+[intake-lead/](intake-lead/README.md).
+
 ## What is here
 
 Every scenario the lab's simulator runs, a scenario for each delivery rule that

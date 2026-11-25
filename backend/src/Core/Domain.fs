@@ -75,7 +75,11 @@ type Lead =
       Message: string
       Source: string
       Webchat: bool
-      Custom: CustomField[] }
+      Custom: CustomField[]
+      /// The category a sender set on the lead (a contract lead: intake-lead/draft-2), used as given.
+      /// Null: classified from CallType (Categories.ofLead).
+      Category: string
+      PracticeArea: string }
 
 type LeadEvent =
     { Id: string

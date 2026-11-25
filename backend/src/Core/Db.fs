@@ -389,6 +389,31 @@ CREATE TABLE IF NOT EXISTS import_runs (
   skipped INTEGER NOT NULL,
   notes TEXT NOT NULL
 );
+
+-- A lead taken in a versioned contract (intake-lead/draft-2), kept exactly as it came, written in the
+-- same transaction as its event and deliveries. One per firm and interaction; one per firm and lead id.
+CREATE TABLE IF NOT EXISTS lead_contracts (
+  event_id TEXT PRIMARY KEY REFERENCES events(id),
+  firm_id TEXT NOT NULL REFERENCES firms(id),
+  contract TEXT NOT NULL,
+  lead_id TEXT NOT NULL,
+  interaction_id TEXT NOT NULL,
+  sender_firm_id TEXT NOT NULL,
+  policy_revision INTEGER NOT NULL,
+  policy_approved INTEGER NOT NULL,
+  payload TEXT NOT NULL,
+  payload_hash TEXT NOT NULL,
+  received_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS lead_contracts_interaction ON lead_contracts(firm_id, interaction_id);
+CREATE UNIQUE INDEX IF NOT EXISTS lead_contracts_lead ON lead_contracts(firm_id, lead_id);
+
+-- Until the suite shares firm ids: a sender's firm id, mapped by hand to a firm here.
+CREATE TABLE IF NOT EXISTS firm_aliases (
+  alias TEXT PRIMARY KEY,
+  firm_id TEXT NOT NULL REFERENCES firms(id),
+  created_at INTEGER NOT NULL
+);
 """
 
 /// The repository root (…/lead-integrations), from this file's location, so the API and the

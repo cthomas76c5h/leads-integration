@@ -142,9 +142,55 @@ let sendLead (c: Ctx) (firmId: string) : EndpointHandler =
                 ctx.Response.Headers.RetryAfter <- "30"
                 return! writeJson 503 (box {| error = $"not recorded: {reason}. Keep the event and send it again"; recorded = false |}) ctx
             | Ok r ->
-                let answer = {| event = r.Event; deliveries = r.Deliveries; mapping = Categories.classify lead.CallType; duplicate = r.Duplicate |}
+                let answer = {| event = r.Event; deliveries = r.Deliveries; mapping = Categories.ofLead lead; duplicate = r.Duplicate |}
                 // A repeat is answered as recorded, not as an error: the channel must stop sending it (the legacy system answers 208).
                 return! (if r.Duplicate then ok answer else created answer) ctx
+        }
+
+/// A lead in the intake-lead/draft-2 contract (docs/contracts/intake-lead/README.md). The body is
+/// kept exactly as sent; refusals are Domain.Fail (422, 409); a write the database did not take is a
+/// 503 that tells the sender to keep the lead and send it again, as for sendLead.
+let ingestDraft2 (c: Ctx) : EndpointHandler =
+    fun ctx ->
+        task {
+            let! raw = readBody ctx
+            let recorded =
+                try Ok(Dispatch.ingest c.Db raw)
+                with
+                | Db.Unavailable reason -> Error reason
+                | :? Data.Common.DbException as e -> Error e.Message
+            match recorded with
+            | Error reason ->
+                ctx.Response.Headers.RetryAfter <- "30"
+                return! writeJson 503 (box {| error = $"not recorded: {reason}. Keep the lead and send it again"; recorded = false |}) ctx
+            | Ok r ->
+                let answer =
+                    {| event = r.Intake.Event
+                       deliveries = r.Intake.Deliveries
+                       mapping = Categories.ofLead r.Intake.Event.Lead
+                       duplicate = r.Intake.Duplicate
+                       leadId = r.LeadId
+                       interactionId = r.InteractionId |}
+                return! (if r.Intake.Duplicate then ok answer else created answer) ctx
+        }
+
+let leadContract (c: Ctx) (id: string) : EndpointHandler =
+    fun ctx ->
+        match Db.read c.Db (fun s -> Store.tryLeadContract s id) with
+        | Some r -> ok r ctx
+        | None -> error 404 $"lead {id} was not taken in a contract" ctx
+
+[<CLIMutable>]
+type AliasBody = { FirmId: string }
+
+let firmAliases (c: Ctx) : EndpointHandler = fun ctx -> ok (Db.read c.Db Store.firmAliases) ctx
+
+let setFirmAlias (c: Ctx) (alias: string) : EndpointHandler =
+    fun ctx ->
+        task {
+            let! b = body { FirmId = null } ctx
+            let a = Db.write c.Db (fun s -> Store.setFirmAlias s alias b.FirmId (Domain.now ()))
+            return! ok a ctx
         }
 
 // ----- Call categories -----

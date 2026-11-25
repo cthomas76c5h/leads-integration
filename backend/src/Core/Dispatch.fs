@@ -158,6 +158,61 @@ let intake (db: Database) (firmId: string) (conversationId: string) (lead: Lead)
             else ids |> Array.map (fun id -> (Store.deliveryOrFail s id).Delivery)
         { Event = e; Deliveries = deliveries; Duplicate = duplicate })
 
+/// What taking a contract lead did: the intake result, and the sender's own ids.
+type Ingested =
+    { Intake: Intake
+      LeadId: string
+      InteractionId: string }
+
+/// A lead in the intake-lead/draft-2 contract, as the call center publishes it
+/// (docs/contracts/intake-lead/README.md). Checked against the contract's schema first; then, in one
+/// transaction, the sender's firm is resolved through its alias, a repeat is recognised by firm and
+/// interaction, and the lead, its deliveries (the outbox) and the original payload are written
+/// together. The same payload again is a duplicate (nothing planned or sent again); a different one
+/// for the same interaction, or the same lead id for another interaction, is a conflict and changes
+/// nothing.
+let ingest (db: Database) (raw: string) : Ingested =
+    let parsed, _ = LeadContract.parse raw
+    let eventId, ids, duplicate =
+        write db (fun s ->
+            let firmId =
+                match Store.tryFirmAlias s parsed.SenderFirmId with
+                | Some id -> id
+                | None -> fail 422 $"firm.id: {parsed.SenderFirmId} is not a known firm (no alias maps it; PUT /api/firm-aliases/{parsed.SenderFirmId})"
+            match Store.contractByInteraction s firmId parsed.InteractionId with
+            | Some prior when prior.PayloadHash = parsed.Hash -> prior.EventId, [||], true
+            | Some prior ->
+                fail 409 $"conflict: interaction {parsed.InteractionId} was already recorded (lead {prior.EventId}) with a different payload; nothing changed"
+            | None ->
+                match Store.contractByLeadId s firmId parsed.LeadId with
+                | Some prior ->
+                    fail 409 $"conflict: lead id {parsed.LeadId} was already recorded for interaction {prior.InteractionId}; nothing changed"
+                | None ->
+                    let e, ids = record s firmId parsed.InteractionId parsed.Lead false None None
+                    Store.insertLeadContract
+                        s
+                        { EventId = e.Id
+                          FirmId = firmId
+                          Contract = LeadContract.draft2
+                          LeadId = parsed.LeadId
+                          InteractionId = parsed.InteractionId
+                          SenderFirmId = parsed.SenderFirmId
+                          PolicyRevision = parsed.PolicyRevision
+                          PolicyApproved = parsed.PolicyApproved
+                          PayloadHash = parsed.Hash
+                          ReceivedAt = e.CreatedAt
+                          Payload = Unchecked.defaultof<_> }
+                        raw
+                    e.Id, ids, false)
+    read db (fun s ->
+        let e = (Store.tryEvent s eventId).Value
+        let deliveries =
+            if duplicate then (Store.leadOrFail s eventId).Deliveries
+            else ids |> Array.map (fun id -> (Store.deliveryOrFail s id).Delivery)
+        { Intake = { Event = e; Deliveries = deliveries; Duplicate = duplicate }
+          LeadId = parsed.LeadId
+          InteractionId = parsed.InteractionId })
+
 let testConnection (db: Database) (connectionId: string) (lead: Lead) (template: string option) =
     let c = read db (fun s -> (Store.connectionOrFail s connectionId).Connection)
     if c.Status <> "active" then fail 409 $"the connection is disabled: {c.DisabledReason}"
@@ -377,7 +432,7 @@ let runFallbacks (db: Database) (nowMs: int64) : int =
                 // The fallback's own clock (Urgency.fallbackAfterMs), not a share of the window to act,
                 // or at once when the usual destinations are paused: waiting cannot deliver.
                 let allHeld = held > 0 && other = 0
-                if allHeld || nowMs - e.CreatedAt >= Urgency.fallbackAfterMs (Categories.classify e.Lead.CallType).Category then
+                if allHeld || nowMs - e.CreatedAt >= Urgency.fallbackAfterMs (Categories.ofLead e.Lead).Category then
                     let c = (Store.connectionOrFail s connectionId).Connection
                     Store.insertDelivery s (newDelivery e c "pending" null Unchecked.defaultof<RoutingDecision> nowMs) None
                     Store.emit s "FallbackUsed" e.FirmId e.Id c.Id
@@ -408,7 +463,7 @@ let runHandOffs (db: Database) (nowMs: int64) : int =
                 [ nowMs - 2L * 86_400_000L ]
                 (fun r -> Read.str r 0, Read.str r 1, Read.str r 2, Read.int64 r 3)
         for id, firmId, lead, createdAt in waiting do
-            let category = (Categories.classify (Json.deserialize<Lead> lead).CallType).Category
+            let category = (Categories.ofLead (Json.deserialize<Lead> lead)).Category
             if nowMs - createdAt >= Urgency.fallbackAfterMs category then
                 s.Execute "UPDATE events SET escalated_at=$2 WHERE id=$1" [ id; nowMs ] |> ignore
                 Store.emit s "HandOffEscalated" firmId id null

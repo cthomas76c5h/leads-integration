@@ -38,6 +38,14 @@ _Avoid_: lead (the lead is the record, not the person), contact
 The record of one call that the call center hands over for delivery: who called, the call type, the intake answers and the message. It never changes once recorded.
 _Avoid_: event, message, contact, CRM lead
 
+**Contract lead**:
+A lead taken in a versioned contract (today `intake-lead/draft-2`, the lead the call center publishes), kept as it came beside the lead delivery works with. The category it carries is used as given; its call type's name is never read. *Lab.* See [intake-lead](docs/contracts/intake-lead/README.md).
+_Avoid_: external lead, webhook lead
+
+**Firm alias**:
+A sender's id for a firm (`general-firm`), mapped by hand to a firm here until the suite shares one firm id. Never moved to another firm. *Lab; temporary.*
+_Avoid_: firm key, mapping
+
 **Chat lead**:
 A lead that came from a web chat rather than a phone call.
 _Avoid_: webchat (as a noun)

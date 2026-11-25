@@ -22,6 +22,7 @@
     <Compile Include="RoutingTests.fs" />
     <Compile Include="LeaseTests.fs" />
     <Compile Include="IntakeTests.fs" />
+    <Compile Include="IngestTests.fs" />
     <Compile Include="CorrectionTests.fs" />
     <Compile Include="ContractTests.fs" />
     <Compile Include="InterleavingTests.fs" />

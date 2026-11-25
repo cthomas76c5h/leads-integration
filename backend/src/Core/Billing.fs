@@ -144,7 +144,7 @@ let conversationsWith (corrected: Map<string, string>) (events: LeadEvent[]) : C
         let category =
             match corrected.TryFind e.Id with
             | Some c -> c
-            | None -> (Categories.classify e.Lead.CallType).Category
+            | None -> (Categories.ofLead e.Lead).Category
         let secs = seconds e category
         let hangUp = String.IsNullOrWhiteSpace e.Lead.FirstName && secs < 20
         let repeat =

@@ -3,7 +3,9 @@
 Validates every file against its JSON Schema, then checks what a schema cannot:
 every id a scenario refers to exists, every receiver mode exists, every event
 name is in events.json, and every category and practice area is in the
-taxonomy. Exits 1 on any problem.
+taxonomy. The intake lead contract (docs/contracts/intake-lead/) is an exact copy of
+intake's schema: compared with ../intake-policy-lab when that repository is next to this one,
+and its examples validated against it. Exits 1 on any problem.
 
     python tools/check_contracts.py
 """
@@ -17,6 +19,9 @@ from jsonschema import Draft202012Validator
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACTS = ROOT / "docs" / "contracts"
 TAXONOMY = ROOT / "docs" / "call-categories" / "taxonomy.json"
+INTAKE_LEAD = CONTRACTS / "intake-lead"
+# Intake owns the lead contract; this repository keeps a copy it must not change.
+INTAKE_SOURCE = ROOT.parent / "intake-policy-lab" / "docs" / "lead-contract.schema.json"
 
 
 def load(path: Path):
@@ -152,6 +157,27 @@ def main() -> int:
             problems = scenario_problems(doc, modes, categories, areas, events)
             if doc["name"] != path.stem:
                 problems.append(f"name {doc['name']} does not match the file name")
+        checked += 1
+        for p in problems:
+            failed = True
+            print(f"{path.relative_to(ROOT)}: {p}")
+
+    lead_schema_path = INTAKE_LEAD / "draft-2.schema.json"
+    lead_schema = load(lead_schema_path)
+    checked += 1
+    if INTAKE_SOURCE.exists() and INTAKE_SOURCE.read_bytes() != lead_schema_path.read_bytes():
+        failed = True
+        print(f"{lead_schema_path.relative_to(ROOT)}: differs from intake's {INTAKE_SOURCE.name}; copy it again, never edit it here")
+    lead_validator = Draft202012Validator(lead_schema)
+    for path in sorted((INTAKE_LEAD / "examples").glob("*.json")):
+        doc = load(path)
+        problems = schema_problems(lead_validator, doc)
+        category = doc.get("classification", {}).get("category")
+        area = doc.get("classification", {}).get("practiceArea")
+        if category is not None and category not in categories:
+            problems.append(f"category {category} is not in the taxonomy")
+        if area is not None and area not in areas:
+            problems.append(f"practice area {area} is not in the taxonomy")
         checked += 1
         for p in problems:
             failed = True

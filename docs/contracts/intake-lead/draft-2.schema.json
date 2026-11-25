@@ -1,0 +1,560 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "intake-lead/draft-2",
+  "title": "Intake lead",
+  "description": "What intake hands to delivery for one conversation (docs/lead-contract.md). Draft: proposed, not agreed. Intake says what happened; delivery decides what to do about it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "leadId",
+    "conversation",
+    "firm",
+    "policy",
+    "classification",
+    "qualification",
+    "contact",
+    "facts",
+    "outcome",
+    "urgency",
+    "followUp",
+    "evidence"
+  ],
+  "properties": {
+    "contract": {
+      "const": "intake-lead/draft-2"
+    },
+    "leadId": {
+      "type": "string",
+      "description": "One per conversation: the inquiry's identity and the idempotency key on both sides (the delivery lab's RFC-008 §4.1). Every conversation is an inquiry; qualification says whether it is also a prospect."
+    },
+    "conversation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "channel",
+        "startedAt",
+        "endedAt",
+        "endedBy",
+        "language"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The channel's own conversation id."
+        },
+        "channel": {
+          "enum": [
+            "voice",
+            "chat",
+            "answering-service"
+          ]
+        },
+        "startedAt": {
+          "type": "string",
+          "description": "ISO 8601, UTC."
+        },
+        "endedAt": {
+          "type": "string",
+          "description": "ISO 8601, UTC."
+        },
+        "endedBy": {
+          "enum": [
+            "receptionist",
+            "caller"
+          ]
+        },
+        "language": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The caller's language when known (BCP 47, for example \"es\"); null: not recorded."
+        }
+      }
+    },
+    "firm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "timeZone"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "timeZone": {
+          "type": "string",
+          "description": "IANA zone; every firm-time judgement uses it."
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "approved"
+      ],
+      "properties": {
+        "revision": {
+          "type": "integer"
+        },
+        "approved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "callType",
+        "source",
+        "confidence",
+        "needsReview",
+        "changedFrom",
+        "category",
+        "practiceArea",
+        "categorySource",
+        "taken",
+        "namedPerson"
+      ],
+      "properties": {
+        "callType": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "name"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string",
+              "description": "The firm's own label: shown, never parsed."
+            }
+          }
+        },
+        "source": {
+          "enum": [
+            "receptionist-judgement"
+          ]
+        },
+        "confidence": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "needsReview": {
+          "type": "boolean"
+        },
+        "changedFrom": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "category": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Set at intake, in the delivery lab's taxonomy; never parsed from the call type's name by delivery."
+        },
+        "practiceArea": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "categorySource": {
+          "enum": [
+            "call-type-default",
+            "fact-override",
+            "policy-override",
+            "intake-judgement",
+            "unmapped"
+          ],
+          "description": "call-type-default: the default the call type suggests. fact-override, policy-override: a structured fact or an approved rule changed it. intake-judgement: classified from the conversation, with its confidence."
+        },
+        "taken": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "false: the firm declines these matters; not a prospect."
+        },
+        "namedPerson": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "A person the caller asked for by name; null: none, or not recorded."
+        }
+      }
+    },
+    "contact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "firstName",
+        "lastName",
+        "fullName",
+        "phone",
+        "email"
+      ],
+      "properties": {
+        "firstName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lastName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fullName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "phone": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "email": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fact"
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "happened",
+        "target",
+        "targetAvailable"
+      ],
+      "properties": {
+        "required": {
+          "enum": [
+            "transfer",
+            "book",
+            "message",
+            "decline",
+            "escalate",
+            null
+          ]
+        },
+        "happened": {
+          "enum": [
+            "put-through",
+            "booked",
+            "message",
+            "declined",
+            "escalated",
+            "none"
+          ]
+        },
+        "target": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "targetAvailable": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "For a transfer: available at the moment the call reached its outcome, by the firm's schedule in its time zone, carve-outs included."
+        }
+      }
+    },
+    "urgency": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/urgency"
+      }
+    },
+    "followUp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision",
+        "owed",
+        "blocked",
+        "owedAt",
+        "opened",
+        "rules",
+        "clockStartedAt",
+        "acceptBy",
+        "callBackBy"
+      ],
+      "properties": {
+        "decision": {
+          "enum": [
+            "rules",
+            "no-callbacks",
+            "undecided"
+          ],
+          "description": "The firm's decision about callbacks. 'undecided' cannot be approved; on a lead it means nobody is responsible."
+        },
+        "owed": {
+          "type": "boolean"
+        },
+        "blocked": {
+          "enum": [
+            "no-contact-method",
+            null
+          ],
+          "description": "A follow-up was warranted but impossible: no way to reach the caller. Counted, never a finding."
+        },
+        "opened": {
+          "type": "boolean"
+        },
+        "rules": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "description": "null: no rules (see decision).",
+          "required": [
+            "clockStartsAt",
+            "ownerRole",
+            "acceptWithinMinutes",
+            "callBackWithinMinutes",
+            "escalateTo"
+          ],
+          "properties": {
+            "clockStartsAt": {
+              "enum": [
+                "obligation",
+                "call-ended"
+              ],
+              "description": "obligation: when the follow-up became owed; call-ended: when the call ended, by either side."
+            },
+            "ownerRole": {
+              "type": "string"
+            },
+            "acceptWithinMinutes": {
+              "type": "integer"
+            },
+            "callBackWithinMinutes": {
+              "type": "integer"
+            },
+            "escalateTo": {
+              "type": "string"
+            }
+          }
+        },
+        "owedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "When the follow-up became owed (ISO 8601, UTC)."
+        },
+        "clockStartedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "When the firm's deadlines started, by its rules' clockStartsAt."
+        },
+        "acceptBy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "callBackBy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "qualityRecord",
+        "recording",
+        "transcript"
+      ],
+      "properties": {
+        "qualityRecord": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "verdict",
+            "findings"
+          ],
+          "properties": {
+            "verdict": {
+              "enum": [
+                "clean",
+                "minor",
+                "serious"
+              ]
+            },
+            "findings": {
+              "type": "integer"
+            }
+          }
+        },
+        "recording": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transcript": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prospect",
+        "reason"
+      ],
+      "description": "Inquiry is not lead. Every conversation is kept as an inquiry; only a prospect (a new matter the firm takes) becomes a prospect record in a CRM.",
+      "properties": {
+        "prospect": {
+          "type": "boolean"
+        },
+        "reason": {
+          "enum": [
+            "new-matter-taken",
+            "not-taken",
+            "not-a-new-matter",
+            "off-topic",
+            "unclassified"
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "status",
+        "value",
+        "source",
+        "required",
+        "confirmed"
+      ],
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "answered",
+            "declined",
+            "not-asked"
+          ]
+        },
+        "value": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "enum": [
+            "observed",
+            "caller-reported",
+            "policy-derived",
+            "model-inferred",
+            null
+          ],
+          "description": "Where the value came from (see provenance); null when there is no value."
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "confirmed": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "For a high-risk answer: confirmed when read back."
+        }
+      }
+    },
+    "urgency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signal",
+        "source",
+        "field",
+        "value"
+      ],
+      "properties": {
+        "signal": {
+          "enum": [
+            "in-custody",
+            "emergency"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/provenance"
+        },
+        "field": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "provenance": {
+      "enum": [
+        "observed",
+        "caller-reported",
+        "policy-derived",
+        "model-inferred"
+      ],
+      "description": "observed: a system recorded it happening. caller-reported: the caller said it. policy-derived: worked out from the firm's approved rules. model-inferred: a model's reading, never a fact on its own."
+    }
+  }
+}

@@ -83,6 +83,7 @@ dotnet run --project src/Import -- all
 dotnet run --project src/Api                # http://localhost:5080
 dotnet run --project tests/Tests --artifacts-path ../.testbuild   # tests; safe while the API runs
 python ../tools/run_scenarios.py            # every contract scenario against a fresh lab
+python ../tools/publish_leads.py --alias general-firm=firm_… ../../call-center-lab/out/leads   # the call center's leads (docs/contracts/intake-lead/)
 dotnet run --project src/Import -- seed --leads 200   # synthetic traffic; the API's worker delivers it
 cd ../frontend && npm install && npm run dev # http://localhost:5173, proxies to 5080
 ```

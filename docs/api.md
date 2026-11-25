@@ -119,7 +119,26 @@ interface Lead {
   firstName: string; lastName: string; phone: string; email: string;
   callType: string; message: string; source: string; webchat: boolean;
   custom: { label: string; data: string }[];
+  /** The category the sender set (a lead taken in a contract, e.g. intake-lead/draft-2): routing,
+   *  windows and billing use it as given. null: classified from callType, as for every other lead. */
+  category: string | null; practiceArea: string | null;
 }
+
+/** A lead taken in a versioned contract (docs/contracts/intake-lead/README.md), kept as it came. */
+interface LeadContractRecord {
+  eventId: string; firmId: string;
+  contract: string;              // 'intake-lead/draft-2'
+  leadId: string;                // the sender's lead id
+  interactionId: string;         // conversation.id: with the firm, the idempotency key
+  senderFirmId: string;          // firm.id as the sender wrote it (an alias until firm ids are shared)
+  policyRevision: number; policyApproved: boolean;
+  payloadHash: string;           // sha256 of the payload in canonical form (sorted keys, no whitespace)
+  receivedAt: number;
+  payload: unknown;              // the original payload, unchanged
+}
+
+/** Until the suite shares firm ids: the sender's firm id, mapped by hand to a firm here. */
+interface FirmAlias { alias: string; firmId: string; createdAt: number }
 
 interface LeadEvent { id: string; firmId: string; test: boolean; createdAt: number; lead: Lead }
 
@@ -486,6 +505,9 @@ Every `/api/portal/leads` route needs `Authorization: Bearer {token}` (401 witho
 | GET | `/api/firms/{id}/report` | | `FirmReport`: the last 7 days, production leads |
 | POST | `/api/firms` | `{ name, timeZone? }` | `FirmDetail` (source `manual`; `timeZone` defaults to `America/New_York`) |
 | PATCH | `/api/firms/{id}` | `{ timeZone }` | `FirmDetail`. Set by Answering AI; 422 unless an IANA name (`America/Los_Angeles`) |
+| POST | `/api/ingest/intake-lead/draft-2` | an `intake-lead/draft-2` lead, exactly as its schema (`docs/contracts/intake-lead/draft-2.schema.json`) | 201 `{ event: LeadEvent, deliveries: Delivery[], mapping: CallMapping, duplicate: false, leadId, interactionId }`. The firm is `firm.id` through its alias (`PUT /api/firm-aliases/{alias}`). Recorded once per firm and `conversation.id`, with the original payload, in the same transaction as its deliveries. The same payload again: **200**, `duplicate: true`, nothing planned or sent again. A different payload for the same interaction, or the same `leadId` for another interaction: **409**, nothing changed. **422**: not JSON, another contract, a payload the schema refuses (`error` lists each problem as `path: problem`, at most 20), a category not in the taxonomy, or a firm with no alias. **503** `{ error, recorded: false }` with `Retry-After` as for the route below |
+| GET | `/api/firm-aliases` | | `FirmAlias[]` |
+| PUT | `/api/firm-aliases/{alias}` | `{ firmId }` | `FirmAlias`. Maps a sender's firm id to a firm here; temporary, until firm ids are shared. 404 for an unknown firm; 409 if the alias already names another firm |
 | POST | `/api/firms/{id}/leads` | `{ variant?: 'full' \| 'sparse', callType?: string, webchat?: boolean, referenceLead?: string, conversationId?: string }` | 201 `{ event: LeadEvent, deliveries: Delivery[], mapping: CallMapping, duplicate: false }`. `conversationId` is the channel's id for the call or chat: intake records one lead per firm and conversation, so a repeat is answered **200** with the lead already recorded, its deliveries and `duplicate: true`, and nothing is planned or sent again (RFC-008 §4.1; the legacy system answers 208). Without one, every request is a new lead. **503** `{ error, recorded: false }` with `Retry-After` when the lead could not be committed (the database did not take the write): nothing was recorded, planned or sent, and the channel keeps its copy and sends it again. One delivery per enabled, active connection, each with its routing `decision`; `skipped` with a reason when routing excludes it or the lead lacks what the destination requires. `referenceLead` sends that reference lead as-is; `callType` then replaces its call type (e.g. the firm's own name for the same category) |
 | GET | `/api/call-categories` | | `Taxonomy` |
 | GET | `/api/call-categories/classify?name=` | | `CallMapping` |
@@ -500,6 +522,7 @@ Every `/api/portal/leads` route needs `Authorization: Bearer {token}` (401 witho
 | GET | `/api/connections/{id}/preview?variant=full` | | `{ url, headers: Record<string,string>, body: string, errors: string[] }` |
 | POST | `/api/connections/{id}/test` | | `Delivery` (test lead to this connection only) |
 | GET | `/api/leads?q=&firmId=&category=&outcome=&test=&limit=50&offset=0` | | `{ total: number, items: LeadSummary[] }` newest first. `q` matches caller, phone, call type or firm name; `category` is a call-category id |
+| GET | `/api/leads/{id}/contract` | | `LeadContractRecord`: the payload the lead came in, as sent. 404 for a lead not taken in a contract |
 | GET | `/api/leads/{id}` | | `LeadDetail`. Its `mapping` is the lead's current classification (corrected, if it was); its hand-off window stands as judged at intake |
 | GET | `/api/leads/{id}/classification` | | `{ category, practiceArea, records: { seq, category, practiceArea, source: 'intake' \| 'reviewer' \| 'firm-contact', by, at, taxonomyVersion }[], offered: string[] }`. Every classification record, oldest first; the last is current. `offered`: connection ids of the firm's usual destinations the corrected lead now matches that never had it, offered to an operator, never sent automatically (RFC-008 §6.2) |
 | POST | `/api/leads/{id}/classification` | `{ category, practiceArea?, source: 'reviewer' \| 'firm-contact', by }` | The classification view above. A correction: a new record that supersedes the last (`ClassificationCorrected`); nothing is resent or recalled. If the lead's cycle has closed and the correction lowers its charge, a credit in the next cycle (`UsageCredited`); a higher charge is never added. 422 for an unknown category or practice area; 409 if nothing changes; 422 for a test lead |

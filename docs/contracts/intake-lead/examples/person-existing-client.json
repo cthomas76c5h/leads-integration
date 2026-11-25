@@ -1,0 +1,96 @@
+{
+  "contract": "intake-lead/draft-2",
+  "leadId": "CC-1",
+  "conversation": {
+    "id": "CC-1",
+    "channel": "answering-service",
+    "startedAt": "2026-11-23T15:00:05.000Z",
+    "endedAt": "2026-11-23T15:00:55.000Z",
+    "endedBy": "receptionist",
+    "language": null
+  },
+  "firm": {
+    "id": "injury-firm",
+    "timeZone": "America/New_York"
+  },
+  "policy": {
+    "revision": 1,
+    "approved": true
+  },
+  "classification": {
+    "callType": {
+      "id": "existing-client",
+      "name": "Existing client"
+    },
+    "source": "receptionist-judgement",
+    "confidence": null,
+    "needsReview": false,
+    "changedFrom": [],
+    "category": null,
+    "practiceArea": null,
+    "categorySource": "unmapped",
+    "taken": true,
+    "namedPerson": null
+  },
+  "qualification": {
+    "prospect": false,
+    "reason": "unclassified"
+  },
+  "contact": {
+    "firstName": null,
+    "lastName": null,
+    "fullName": "Jordan Example",
+    "phone": "555-0100",
+    "email": null
+  },
+  "facts": [
+    {
+      "field": "caller_name",
+      "status": "answered",
+      "value": "Jordan Example",
+      "source": "caller-reported",
+      "required": true,
+      "confirmed": null
+    },
+    {
+      "field": "phone",
+      "status": "answered",
+      "value": "555-0100",
+      "source": "caller-reported",
+      "required": true,
+      "confirmed": true
+    }
+  ],
+  "outcome": {
+    "required": "transfer",
+    "happened": "put-through",
+    "target": "intake",
+    "targetAvailable": true
+  },
+  "urgency": [],
+  "followUp": {
+    "decision": "rules",
+    "owed": false,
+    "blocked": null,
+    "owedAt": null,
+    "opened": false,
+    "rules": {
+      "clockStartsAt": "call-ended",
+      "ownerRole": "intake manager",
+      "acceptWithinMinutes": 15,
+      "callBackWithinMinutes": 60,
+      "escalateTo": "managing partner"
+    },
+    "clockStartedAt": null,
+    "acceptBy": null,
+    "callBackBy": null
+  },
+  "evidence": {
+    "qualityRecord": {
+      "verdict": "clean",
+      "findings": 0
+    },
+    "recording": null,
+    "transcript": null
+  }
+}

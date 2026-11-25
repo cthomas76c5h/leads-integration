@@ -498,7 +498,7 @@ let run (db: Db.Database) (opts: Options) : Summary =
             events[e.Id] <- e
             enqueue e.CreatedAt (Publish(e, None))
             if fallbackOf.ContainsKey e.FirmId then
-                enqueue (e.CreatedAt + Urgency.fallbackAfterMs (Categories.classify e.Lead.CallType).Category) (HandOffCheck e)
+                enqueue (e.CreatedAt + Urgency.fallbackAfterMs (Categories.ofLead e.Lead).Category) (HandOffCheck e)
         for e, id in tests do
             events[e.Id] <- e
             enqueue e.CreatedAt (Publish(e, Some id))
@@ -692,7 +692,7 @@ let run (db: Db.Database) (opts: Options) : Summary =
         for e in Array.append leads added do
             let mine = match byEvent.TryGetValue e.Id with | true, xs -> Array.ofSeq xs | _ -> [||]
             let owed = not (mine.Length > 0 && mine |> Array.forall (fun x -> x.D.Status = "skipped" && not (Diagnose.isLeadProblem x.D.Reason)))
-            let category = (Categories.classify e.Lead.CallType).Category
+            let category = (Categories.ofLead e.Lead).Category
             let accepted kinds =
                 [ for x in mine do
                       if kinds x.D.Kind then

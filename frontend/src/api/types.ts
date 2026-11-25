@@ -115,6 +115,9 @@ export interface Lead {
   source: string;
   webchat: boolean;
   custom: { label: string; data: string }[];
+  /** Set by a contract lead's sender and used as given; null: classified from callType. */
+  category: string | null;
+  practiceArea: string | null;
 }
 
 export interface LeadEvent { id: string; firmId: string; test: boolean; createdAt: number; lead: Lead }

@@ -112,7 +112,9 @@ let lead (rnd: Random) (opts: Options) (firm: Store.FirmRow) : Lead * string =
           Message = "Caller hung up before giving details."
           Source = source
           Webchat = webchat
-          Custom = [||] },
+          Custom = [||]
+          Category = null
+          PracticeArea = null },
         mapping.Category
     else
         let first = pick rnd firstNames
@@ -132,7 +134,9 @@ let lead (rnd: Random) (opts: Options) (firm: Store.FirmRow) : Lead * string =
           Message = template.Lead.Message
           Source = source
           Webchat = webchat
-          Custom = Array.append template.Lead.Custom firmFields |> Array.truncate 12 },
+          Custom = Array.append template.Lead.Custom firmFields |> Array.truncate 12
+          Category = null
+          PracticeArea = null },
         mapping.Category
 
 /// Firms a lead can reach: active, with at least one enabled, active connection.

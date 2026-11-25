@@ -54,6 +54,8 @@ is also a reading order: each file uses only those above it.
 5. `Store.insertDelivery` writes each delivery (built by `Dispatch.newDelivery`) with its `RoutingDecision` (`decision` column). Only a routing exclusion counts as "the firm's routing sends it nowhere" (`Store.readLead`, `Dispatch.runFallbacks`); a lead problem is still owed a hand-off.
 6. On import, `Import.apply` seeds a CRM's rule with `Routing.seed` from the firm's active call types, unless the destination already has one.
 
+**A lead in a contract** (`POST /api/ingest/intake-lead/draft-2`, the call center's lead; [intake-lead/](../contracts/intake-lead/README.md)): `Handlers.ingestDraft2` → `Dispatch.ingest`. `LeadContract.parse` checks the payload against the embedded copy of intake's schema, hashes its canonical form and maps it (`LeadContract.toLead`); then one `Db.write` resolves `firm.id` through `Store.tryFirmAlias`, finds a repeat by firm and interaction (`Store.contractByInteraction`: same hash, a duplicate; another hash, 409) or by lead id (`Store.contractByLeadId`), and runs the same recording as step 1 to 5 plus `Store.insertLeadContract`, so the lead, its deliveries and the original payload commit together. The category the sender set is used as given everywhere a lead is classified (`Categories.ofLead`, never the call type's name for such a lead).
+
 ## 2. A delivery is sent, retried and settles
 
 The concurrency model behind these steps (one writer, no network call inside a transaction, a versioned lease) is in [concurrency.md](concurrency.md).
@@ -152,6 +154,7 @@ Every timestamp is UTC milliseconds; delivery rules are elapsed durations and ne
 ## 6. Where the lab's data comes from
 
 - **Firms and destinations:** the legacy importers ([backend/src/Import/](../../backend/src/Import/)) read the legacy systems' data → `Import.apply`. Today the lab imports legacy data; the lead will come from the call center ([Proposed](../../README.md#where-this-sits)). Secrets are reduced to presence and a fingerprint in `Import.credential`; import findings come from `Issues.compute`.
+- **Leads from the call center:** `tools/publish_leads.py` posts the leads its simulator wrote (`out/leads/`) to the contract route above; until firm ids are shared, a sender's firm id maps to a firm here through `firm_aliases`.
 - **Call types → call categories:** `Categories.classify`, from `docs/call-categories/taxonomy.json` (see [call-categories](../call-categories/README.md)).
 - **Synthetic leads:** `Seed.lead` and `Seed.run`, which go through `Dispatch.publish` like real leads.
 - **A simulated week:** `Simulate.run`. It replaces delivery history without sending anything: its own `Publish` and `send` steps, but the same `Routing.decide`, `buildFor`, `FakeCrm.checkWith`, `Policy.classify` and `Dispatch.transition` as the worker. Its `scenarios` list is a catalogue of operator situations, each with a `Story`.
@@ -172,6 +175,7 @@ Every timestamp is UTC milliseconds; delivery rules are elapsed durations and ne
 | [RoutingTests.fs](../../backend/tests/Tests/RoutingTests.fs) | Each destination's rule decides alone; routing changes go live only when approved, and waiting deliveries keep their revision |
 | [LeaseTests.fs](../../backend/tests/Tests/LeaseTests.fs) | One worker wins a claim; deadline order; what follows an unknown outcome; resend refused while in flight; resolving an unknown outcome |
 | [IntakeTests.fs](../../backend/tests/Tests/IntakeTests.fs) | One lead per conversation; a lead the database could not take is not recorded at all |
+| [IngestTests.fs](../../backend/tests/Tests/IngestTests.fs) | Milestone 1: a contract lead recorded with its payload; repeats, conflicts and refusals; lead, deliveries and payload commit together; the sender's category routes; retried while a receiver is down; delivered after a restart; end to end to the fake receiver |
 | [CorrectionTests.fs](../../backend/tests/Tests/CorrectionTests.fs) | A correction supersedes; billing re-rated while open, credited after close, never charged again |
 | [ContractTests.fs](../../backend/tests/Tests/ContractTests.fs) | Each kind's delivery contract against the code, both ways |
 | [WorkerTests.fs](../../backend/tests/Tests/WorkerTests.fs) | A slow destination delays only its own deliveries; a destination and a firm get only their share; writers with separate locks share one file without a lost or doubled send |

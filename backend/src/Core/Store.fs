@@ -191,7 +191,7 @@ let setConnectionTemplate (s: Session) (id: string) (template: string) =
 /// A lead is classified at intake: whether its hand-off needs acknowledgement, and when its window
 /// to act closes, are fixed then. A test lead owes no hand-off, and has no acknowledgement link.
 let insertEvent (s: Session) (e: LeadEvent) =
-    let m = Categories.classify e.Lead.CallType
+    let m = Categories.ofLead e.Lead
     let category = m.Category
     s.Execute
         """INSERT INTO events (id, firm_id, test, lead, created_at, ack_token, ack_required, handoff_due_at)
@@ -228,6 +228,78 @@ let eventForConversation (s: Session) (firmId: string) (conversationId: string) 
 let setConversation (s: Session) (eventId: string) (conversationId: string) =
     s.Execute "UPDATE events SET conversation_id=$2 WHERE id=$1" [ eventId; conversationId ] |> ignore
 
+// ----- Leads taken in a contract (intake-lead/draft-2) -----
+
+/// A contract lead as it came (docs/api.md, LeadContractRecord). Payload: the original text, parsed.
+type LeadContractRecord =
+    { EventId: string
+      FirmId: string
+      Contract: string
+      LeadId: string
+      InteractionId: string
+      SenderFirmId: string
+      PolicyRevision: int
+      PolicyApproved: bool
+      PayloadHash: string
+      ReceivedAt: int64
+      Payload: Text.Json.JsonElement }
+
+let insertLeadContract (s: Session) (r: LeadContractRecord) (rawPayload: string) =
+    s.Execute
+        """INSERT INTO lead_contracts (event_id, firm_id, contract, lead_id, interaction_id, sender_firm_id,
+                                       policy_revision, policy_approved, payload, payload_hash, received_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)"""
+        [ r.EventId; r.FirmId; r.Contract; r.LeadId; r.InteractionId; r.SenderFirmId
+          r.PolicyRevision; r.PolicyApproved; rawPayload; r.PayloadHash; r.ReceivedAt ]
+    |> ignore
+
+let private contractColumns =
+    "event_id, firm_id, contract, lead_id, interaction_id, sender_firm_id, policy_revision, policy_approved, payload_hash, received_at, payload"
+
+let private readContract (r: Data.Common.DbDataReader) =
+    { EventId = Read.str r 0
+      FirmId = Read.str r 1
+      Contract = Read.str r 2
+      LeadId = Read.str r 3
+      InteractionId = Read.str r 4
+      SenderFirmId = Read.str r 5
+      PolicyRevision = Read.int r 6
+      PolicyApproved = Read.bool r 7
+      PayloadHash = Read.str r 8
+      ReceivedAt = Read.int64 r 9
+      Payload = Text.Json.JsonDocument.Parse(Read.str r 10).RootElement.Clone() }
+
+let tryLeadContract (s: Session) (eventId: string) =
+    s.TryOne $"SELECT {contractColumns} FROM lead_contracts WHERE event_id=$1" [ eventId ] readContract
+
+/// The contract lead already recorded for an interaction, or under a lead id, at a firm.
+let contractByInteraction (s: Session) (firmId: string) (interactionId: string) =
+    s.TryOne $"SELECT {contractColumns} FROM lead_contracts WHERE firm_id=$1 AND interaction_id=$2" [ firmId; interactionId ] readContract
+
+let contractByLeadId (s: Session) (firmId: string) (leadId: string) =
+    s.TryOne $"SELECT {contractColumns} FROM lead_contracts WHERE firm_id=$1 AND lead_id=$2" [ firmId; leadId ] readContract
+
+// ----- Firm aliases: a sender's firm id, mapped by hand until the suite shares firm ids -----
+
+type FirmAlias = { Alias: string; FirmId: string; CreatedAt: int64 }
+
+let firmAliases (s: Session) =
+    s.Query "SELECT alias, firm_id, created_at FROM firm_aliases ORDER BY alias" [] (fun r ->
+        { Alias = Read.str r 0; FirmId = Read.str r 1; CreatedAt = Read.int64 r 2 })
+
+let tryFirmAlias (s: Session) (alias: string) =
+    s.TryOne "SELECT firm_id FROM firm_aliases WHERE alias=$1" [ alias ] (fun r -> Read.str r 0)
+
+/// Maps an alias to a firm. Setting it again to the same firm changes nothing; to another firm is refused.
+let setFirmAlias (s: Session) (alias: string) (firmId: string) (nowMs: int64) : FirmAlias =
+    if String.IsNullOrWhiteSpace alias then fail 422 "alias: the sender's firm id"
+    firmOrFail s firmId |> ignore
+    match tryFirmAlias s alias with
+    | Some existing when existing <> firmId -> fail 409 $"the alias {alias} already names firm {existing}"
+    | Some _ -> ()
+    | None -> s.Execute "INSERT INTO firm_aliases (alias, firm_id, created_at) VALUES ($1,$2,$3)" [ alias; firmId; nowMs ] |> ignore
+    firmAliases s |> Array.find (fun a -> a.Alias = alias)
+
 /// The lead's acknowledgement link token, for the message to the firm only. Null for a test lead.
 let ackToken (s: Session) (eventId: string) : string =
     s.TryOne "SELECT ack_token FROM events WHERE id=$1" [ eventId ] (fun r -> Read.str r 0) |> Option.toObj
@@ -251,7 +323,7 @@ let acknowledge (s: Session) (eventId: string) (token: string) (via: string) (no
 /// Also fixes the intake facts, for leads written before they existed.
 let setHandOff (s: Session) (e: LeadEvent) (acknowledgedAt: Nullable<int64>) (escalatedAt: Nullable<int64>) (expiredAt: Nullable<int64>) =
     let n (v: Nullable<int64>) = if v.HasValue then box v.Value else null
-    let category = (Categories.classify e.Lead.CallType).Category
+    let category = (Categories.ofLead e.Lead).Category
     s.Execute
         """UPDATE events SET ack_token=COALESCE(ack_token, $5), ack_required=$6, handoff_due_at=$7,
                   acknowledged_at=$2, acknowledged_via=CASE WHEN $2 IS NULL THEN NULL ELSE 'link' END, escalated_at=$3, expired_at=$4
@@ -624,7 +696,7 @@ let private readLead (r: DbDataReader) : LeadSummary * Lead =
           Held = Read.int r 14 }
     let createdAt = Read.int64 r 5
     // The window to act stands as judged at intake; everything else reads the current classification.
-    let atIntake = Categories.classify lead.CallType
+    let atIntake = Categories.ofLead lead
     let mapping =
         match Read.str r 20 with
         | null -> atIntake
