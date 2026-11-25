@@ -41,7 +41,8 @@ let load () : Result<Config, string> =
     | Ok port, Ok scale, Ok timeout, Ok allowLocal, Ok worker, Ok testControl ->
         let dbPath = env "DB_PATH" LeadIntegrations.Db.defaultPath
         if scale <= 0.0 then Error "TIME_SCALE must be positive"
-        elif testControl && IO.Path.GetFullPath dbPath = IO.Path.GetFullPath LeadIntegrations.Db.defaultPath then
+        elif testControl && (LeadIntegrations.Db.sameDatabase dbPath LeadIntegrations.Db.defaultPath
+                             || LeadIntegrations.Db.sameDatabase dbPath LeadIntegrations.Db.defaultSqlitePath) then
             Error "TEST_CONTROL needs its own DB_PATH: it must never run against the lab's database"
         else
             Ok

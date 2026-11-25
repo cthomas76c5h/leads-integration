@@ -82,14 +82,20 @@ the proposal for each area ([rfc/](docs/rfc/README.md)), and the real situations
 
 ```sh
 cd backend
+docker compose up -d                        # delivery's PostgreSQL on 127.0.0.1:55433 (compose.yaml)
 dotnet run --project src/Import -- all
 dotnet run --project src/Api                # http://localhost:5080
 dotnet run --project tests/Tests --artifacts-path ../.testbuild   # tests; safe while the API runs
-python ../tools/run_scenarios.py            # every contract scenario against a fresh lab
+python ../tools/run_scenarios.py            # every contract scenario, each on a fresh PostgreSQL database (--sqlite: a file each)
 python ../tools/publish_leads.py --alias general-firm=firm_… ../../call-center-lab/out/leads   # the call center's leads (docs/contracts/intake-lead/)
 dotnet run --project src/Import -- seed --leads 200   # synthetic traffic; the API's worker delivers it
 cd ../frontend && npm install && npm run dev # http://localhost:5173, proxies to 5080
 ```
+
+The lab's database is delivery's own PostgreSQL (RFC-011). `DB_PATH` points the API and the
+importer elsewhere: another connection string, or a SQLite file path (the earlier lab database,
+`backend/data/lead-integrations.db`, still opens that way; re-import to fill PostgreSQL). The tests
+use SQLite files unless `DELIVERY_TEST_PG` names the PostgreSQL server (see CLAUDE.md).
 
 The tests build into `.testbuild/` because a running API locks its own `bin/`
 (MSB3026 "file is locked by LeadIntegrations.Api"); with the API stopped,

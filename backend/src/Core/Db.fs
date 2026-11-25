@@ -487,7 +487,61 @@ CREATE TABLE IF NOT EXISTS firm_aliases (
 /// importer agree on default paths whatever their working directory. DB_PATH overrides.
 let repoRoot = IO.Path.GetFullPath(IO.Path.Combine(__SOURCE_DIRECTORY__, "..", "..", ".."))
 
-let defaultPath = IO.Path.Combine(repoRoot, "backend", "data", "lead-integrations.db")
+/// The lab's database: delivery's own PostgreSQL (backend/compose.yaml; RFC-011 step 4). DB_PATH
+/// overrides it, with another connection string or a SQLite file path.
+let defaultPath = "Host=127.0.0.1;Port=55433;Username=delivery;Password=delivery;Database=delivery"
+
+/// The lab's SQLite file, before PostgreSQL (RFC-011): still usable with DB_PATH.
+let defaultSqlitePath = IO.Path.Combine(repoRoot, "backend", "data", "lead-integrations.db")
+
+/// Where a database is, for a log line: never its password (credentials are never shown).
+let describe (address: string) =
+    if isPostgres address then
+        let b = NpgsqlConnectionStringBuilder address
+        $"postgres {b.Username}@{b.Host}:{b.Port}/{b.Database}"
+    else address
+
+/// The same server and database, however the connection string is written.
+let sameDatabase (a: string) (b: string) =
+    if isPostgres a && isPostgres b then
+        let x = NpgsqlConnectionStringBuilder a
+        let y = NpgsqlConnectionStringBuilder b
+        String.Equals(x.Host, y.Host, StringComparison.OrdinalIgnoreCase) && x.Port = y.Port && x.Database = y.Database
+    elif not (isPostgres a) && not (isPostgres b) then
+        IO.Path.GetFullPath a = IO.Path.GetFullPath b
+    else false
+
+/// Runs one statement against the server's maintenance database (creating or dropping a database
+/// can't be done from inside it).
+let private onServer (address: string) (sql: string) (args: obj list) =
+    let admin = NpgsqlConnectionStringBuilder(address, Database = "postgres", Pooling = false)
+    use conn = new NpgsqlConnection(admin.ConnectionString)
+    conn.Open()
+    use cmd = conn.CreateCommand()
+    cmd.CommandText <- sql
+    for a in args do
+        cmd.Parameters.Add(NpgsqlParameter(Value = a)) |> ignore
+    cmd.ExecuteScalar()
+
+let private databaseName (address: string) =
+    let name = NpgsqlConnectionStringBuilder(address).Database
+    if isNull name || not (Text.RegularExpressions.Regex.IsMatch(name, "^[a-z_][a-z0-9_]{0,62}$")) then
+        failwith $"database name {name}: lowercase letters, digits and _ only"
+    name
+
+/// Creates the PostgreSQL database the address names if it doesn't exist yet.
+let ensureDatabase (address: string) =
+    let name = databaseName address
+    if isNull (onServer address "SELECT 1 FROM pg_database WHERE datname = $1" [ name ]) then
+        try onServer address $"CREATE DATABASE {name}" [] |> ignore
+        with :? PostgresException as e when e.SqlState = "42P04" -> () // created meanwhile by another process
+
+/// Drops the PostgreSQL database the address names, closing its connections. Never the lab's own.
+let dropDatabase (address: string) =
+    if sameDatabase address defaultPath then failwith "refusing to drop the lab's database"
+    let name = databaseName address
+    NpgsqlConnection.ClearAllPools()
+    onServer address $"DROP DATABASE IF EXISTS {name} WITH (FORCE)" [] |> ignore
 
 /// The schema in PostgreSQL's terms, from the one schema above (RFC-011 step 2): UTC milliseconds and
 /// counts in 64 bits, identities for SQLite's auto-numbered keys, a `rowid` where queries break
@@ -517,7 +571,9 @@ CREATE TRIGGER approvals_append_only BEFORE UPDATE OR DELETE ON approvals FOR EA
 
 let openDatabase (path: string) : Database =
     let db =
-        if isPostgres path then Database(path)
+        if isPostgres path then
+            ensureDatabase path
+            Database(path)
         else
             let full = IO.Path.GetFullPath path
             IO.Directory.CreateDirectory(IO.Path.GetDirectoryName full) |> ignore

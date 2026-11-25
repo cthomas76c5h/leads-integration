@@ -6,6 +6,12 @@ open LeadIntegrations
 
 [<EntryPoint>]
 let main args =
+    match args with
+    // For the scenario runner (tools/run_scenarios.py): remove a scenario's own PostgreSQL database.
+    | [| "--drop-database"; address |] ->
+        Db.dropDatabase address
+        0
+    | _ ->
     match Config.load () with
     | Error message ->
         eprintfn "config: %s" message
@@ -15,6 +21,6 @@ let main args =
         let builder = WebApplication.CreateBuilder args
         builder.WebHost.UseUrls($"http://localhost:{cfg.Port}") |> ignore
         let app = App.build builder cfg db
-        printfn "lead-integrations on %s  (db %s, TIME_SCALE=%g)" cfg.Origin db.Path cfg.TimeScale
+        printfn "lead-integrations on %s  (db %s, TIME_SCALE=%g)" cfg.Origin (Db.describe db.Path) cfg.TimeScale
         app.Run()
         0
